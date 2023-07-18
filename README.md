@@ -1,12 +1,8 @@
 # panda-py
 
-> **Info**
->
-> Please consider this a work in progress. Documentation, continuous integration pipeline and a companion paper are currently being prepared.
-
 ![logo](https://github.com/JeanElsner/panda-py/blob/main/logo.jpg?raw=true)
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/JeanElsner/panda-py/build.yml)](https://github.com/JeanElsner/panda-py/actions/workflows/build.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/JeanElsner/panda-py/test.yml)](https://github.com/JeanElsner/panda-py/actions/workflows/test.yml)
 [![GitHub](https://img.shields.io/github/license/JeanElsner/panda-py)](https://www.apache.org/licenses/LICENSE-2.0)
 [![PyPI](https://img.shields.io/pypi/v/panda-python)](https://pypi.org/project/panda-python/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/panda-python)
@@ -16,7 +12,7 @@ Finally, Python bindings for the Panda. These will increase your productivity by
 
 ## Getting started
 
-
+To get started, check out the Jupyter [notebooks](https://github.com/JeanElsner/panda-py/tree/main/examples/notebooks) and other examples you can run directly on your robot. For more details on the API, please refer to the [documentation](https://jeanelsner.github.io/panda-py/).
 
 ## Install
 
