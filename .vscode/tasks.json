@@ -1,0 +1,32 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "pytest",
+      "type": "shell",
+      "command": "pytest --cov panda-py ./tests/"
+    },
+    {
+      "label": "pylint",
+      "type": "shell",
+      "command": "pylint --rcfile .pylintrc src/"
+    },
+    {
+      "label": "generate-stub",
+      "type": "shell",
+      "command": "pybind11-stubgen --no-setup-py --root-module-suffix \"\" -o ./src/ --log-level INFO panda_py"
+    },
+    {
+      "label": "build-doc",
+      "type": "shell",
+      "command": "cd docs && make clean && make html"
+    },
+    {
+      "label": "generate-doc-api",
+      "type": "shell",
+      "command": [".vscode/generate_docs_api.sh"]
+    }
+  ]
+}

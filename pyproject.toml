@@ -1,0 +1,62 @@
+[build-system]
+requires = [ "scikit-build-core", "pybind11@git+https://github.com/JeanElsner/pybind11.git@jean/patch/argval"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "panda-python"
+description = "Python bindings for the Panda"
+requires-python = ">=3.7"
+dependencies = ["websockets>=11.0", "requests", "numpy"]
+version = "0.5.1"
+authors = [
+    { name = "Jean Elsner", email = "jean.elsner@tum.de" },
+]
+license = {file = "LICENSE"}
+readme = "README.md"
+keywords = ["python", "real-time", "control", "robot", "franka", "emika"]
+classifiers = [
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Topic :: Scientific/Engineering",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+]
+
+[project.optional-dependencies]
+examples = [
+    "roboticstoolbox-python",
+    "matplotlib",
+    "spatialmath",
+    "ansitable",
+    "qpsolvers",
+]
+docs = [
+    "furo",
+    "sphinx-reredirects",
+    "sphinx",
+]
+
+[project.scripts]
+panda-lock = "panda_py.cli:lock"
+panda-unlock = "panda_py.cli:unlock"
+panda-reboot = "panda_py.cli:reboot"
+
+[tool.cibuildwheel]
+manylinux-x86_64-image = "manylinux2014"
+build = [ "cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*",]
+skip = [ "pp*", "*musllinux*",]
+environment = "LIBFRANKA_VER=0.9.2"
+
+[tool.cibuildwheel.linux]
+before-all = [ "./bin/before_install_centos.sh",]
+archs = [ "x86_64",]
+
+[tool.scikit-build.cmake]
+build-type = "Release"
+
+[tool.scikit-build.wheel]
+packages = ["src/panda_py"]
