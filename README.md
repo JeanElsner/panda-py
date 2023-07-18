@@ -12,7 +12,7 @@ Finally, Python bindings for the Panda. These will increase your productivity by
 
 ## Getting started
 
-To get started, check out the Jupyter [notebooks](https://github.com/JeanElsner/panda-py/tree/main/examples/notebooks) and other examples you can run directly on your robot. For more details on the API, please refer to the [documentation](https://jeanelsner.github.io/panda-py/).
+To get started, check out the [tutorial paper](https://arxiv.org/abs/2307.07633), Jupyter [notebooks](https://github.com/JeanElsner/panda-py/tree/main/examples/notebooks) and other examples you can run directly on your robot. For more details on the API, please refer to the [documentation](https://jeanelsner.github.io/panda-py/).
 
 ## Install
 
@@ -32,7 +32,7 @@ to install the binary wheel for libfranka 0.7.1 and Python 3.10.
 
 # Citation
 
-If you use panda-py in published research, please consider citing the [companion paper](https://arxiv.org/abs/2307.07633).
+If you use panda-py in published research, please consider citing the [tutorial paper](https://arxiv.org/abs/2307.07633).
 
 ```
 @misc{elsner2023taming,
