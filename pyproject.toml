@@ -7,7 +7,7 @@ name = "panda-python"
 description = "Python bindings for the Panda"
 requires-python = ">=3.7"
 dependencies = ["websockets>=11.0", "requests", "numpy"]
-version = "0.5.1"
+version = "0.5.2"
 authors = [
     { name = "Jean Elsner", email = "jean.elsner@tum.de" },
 ]
