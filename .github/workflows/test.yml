@@ -1,0 +1,15 @@
+name: Build and test
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: Install prerequisites
+        run: ./bin/before_install_ubuntu.sh
+      - name: Build wheel
+        run: pip install .
