@@ -283,6 +283,17 @@ bool Panda::moveToJointPosition(const Vector7d &position, double speed_factor,
                              dq_threshold, success_threshold);
 }
 
+void Panda::teaching_mode(bool active) {
+  stopController();
+  recover();
+  if (!active) {
+    return;
+  }
+  Vector7d damping = {0,0,0,0,0,0,0};
+  auto ctrl = std::make_shared<AppliedTorque>(damping, 1.0);
+  startController(ctrl);
+}
+
 bool Panda::moveToJointPosition(std::vector<Vector7d> &waypoints,
                                 double speed_factor, const Vector7d &stiffness,
                                 const Vector7d &damping, double dq_threshold,
