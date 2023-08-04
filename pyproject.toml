@@ -30,7 +30,7 @@ classifiers = [
 examples = [
     "roboticstoolbox-python",
     "matplotlib",
-    "spatialmath",
+    "spatialmath-python",
     "ansitable",
     "qpsolvers",
 ]
