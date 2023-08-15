@@ -5,7 +5,7 @@ on:
     types: [published]
 
 env:
-  VERSION: 0.5.2
+  VERSION: 0.6.0
 
 permissions: write-all
 
