@@ -21,7 +21,7 @@ namespace py = pybind11;
 PYBIND11_MODULE(_core, m) {
   py::module::import("panda_py.libfranka");
   py::options options;
-  //    options.disable_function_signatures();
+  //  options.disable_function_signatures();
   //  options.disable_enum_members_docstring();
 
   m.attr("_JOINT_POSITION_START") = kJointPositionStart;
@@ -128,6 +128,7 @@ PYBIND11_MODULE(_core, m) {
            py::arg("realtime_config") = franka::RealtimeConfig::kIgnore)
       .def_readonly("name", &Panda::name_)
       .def_property_readonly("q", &Panda::getJointPositions)
+      .def("teaching_mode", &Panda::teaching_mode, py::arg("active"), py::call_guard<py::gil_scoped_release>())
       .def("create_context", &Panda::createContext, py::arg("frequency"),
            py::arg("max_runtime") = 0.0, py::arg("max_iter") = 0)
       .def("get_robot", &Panda::getRobot,

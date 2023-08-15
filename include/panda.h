@@ -13,6 +13,7 @@
 #include "controllers/controller.h"
 #include "controllers/joint_limits/virtual_wall_controller.h"
 #include "controllers/trajectory.h"
+#include "controllers/applied_torque.h"
 #include "utils.h"
 
 namespace py = pybind11;
@@ -113,6 +114,7 @@ class Panda {
   void setDefaultBehavior();
   void raiseError();
   void recover();
+  void teaching_mode(bool active);
 
   const std::string name_;
 

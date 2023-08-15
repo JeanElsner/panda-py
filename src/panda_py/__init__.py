@@ -15,6 +15,8 @@ import hashlib
 import json as json_module
 import logging
 import os
+import ssl
+import threading
 import typing
 from urllib import parse
 
@@ -81,6 +83,8 @@ class Desk:
     self._password = password
     self._logged_in = False
     self._token = self._load_token()
+    self._listening = False
+    self._listen_thread = None
     self.login()
     self._legacy = False
     try:
@@ -305,3 +309,49 @@ class Desk:
     if response.status_code != 200:
       raise ConnectionError(response.text)
     return response
+
+  def _listen(self, cb, timeout):
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with connect(
+        f'wss://{self._hostname}/desk/api/navigation/events',
+        # server_hostname='robot.franka.de',
+        ssl_context=ctx,
+        additional_headers={
+            'authorization': self._session.cookies.get('authorization')
+        }) as websocket:
+      self._listening = True
+      while self._listening:
+        try:
+          event: typing.Dict = json_module.loads(websocket.recv(timeout))
+          cb(event)
+        except TimeoutError:
+          pass
+
+  def listen(self, cb: typing.Callable[[typing.Dict], None]) -> None:
+    """
+    Starts a thread listening to Pilot button events. All the Pilot buttons,
+    except for the `Pilot Mode` button can be captured. Make sure Pilot Mode is
+    set to Desk instead of End-Effector to receive direction key events. You can
+    change the Pilot mode by pressing the `Pilot Mode` button or changing the mode
+    in the Desk. Events will be triggered while buttons are pressed down or released.
+    
+    Args:
+      cb: Callback fucntion that is called whenever a button event is received from the
+        Desk. The callback receives a dict argument that contains the triggered buttons
+        as keys. The values of those keys will depend on the kind of event, either True
+        for a button pressed down or False when released.
+        The possible buttons are: `circle`, `cross`, `check`, `left`, `right`, `down`,
+        and `up`.
+    """
+    self._listen_thread = threading.Thread(target=self._listen, args=(cb, 1.0))
+    self._listen_thread.start()
+
+  def stop_listen(self) -> None:
+    """
+    Stop listener thread (cf. :py:func:`panda_py.Desk.listen`).
+    """
+    self._listening = False
+    if self._listen_thread is not None:
+      self._listen_thread.join()

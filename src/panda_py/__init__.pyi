@@ -3,7 +3,7 @@ Introduction
 ------------
 
 panda-py is a Python library for the Franka Emika Robot System
-that allows you to program and control the robot in Python.
+that allows you to program and control the robot in real-time.
 
 
 """
@@ -21,6 +21,8 @@ import logging
 import numpy
 import os
 import requests
+import ssl
+import threading
 import urllib.parse
 import urllib3
 _Shape = typing.Tuple[int, ...]
@@ -78,7 +80,7 @@ def fk(q: numpy.ndarray[numpy.float64, _Shape[7, 1]]) -> numpy.ndarray[numpy.flo
     Computes end-effector pose in base frame from joint positions.
     """
 @typing.overload
-def ik(O_T_EE: numpy.ndarray[numpy.float64, _Shape[4, 4]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0.        , -0.78539816,  0.        , -2.35619449,  0.        , 1.57079633,  0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[7, 1]]:
+def ik(O_T_EE: numpy.ndarray[numpy.float64, _Shape[4, 4]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0. , -0.78539816, 0. , -2.35619449, 0. , 1.57079633, 0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[7, 1]]:
     """
     Compute analytical inverse kinematics. 
     Solution is case consistent with configuration  given in `q_init`.
@@ -99,13 +101,13 @@ def ik(O_T_EE: numpy.ndarray[numpy.float64, _Shape[4, 4]], q_init: numpy.ndarray
     Same as :py:func:`ik` above, but takes position and orientation arguments.
     """
 @typing.overload
-def ik(position: numpy.ndarray[numpy.float64, _Shape[3, 1]], orientation: numpy.ndarray[numpy.float64, _Shape[4, 1]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0.        , -0.78539816,  0.        , -2.35619449,  0.        , 1.57079633,  0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[7, 1]]:
+def ik(position: numpy.ndarray[numpy.float64, _Shape[3, 1]], orientation: numpy.ndarray[numpy.float64, _Shape[4, 1]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0. , -0.78539816, 0. , -2.35619449, 0. , 1.57079633, 0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[7, 1]]:
     pass
 @typing.overload
-def ik_full(O_T_EE: numpy.ndarray[numpy.float64, _Shape[4, 4]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0.        , -0.78539816,  0.        , -2.35619449,  0.        , 1.57079633,  0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[4, 7]]:
+def ik_full(O_T_EE: numpy.ndarray[numpy.float64, _Shape[4, 4]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0. , -0.78539816, 0. , -2.35619449, 0. , 1.57079633, 0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[4, 7]]:
     pass
 @typing.overload
-def ik_full(position: numpy.ndarray[numpy.float64, _Shape[3, 1]], orientation: numpy.ndarray[numpy.float64, _Shape[4, 1]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0.        , -0.78539816,  0.        , -2.35619449,  0.        , 1.57079633,  0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[4, 7]]:
+def ik_full(position: numpy.ndarray[numpy.float64, _Shape[3, 1]], orientation: numpy.ndarray[numpy.float64, _Shape[4, 1]], q_init: numpy.ndarray[numpy.float64, _Shape[7, 1]] = array([ 0. , -0.78539816, 0. , -2.35619449, 0. , 1.57079633, 0.78539816]), q_7: float = 0.7853981633974483) -> numpy.ndarray[numpy.float64, _Shape[4, 7]]:
     pass
 TOKEN_PATH = '~/.panda_py/token.conf'
 __all__ = ['Panda', 'PandaContext', 'constants', 'controllers', 'libfranka', 'motion', 'fk', 'ik', 'ik_full', 'Desk', 'TOKEN_PATH']
