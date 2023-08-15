@@ -1,5 +1,5 @@
 [build-system]
-requires = [ "scikit-build-core", "pybind11@git+https://github.com/JeanElsner/pybind11.git@jean/patch/argval"]
+requires = [ "scikit-build-core", "pybind11@git+https://github.com/pybind/pybind11.git@master"]
 build-backend = "scikit_build_core.build"
 
 [project]
