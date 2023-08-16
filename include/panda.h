@@ -41,6 +41,7 @@ class PandaContext {
 class Panda {
  public:
   static const double kMoveToJointPositionThreshold;
+  static const Vector7d kDefaultTeachingDamping;
   Panda(
       std::string hostname, std::string name = "panda",
       franka::RealtimeConfig realtime_config = franka::RealtimeConfig::kIgnore);
@@ -114,7 +115,7 @@ class Panda {
   void setDefaultBehavior();
   void raiseError();
   void recover();
-  void teaching_mode(bool active);
+  void teaching_mode(bool active, const Vector7d &damping = kDefaultTeachingDamping);
 
   const std::string name_;
 
