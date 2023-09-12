@@ -3,6 +3,7 @@
 #include <franka/exception.h>
 
 #include <iostream>
+#include <math.h>
 
 #include "panda.h"
 
@@ -39,6 +40,7 @@ franka::Torques Force::step(const franka::RobotState &robot_state,
   Eigen::Affine3d transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
   Eigen::Vector3d position(transform.translation());
   Eigen::Map<const Vector7d> dq(robot_state.dq.data());
+  tau_error_integral_maximum << 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0;
 
   // These quantities may be modified outside of the control loop
   mux_.lock();
@@ -61,6 +63,7 @@ franka::Torques Force::step(const franka::RobotState &robot_state,
   tau_ext << tau_measured - gravity - tau_ext_init_;
   tau_d << jacobian.transpose() * force_torque_d;
   tau_error_integral_ += duration.toSec() * (tau_d - tau_ext);
+  tau_error_integral_ = tau_error_integral_.cwiseMax(tau_error_integral_maximum);
   // FF + PI control
   tau_d << tau_d + k_p * (tau_d - tau_ext) + k_i * tau_error_integral_ - K_d.asDiagonal() * dq;
 

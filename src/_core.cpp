@@ -299,7 +299,11 @@ PYBIND11_MODULE(_core, m) {
       .def("set_stiffness", &IntegratedVelocity::setStiffness,
            py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"))
       .def("set_damping", &IntegratedVelocity::setDamping,
-           py::call_guard<py::gil_scoped_release>(), py::arg("damping"));
+           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
+      .def("set_q_diff_upper", &IntegratedVelocity::setQDiffUpper,
+           py::call_guard<py::gil_scoped_release>(), py::arg("q_diff_upper"))
+      .def("set_q_diff_lower", &IntegratedVelocity::setQDiffLower,
+           py::call_guard<py::gil_scoped_release>(), py::arg("q_diff_lower"));
 
   py::class_<JointPosition, TorqueController, std::shared_ptr<JointPosition>>(
       m, "JointPosition")
