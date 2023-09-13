@@ -11,6 +11,7 @@
 #include "controllers/force.h"
 #include "controllers/integrated_velocity.h"
 #include "controllers/joint_position.h"
+#include "controllers/joint_velocity.h"
 #include "kinematics/fk.h"
 #include "kinematics/ik.h"
 #include "motion/generators.h"
@@ -320,6 +321,28 @@ PYBIND11_MODULE(_core, m) {
       .def("set_damping", &JointPosition::setDamping,
            py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
       .def("set_filter", &JointPosition::setFilter,
+           py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"));
+
+  py::class_<JointVelocity, TorqueController, std::shared_ptr<JointVelocity>>(
+      m, "JointVelocity")
+      .def(py::init<const Vector7d &, const Vector7d &,
+                    const double>(), /*py::keep_alive<1, 0>(),*/
+           py::arg("stiffness") = JointVelocity::kDefaultStiffness,
+           py::arg("damping") = JointVelocity::kDefaultDamping,
+           py::arg("filter_coeff") = JointVelocity::kDefaultFilterCoeff)
+      .def("set_control", &JointVelocity::setControl,
+           py::call_guard<py::gil_scoped_release>(), py::arg("velocity"))
+      .def("set_stiffness", &JointVelocity::setStiffness,
+           py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"))
+      .def("set_ki", &JointVelocity::setKi,
+           py::call_guard<py::gil_scoped_release>(), py::arg("k_i"))
+      .def("set_vel_error_cum_max", &JointVelocity::setVelErrorCumMax,
+           py::call_guard<py::gil_scoped_release>(), py::arg("vel_error_cum_max"))
+      .def("set_vel_error_cum_min", &JointVelocity::setVelErrorCumMin,
+           py::call_guard<py::gil_scoped_release>(), py::arg("vel_error_cum_min"))
+      .def("set_damping", &JointVelocity::setDamping,
+           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
+      .def("set_filter", &JointVelocity::setFilter,
            py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"));
 
   py::class_<CartesianImpedance, TorqueController,
