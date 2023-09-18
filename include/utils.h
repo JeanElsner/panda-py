@@ -79,8 +79,8 @@ inline void pseudoInverse(const Eigen::MatrixXd& M_, Eigen::MatrixXd& M_pinv_,
 
 inline double kDeltaTauMax = 1.0;
 
-inline Array7d saturateTorqueRate(const Vector7d& tau_d_calculated,
-                                  const std::array<double, 7>& tau_J_d) {
+inline Array7d saturateTorqueRate(const Array7d& tau_d_calculated,
+                                  const Array7d& tau_J_d) {
   Array7d tau_d_saturated{};
   for (size_t i = 0; i < 7; i++) {
     double difference = tau_d_calculated[i] - tau_J_d[i];

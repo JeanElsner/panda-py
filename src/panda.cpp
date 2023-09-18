@@ -128,7 +128,8 @@ void Panda::disableLogging() {
 
 std::map<std::string, std::list<Eigen::VectorXd>> Panda::getLog() {
   std::map<std::string, std::list<Eigen::VectorXd>> log;
-  std::list<Eigen::VectorXd> O_T_EE, elbow, tau_J, control_command_success_rate;
+  std::list<Eigen::VectorXd> O_T_EE, elbow, tau_J, control_command_success_rate,
+      O_F_ext_hat_K, K_F_ext_hat_K, q, tau_ext_hat_filtered, time;
   std::lock_guard<std::mutex> lock(mux_);
   for (auto l : log_) {
     O_T_EE.push_back(Eigen::Map<Eigen::VectorXd>(l.O_T_EE.data(), 16, 1));
@@ -136,11 +137,25 @@ std::map<std::string, std::list<Eigen::VectorXd>> Panda::getLog() {
     tau_J.push_back(Eigen::Map<Eigen::VectorXd>(l.tau_J.data(), 7, 1));
     control_command_success_rate.push_back(
         Eigen::Matrix<double, 1, 1>::Constant(l.control_command_success_rate));
+    O_F_ext_hat_K.push_back(
+        Eigen::Map<Eigen::VectorXd>(l.O_F_ext_hat_K.data(), 6, 1));
+    K_F_ext_hat_K.push_back(
+        Eigen::Map<Eigen::VectorXd>(l.K_F_ext_hat_K.data(), 6, 1));
+    q.push_back(Eigen::Map<Eigen::VectorXd>(l.q.data(), 7, 1));
+    tau_ext_hat_filtered.push_back(
+        Eigen::Map<Eigen::VectorXd>(l.tau_ext_hat_filtered.data(), 7, 1));
+    time.push_back(Eigen::Matrix<double, 1, 1>::Constant(l.time.toMSec()));
   }
   log.emplace("O_T_EE", O_T_EE);
   log.emplace("elbow", elbow);
   log.emplace("tau_J", tau_J);
   log.emplace("control_command_success_rate", control_command_success_rate);
+  log.emplace("O_F_ext_hat_K", O_F_ext_hat_K);
+  log.emplace("K_F_ext_hat_K", K_F_ext_hat_K);
+  log.emplace("q", q);
+  log.emplace("tau_ext_hat_filtered", tau_ext_hat_filtered);
+  log.emplace("time", time);
+
   return log;
 }
 
@@ -223,11 +238,12 @@ TorqueCallback Panda::_createTorqueCallback() {
       tau = current_controller_->step(robot_state, duration);
     }
     // Virtual joint walls
-    Array7d tau_virtual_wall;
+    Array7d tau_virtual_wall, tau_saturated;
     virtual_walls_->computeTorque(robot_state.q, robot_state.dq,
                                   tau_virtual_wall);
+    tau_saturated = saturateTorqueRate(tau.tau_J, robot_state.tau_J_d);
     for (int i = 0; i < 7; i++) {
-      tau.tau_J[i] += tau_virtual_wall[i];
+      tau.tau_J[i] = tau_saturated[i] + tau_virtual_wall[i];
     }
     return tau;
   });
@@ -313,8 +329,8 @@ bool Panda::moveToJointPosition(std::vector<Vector7d> &waypoints,
     _log("info", "Already at goal.");
     return true;
   }
-  auto ctrl = std::make_shared<controllers::Trajectory>(
-      traj, stiffness, damping, dq_threshold);
+  auto ctrl = std::make_shared<controllers::Trajectory>(traj, stiffness,
+                                                        damping, dq_threshold);
   _startController(ctrl);
   auto cb = _createTorqueCallback();
   _runController(cb);
