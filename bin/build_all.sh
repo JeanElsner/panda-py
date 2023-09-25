@@ -39,7 +39,7 @@ END
 mkdir $root/archive
 
 # Build wheels for common libfranka versions
-libfranka=("0.7.1" "0.8.0" "0.9.2" "0.10.0", "0.11.0")
+libfranka=("0.7.1" "0.8.0" "0.9.2" "0.10.0" "0.11.0" "0.12.0")
 for value in "${libfranka[@]}"; do
   echo "Changing libfranka version in pyproject.toml to: $value"
   change_version "$version+libfranka-$value" "LIBFRANKA_VER=$value"
