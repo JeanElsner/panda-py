@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Elsner"
+  given-names: "Jean"
+  orcid: "https://orcid.org/0000-0003-2691-0099"
+title: "panda-py"
+url: "https://github.com/JeanElsner/panda-py"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Elsner"
+    given-names: "Jean"
+    orcid: "https://orcid.org/0000-0003-2691-0099"
+  doi: "https://doi.org/10.1016/j.softx.2023.101532"
+  url: "https://www.sciencedirect.com/science/article/pii/S2352711023002285"
+  journal: "SoftwareX"
+  start: 101532
+  title: "Taming the Panda with Python: A powerful duo for seamless robotics programming and integration"
+  issn: "2352-7110"
+  volume: 24
+  year: 2023
