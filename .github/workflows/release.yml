@@ -95,11 +95,21 @@ jobs:
           asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.10.0.zip
           asset_name: panda_py_${{ env.VERSION }}_libfranka_0.10.0.zip
           asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.11.0.zip
           asset_name: panda_py_${{ env.VERSION }}_libfranka_0.11.0.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.12.1.zip
+          asset_name: panda_py_${{ env.VERSION }}_libfranka_0.12.1.zip
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
