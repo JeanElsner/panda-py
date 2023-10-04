@@ -1,3 +1,7 @@
+"""
+Uses the cartesian impedance controller to create a sinusoidal
+end-effector movement along the robot's y-axis.
+"""
 import sys
 
 import numpy as np
