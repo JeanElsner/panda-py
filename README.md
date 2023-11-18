@@ -14,6 +14,10 @@ Finally, Python bindings for the Panda. These will increase your productivity by
 
 To get started, check out the [tutorial paper](https://www.sciencedirect.com/science/article/pii/S2352711023002285), Jupyter [notebooks](https://github.com/JeanElsner/panda-py/tree/main/examples/notebooks) and other examples you can run directly on your robot. For more details on the API, please refer to the [documentation](https://jeanelsner.github.io/panda-py/).
 
+## Extensions
+
+* [dm_robotics_panda](https://github.com/JeanElsner/dm_robotics_panda) Panda model and tools for reinforcement learning in `dm_robotics`
+
 ## Install
 
 ```
