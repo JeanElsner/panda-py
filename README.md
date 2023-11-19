@@ -1,12 +1,14 @@
-# panda-py
+<div align="center"><img alt="panda-py Logo" src="https://raw.githubusercontent.com/JeanElsner/panda-py/main/logo.jpg" /></div>
 
-![logo](https://github.com/JeanElsner/panda-py/blob/main/logo.jpg?raw=true)
+<h1 align="center">panda-py</h1>
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/JeanElsner/panda-py/test.yml)](https://github.com/JeanElsner/panda-py/actions/workflows/test.yml)
-[![GitHub](https://img.shields.io/github/license/JeanElsner/panda-py)](https://www.apache.org/licenses/LICENSE-2.0)
-[![PyPI](https://img.shields.io/pypi/v/panda-python)](https://pypi.org/project/panda-python/)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/panda-python)
-[![Documentation](https://shields.io/badge/-Documentation-informational)](https://jeanelsner.github.io/panda-py/)
+<p align="center">
+  <a href="https://github.com/JeanElsner/panda-py/actions/workflows/test.yml"><img alt="Continuous Integration" src="https://img.shields.io/github/actions/workflow/status/JeanElsner/panda-py/test.yml" /></a>
+  <a href="https://github.com/JeanElsner/panda-py/blob/main/LICENSE"><img alt="Apache-2.0 License" src="https://img.shields.io/github/license/JeanElsner/panda-py" /></a>
+  <a href="https://pypi.org/project/panda-python/"><img alt="PyPI - Published Version" src="https://img.shields.io/pypi/v/panda-python"></a>
+  <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/panda-python">
+  <a href="https://jeanelsner.github.io/panda-py"><img alt="Documentation" src="https://shields.io/badge/-Documentation-informational" /><a/>
+</p>
 
 Finally, Python bindings for the Panda. These will increase your productivity by 1000%, guaranteed[^1]!
 
