@@ -478,7 +478,7 @@ PYBIND11_MODULE(libfranka, m) {
 	.def("vacuum", &franka::VacuumGripper::vacuum,
 		 py::call_guard<py::gil_scoped_release>(), py::arg("vacuum"),
 		 py::arg("timeout"), 
-		 py::arg("profile") = franka::VacuumGripper::ProductionSetupProfile::kP0))
+		 py::arg("profile") = franka::VacuumGripper::ProductionSetupProfile::kP0)
 	.def("drop_off", &franka::VacuumGripper::dropOff,
 		 py::call_guard<py::gil_scoped_release>(), py::arg("timeout"))
 	.def("stop", &franka::VacuumGripper::stop,
