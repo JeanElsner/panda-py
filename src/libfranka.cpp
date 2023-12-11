@@ -452,10 +452,10 @@ PYBIND11_MODULE(libfranka, m) {
       .def("read_once", &franka::Gripper::readOnce);
 
   py::enum_<franka::VacuumGripperDeviceStatus>(m, "VacuumGripperDeviceStatus")
-	.value("kGreen", &franka::VacuumGripperDeviceStatus::kGreen)
-	.value("kYellow", &franka::VacuumGripperDeviceStatus::kYellow)
-	.value("kOrange", &franka::VacuumGripperDeviceStatus::kOrange)
-	.value("kRed", &franka::VacuumGripperDeviceStatus::kRed);
+	.value("kGreen", franka::VacuumGripperDeviceStatus::kGreen)
+	.value("kYellow", franka::VacuumGripperDeviceStatus::kYellow)
+	.value("kOrange", franka::VacuumGripperDeviceStatus::kOrange)
+	.value("kRed", franka::VacuumGripperDeviceStatus::kRed);
   
   py::class_<franka::VacuumGripperState>(m, "VacuumGripperState")
 	.def_readonly("in_control_range", &franka::VacuumGripperState::in_control_range)
@@ -467,10 +467,10 @@ PYBIND11_MODULE(libfranka, m) {
 	.def_readonly("time", &franka::VacuumGripperState::time);
 
   py::enum_<franka::VacuumGripper::ProductionSetupProfile>(m, "VacuumGripperProductionSetupProfile")
-	.value("kP0", &franka::VacuumGripper::ProductionSetupProfile::kP0)
-	.value("kP1", &franka::VacuumGripper::ProductionSetupProfile::kP1)
-	.value("kP2", &franka::VacuumGripper::ProductionSetupProfile::kP2)
-	.value("kP3", &franka::VacuumGripper::ProductionSetupProfile::kP3);
+	.value("kP0", franka::VacuumGripper::ProductionSetupProfile::kP0)
+	.value("kP1", franka::VacuumGripper::ProductionSetupProfile::kP1)
+	.value("kP2", franka::VacuumGripper::ProductionSetupProfile::kP2)
+	.value("kP3", franka::VacuumGripper::ProductionSetupProfile::kP3);
   
   py::class_<franka::VacuumGripper>(m, "VacuumGripper")
 	.def(py::init<std::string>(), py::arg("franka_address"))
