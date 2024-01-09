@@ -9,7 +9,7 @@
 project = 'panda-py'
 copyright = '2023, Jean Elsner'
 author = 'Jean Elsner'
-release = '0.6.2'
+release = '0.7.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -35,7 +35,6 @@ redirects = {
     # index.rst just contains the table of contents definition.
     'index': 'panda_py.html',
 }
-
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
