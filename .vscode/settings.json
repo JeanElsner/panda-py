@@ -1,14 +1,21 @@
 {
-    "python.formatting.provider": "yapf",
-    "python.formatting.yapfArgs": [
+    "pylint.args": [
+        "--rcfile=.pylintrc"
+    ],
+
+    "yapf.args": [
         "--style",
         "{based_on_style: google, indent_width: 2}"
     ],
-    "python.linting.pylintArgs": [
-        "--indent-string=\"  \""
-    ],
-    "python.linting.enabled": true,
-    "python.linting.pylintEnabled": true,
+
+    "[python]": {
+        "editor.formatOnSaveMode": "file",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "eeyore.yapf",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        },
+    },
     "editor.tabSize": 2,
     "files.associations": {
         "cctype": "cpp",
