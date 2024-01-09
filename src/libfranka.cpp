@@ -473,7 +473,7 @@ PYBIND11_MODULE(libfranka, m) {
       .value("kP3", franka::VacuumGripper::ProductionSetupProfile::kP3);
   
   py::class_<franka::VacuumGripper>(m, "VacuumGripper")
-    .def(py::init<std::string>(), py::arg("franka_address"))
+      .def(py::init<std::string>(), py::arg("franka_address"))
       .def("server_version", &franka::VacuumGripper::serverVersion)
       .def("vacuum", &franka::VacuumGripper::vacuum,
            py::call_guard<py::gil_scoped_release>(), py::arg("vacuum"),
