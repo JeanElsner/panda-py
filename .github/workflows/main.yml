@@ -6,7 +6,8 @@ permissions:
   pages: write
 
 on:
-  pull_request:
+  push:
+    branches: ["main"]
 
 jobs:
   build_wheels:
