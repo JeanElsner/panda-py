@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Check if the libfranka version is provided as an argument
+if [ -z "$1" ]; then
+    echo "Usage: $0 <libfranka_version>"
+    exit 1
+fi
+
 # Install Python dependencies
 python -m pip install packaging toml cibuildwheel
 
@@ -47,16 +53,14 @@ END
 
 mkdir $root/archive
 
-# Build wheels for common libfranka versions
-libfranka=("0.7.1" "0.8.0" "0.9.2" "0.10.0" "0.11.0" "0.12.1" "0.13.2")
-for value in "${libfranka[@]}"; do
-  echo "Changing libfranka version in pyproject.toml to: $value"
-  change_version "$value"
-  export LIBFRANKA_VER=$value
-  archive=panda_py_${version}_libfranka_${value}
-  python -m cibuildwheel --platform linux --output-dir $root/archive/$archive $root
-  zip -j $root/archive/$archive.zip $root/archive/$archive/*.whl
-done
+# Call the change_version function with the provided libfranka version
+libfranka_version="$1"
+echo "Changing libfranka version in pyproject.toml to: $libfranka_version"
+change_version "$libfranka_version"
+export LIBFRANKA_VER=$libfranka_version
+archive=panda_py_${version}_libfranka_${libfranka_version}
+python -m cibuildwheel --output-dir $root/archive/$archive $root
+zip -j $root/archive/$archive.zip $root/archive/$archive/*.whl
 
 # Change back to default version
-change_version "LIBFRANKA_VER=0.9.2"
+change_version $version
