@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v3
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.16.2
-      - name: Run build sheel script
+      - name: Run build shell script
         run: ./bin/build.sh "${{ matrix.libfranka-version }}"
       - uses: actions/upload-artifact@v3
         with:
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
       - name: Install wheel
-        run: pip install ./wheels/*.whl[docs]
+        run: "pip install --only-binary :all: --platform any ./wheels/*.whl .[docs]"
       - name: Build documentation
         run: cd docs && make html
       - name: Setup Pages
