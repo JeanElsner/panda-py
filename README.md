@@ -3,7 +3,7 @@
 <h1 align="center">panda-py</h1>
 
 <p align="center">
-  <a href="https://github.com/JeanElsner/panda-py/actions/workflows/test.yml"><img alt="Continuous Integration" src="https://img.shields.io/github/actions/workflow/status/JeanElsner/panda-py/test.yml" /></a>
+  <a href="https://github.com/JeanElsner/panda-py/actions/workflows/main.yml"><img alt="Continuous Integration" src="https://img.shields.io/github/actions/workflow/status/JeanElsner/panda-py/main.yml" /></a>
   <a href="https://github.com/JeanElsner/panda-py/blob/main/LICENSE"><img alt="Apache-2.0 License" src="https://img.shields.io/github/license/JeanElsner/panda-py" /></a>
   <a href="https://pypi.org/project/panda-python/"><img alt="PyPI - Published Version" src="https://img.shields.io/pypi/v/panda-python"></a>
   <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/panda-python">
