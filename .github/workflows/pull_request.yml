@@ -15,5 +15,5 @@ jobs:
       - uses: actions/setup-python@v3
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.16.2
-      - name: Build all wheels
+      - name: Build using cibuildwheel
         run: ./bin/build.sh "${{ matrix.libfranka-version }}"
