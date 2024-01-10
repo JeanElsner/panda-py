@@ -1,0 +1,16 @@
+name: Check pull request
+
+on:
+  pull_request:
+
+jobs:
+  build_wheels:
+    name: Build all wheels with cibuildwheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.16.2
+      - name: Build all wheels
+        run: ./bin/build_all.sh
