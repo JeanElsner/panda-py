@@ -5,12 +5,15 @@ on:
 
 jobs:
   build_wheels:
-    name: Build all wheels with cibuildwheel
+    name: Build wheels for libfranka  ${{ matrix.libfranka-version }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.10.0", "0.11.0", "0.12.1", "0.13.2"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.16.2
       - name: Build all wheels
-        run: ./bin/build_all.sh
+        run: ./bin/build.sh "${{ matrix.libfranka-version }}"
