@@ -1,6 +1,5 @@
 #include <franka/control_tools.h>
 #include <franka/gripper.h>
-#include <franka/vacuum_gripper.h>
 #include <franka/model.h>
 #include <franka/rate_limiting.h>
 #include <franka/robot.h>
@@ -10,6 +9,10 @@
 #include <pybind11/stl.h>
 
 #include <sstream>
+
+#ifdef VACUUM_GRIPPER
+#include <franka/vacuum_gripper.h>
+#endif
 
 #define PYBIND11_DETAILED_ERROR_MESSAGES 1
 
@@ -451,6 +454,7 @@ PYBIND11_MODULE(libfranka, m) {
            py::call_guard<py::gil_scoped_release>())
       .def("read_once", &franka::Gripper::readOnce);
 
+#ifdef VACUUM_GRIPPER
   py::enum_<franka::VacuumGripperDeviceStatus>(m, "VacuumGripperDeviceStatus")
       .value("kGreen", franka::VacuumGripperDeviceStatus::kGreen)
       .value("kYellow", franka::VacuumGripperDeviceStatus::kYellow)
@@ -484,7 +488,8 @@ PYBIND11_MODULE(libfranka, m) {
       .def("stop", &franka::VacuumGripper::stop,
            py::call_guard<py::gil_scoped_release>())
       .def("read_once", &franka::VacuumGripper::readOnce);       
-  
+  #endif
+
   m.def("is_valid_elbow", &franka::isValidElbow, py::arg("elbow"));
   m.def("is_homogeneous_transformation", &franka::isHomogeneousTransformation,
         py::arg("transform"));

@@ -8,6 +8,11 @@ set (CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "Release")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+option(VACUUM_GRIPPER OFF)
+if (VACUUM_GRIPPER)
+  add_definitions(-DVACUUM_GRIPPER=${VACUUM_GRIPPER})
+endif()
+
 find_package(Eigen3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Franka REQUIRED)

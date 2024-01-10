@@ -22,14 +22,23 @@ END
 echo "Current version is $version"
 
 change_version() {
+  local pandapy_version="$version+libfranka-$1"
+  local libfranka_version="LIBFRANKA_VER=$1"
+  local vacuum_gripper="ON"
+
+  if [[ "$1" == "0.7.1" ]]; then
+    vacuum_gripper="OFF"
+  fi
+  echo "VACUUM_GRIPPER: $vacuum_gripper"
   python <<END
 import toml
 
 with open('$toml', 'r') as f:
     data = toml.load(f)
 
-data['project']['version'] = '$1'
-data['tool']['cibuildwheel']['environment'] = '$2'
+data['project']['version'] = '$pandapy_version'
+data['tool']['cibuildwheel']['environment'] = '$libfranka_version'
+data['tool']['scikit-build']['cmake']['define']['VACUUM_GRIPPER'] = '$vacuum_gripper'
 
 with open('$toml', 'w') as f:
     toml.dump(data, f)
@@ -39,18 +48,15 @@ END
 mkdir $root/archive
 
 # Build wheels for common libfranka versions
-libfranka=("0.7.1" "0.8.0" "0.9.2" "0.10.0" "0.11.0" "0.12.1")
+libfranka=("0.7.1" "0.8.0" "0.9.2" "0.10.0" "0.11.0" "0.12.1" "0.13.2")
 for value in "${libfranka[@]}"; do
   echo "Changing libfranka version in pyproject.toml to: $value"
-  change_version "$version+libfranka-$value" "LIBFRANKA_VER=$value"
+  change_version "$value"
   export LIBFRANKA_VER=$value
   archive=panda_py_${version}_libfranka_${value}
-  python -m cibuildwheel --output-dir $root/$archive $root
-  zip -j $root/archive/$archive.zip $root/$archive/*.whl
+  python -m cibuildwheel --platform linux --output-dir $root/archive/$archive $root
+  zip -j $root/archive/$archive.zip $root/archive/$archive/*.whl
 done
 
 # Change back to default version
-change_version "$version" "LIBFRANKA_VER=0.9.2"
-
-# Build default version
-python -m cibuildwheel --output-dir $root/dist $root
+change_version "LIBFRANKA_VER=0.9.2"
