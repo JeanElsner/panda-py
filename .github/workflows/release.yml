@@ -1,4 +1,4 @@
-name: Build and deploy all variants
+name: Release
 
 on:
   release:
@@ -11,105 +11,56 @@ permissions: write-all
 
 jobs:
   build_wheels:
-    name: Build all wheels with cibuildwheel
+    name: Build wheels for libfranka ${{ matrix.libfranka-version }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.10.0", "0.11.0", "0.12.1", "0.13.2"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.12.0
-      - name: Build all wheels
-        run: ./bin/build_all.sh
+        run: python -m pip install cibuildwheel==2.16.2
+      - name: Run build shell script
+        run: ./bin/build.sh "${{ matrix.libfranka-version }}"
       - uses: actions/upload-artifact@v3
         with:
-          path: ./dist/*.whl
-          name: dist
+          path: ./archive/panda_py_${{ env.VERSION }}_libfranka_${{ matrix.libfranka-version }}/*.whl
+          name: wheels-${{ matrix.libfranka-version }}
       - uses: actions/upload-artifact@v3
         with:
-          path: ./archive/*.zip
-          name: archive
-
-  build_sdist:
-    name: Build source distribution
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-      - name: Build sdist
-        run: pipx run build --sdist
-      - uses: actions/upload-artifact@v3
-        with:
-          path: dist/*.tar.gz
-          name: dist
-
+          path: ./archive/panda_py_${{ env.VERSION }}_libfranka_${{ matrix.libfranka-version }}.zip
+          name: zip-${{ matrix.libfranka-version }}
   upload_pypi:
     name: "Upload wheels to pypi"
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v3
         with:
-          name: dist
+          name: wheels-0.9.2
           path: dist
       - uses: pypa/gh-action-pypi-publish@v1.5.0
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-
   upload_assets:
-    name: "Upload release assets"
-    needs: [build_wheels, build_sdist]
+    name: "Upload libfranka ${{ matrix.libfranka-version }} release assets"
+    needs: [build_wheels]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.10.0", "0.11.0", "0.12.1", "0.13.2"]
     steps:
       - uses: actions/download-artifact@v3
         with:
-          name: archive
+          name: zip-${{ matrix.libfranka-version }}
           path: archive
       - uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.7.1.zip
-          asset_name: panda_py_${{ env.VERSION }}_libfranka_0.7.1.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.8.0.zip
-          asset_name: panda_py_${{ env.VERSION }}_libfranka_0.8.0.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.9.2.zip
-          asset_name: panda_py_${{ env.VERSION }}_libfranka_0.9.2.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.10.0.zip
-          asset_name: panda_py_${{ env.VERSION }}_libfranka_0.10.0.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.11.0.zip
-          asset_name: panda_py_${{ env.VERSION }}_libfranka_0.11.0.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_0.12.1.zip
-          asset_name: panda_py_${{ env.VERSION }}_libfranka_0.12.1.zip
+          asset_path: ./archive/panda_py_${{ env.VERSION }}_libfranka_${{ matrix.libfranka-version }}.zip
+          asset_name: panda_py_${{ env.VERSION }}_libfranka_${{ matrix.libfranka-version }}.zip
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
