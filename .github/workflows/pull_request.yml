@@ -5,7 +5,7 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels for libfranka  ${{ matrix.libfranka-version }}
+    name: Build wheels for libfranka ${{ matrix.libfranka-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
