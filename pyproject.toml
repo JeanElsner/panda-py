@@ -4,6 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "panda-python"
+version = "0.7.1"
 description = "Python bindings for the Panda robot"
 requires-python = ">=3.7"
 dependencies = ["websockets>=11.0", "requests", "numpy"]
@@ -24,11 +25,6 @@ classifiers = [
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
 ]
-dynamic = ["version"]
-
-[tool.scikit-build.metadata.version]
-provider = "scikit_build_core.metadata.regex"
-input = "src/panda_py/__init__.py"
 
 [project.optional-dependencies]
 examples = [
