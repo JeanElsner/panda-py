@@ -21,8 +21,10 @@ jobs:
       - uses: actions/setup-python@v3
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.16.2
-      - name: Run build shell script
+      - name: Build using cibuildwheel
         run: ./bin/build.sh "${{ matrix.libfranka-version }}"
+      - name: test
+        run: ls -la ./archive/
       - uses: actions/upload-artifact@v3
         with:
           path: ./archive/panda_py_${{ env.VERSION }}_libfranka_${{ matrix.libfranka-version }}.zip
