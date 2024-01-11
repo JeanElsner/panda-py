@@ -39,7 +39,7 @@ jobs:
       - name: Install requirements
         run: ./bin/before_install_ubuntu.sh
       - name: Build package
-        run: pip -m build .
+        run: python -m build .
       - uses: pypa/gh-action-pypi-publish@v1.5.0
         with:
           user: __token__
