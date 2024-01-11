@@ -25,21 +25,21 @@ jobs:
         run: ./bin/build.sh "${{ matrix.libfranka-version }}"
       - uses: actions/upload-artifact@v3
         with:
-          path: ./archive/panda_py_${{ env.VERSION }}_libfranka_${{ matrix.libfranka-version }}/*.whl
-          name: wheels-${{ matrix.libfranka-version }}
-      - uses: actions/upload-artifact@v3
-        with:
           path: ./archive/panda_py_${{ env.VERSION }}_libfranka_${{ matrix.libfranka-version }}.zip
           name: zip-${{ matrix.libfranka-version }}
   upload_pypi:
     name: "Upload wheels to pypi"
     needs: [build_wheels]
     runs-on: ubuntu-latest
+    env:
+      LIBFRANKA_VER: "0.9.2"
     steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheels-0.9.2
-          path: dist
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: Install requirements
+        run: ./bin/before_install_ubuntu.sh
+      - name: Build package
+        run: pip -m build .
       - uses: pypa/gh-action-pypi-publish@v1.5.0
         with:
           user: __token__
