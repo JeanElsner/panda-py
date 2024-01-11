@@ -39,9 +39,9 @@ jobs:
       - name: Install requirements
         run: |
           ./bin/before_install_ubuntu.sh
-          python -m pip install build
-      - name: Build package
-        run: python -m build .
+          python -m pip install cibuildwheel
+      - name: Build using cibuildwheel
+        run: python -m cibuildwheel --output-dir dist
       - uses: pypa/gh-action-pypi-publish@v1.5.0
         with:
           user: __token__
