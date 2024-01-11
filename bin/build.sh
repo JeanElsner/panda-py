@@ -58,7 +58,7 @@ libfranka_version="$1"
 echo "Changing libfranka version in pyproject.toml to: $libfranka_version"
 change_version "$libfranka_version"
 export LIBFRANKA_VER=$libfranka_version
-archive=panda_py_libfranka_${libfranka_version}
+archive=panda_py_${version}_libfranka_${libfranka_version}
 python -m cibuildwheel --output-dir $root/archive/$archive $root
 zip -j $root/archive/$archive.zip $root/archive/$archive/*.whl
 
