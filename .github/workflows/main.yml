@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-python@v3
       - name: Install requirements
         run: ./bin/before_install_ubuntu.sh
-      - name: Install package
+      - name: Build package
         run: pip install .[docs]
       - name: Build documentation
         run: cd docs && make html
