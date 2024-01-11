@@ -32,6 +32,8 @@ __all__ = [
     'fk', 'ik', 'ik_full', 'Desk', 'TOKEN_PATH'
 ]
 
+__version__ = '0.7.1'
+
 _logger = logging.getLogger('desk')
 
 TOKEN_PATH = '~/.panda_py/token.conf'
