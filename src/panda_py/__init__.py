@@ -113,7 +113,7 @@ class Desk:
     if self._platform == 'panda':
       url = '/desk/api/robot/close-brakes'
     elif self._platform == 'fr3':
-      url = '/desk/api/joint/lock'
+      url = '/desk/api/joints/lock'
 
     self._request('post',
                   url,
@@ -126,7 +126,7 @@ class Desk:
     if self._platform == 'panda':
       url = '/desk/api/robot/open-brakes'
     elif self._platform == 'fr3':
-      url = '/desk/api/joint/unlock'
+      url = '/desk/api/joints/unlock'
 
     self._request('post',
                   url,
