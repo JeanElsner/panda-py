@@ -76,7 +76,7 @@ class Desk:
   robot's Pilot interface.
   """
 
-  def __init__(self, hostname: str, username: str, password: str, platform: str = "panda") -> None:
+  def __init__(self, hostname: str, username: str, password: str, platform: str = 'panda') -> None:
     urllib3.disable_warnings()
     self._session = requests.Session()
     self._session.verify = False
@@ -90,10 +90,10 @@ class Desk:
     self.login()
     self._legacy = False
 
-    if platform.lower() in ["panda", "fer", "franka_emika_robot", "frankaemikarobot"]:
-      self._platform = "panda"
-    elif platform.lower() in ["fr3", "frankaresearch3", "franka_research_3"]:
-      self._platform = "fr3"
+    if platform.lower() in ['panda', 'fer', 'franka_emika_robot', 'frankaemikarobot']:
+      self._platform = 'panda'
+    elif platform.lower() in ['fr3', 'frankaresearch3', 'franka_research_3']:
+      self._platform = 'fr3'
     else:
       raise ValueError("Unknown platform! Must be either 'panda' or 'fr3'!")
 
@@ -110,9 +110,9 @@ class Desk:
     """
     Locks the brakes. API call blocks until the brakes are locked.
     """
-    if self._platform == "panda":
+    if self._platform == 'panda':
       url = '/desk/api/robot/close-brakes'
-    elif self._platform == "fr3":
+    elif self._platform == 'fr3':
       url = '/desk/api/joint/lock'
 
     self._request('post',
@@ -123,9 +123,9 @@ class Desk:
     """
     Unlocks the brakes. API call blocks until the brakes are unlocked.
     """
-    if self._platform == "panda":
+    if self._platform == 'panda':
       url = '/desk/api/robot/open-brakes'
-    elif self._platform == "fr3":
+    elif self._platform == 'fr3':
       url = '/desk/api/joint/unlock'
 
     self._request('post',
