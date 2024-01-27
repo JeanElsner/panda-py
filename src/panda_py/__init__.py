@@ -90,7 +90,7 @@ class Desk:
     self.login()
     self._legacy = False
 
-    if platform.lower() in ["panda", "fer"]:
+    if platform.lower() in ["panda", "fer", "franka_emika_robot", "frankaemikarobot"]:
       self._platform = "panda"
     elif platform.lower() in ["fr3", "frankaresearch3", "franka_research_3"]:
       self._platform = "fr3"
