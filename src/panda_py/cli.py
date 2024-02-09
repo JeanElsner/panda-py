@@ -32,9 +32,10 @@ def unlock():
   parser.add_argument('host',  type=str, help='Robot Desk IP or hostname.')
   parser.add_argument('user', type=str, help='Desk username.')
   parser.add_argument('password', type=str, help='Desk password.')
+  parser.add_argument('platform', type=str, default='panda', help='Platform of robot.')
   args = parser.parse_args()
 
-  desk = Desk(args.host, args.user, args.password)
+  desk = Desk(args.host, args.user, args.password, platform=args.platform)
   desk.unlock()
   desk.activate_fci()
 
@@ -52,9 +53,10 @@ def lock():
   parser.add_argument('host',  type=str, help='Robot Desk IP or hostname.')
   parser.add_argument('user', type=str, help='Desk username.')
   parser.add_argument('password', type=str, help='Desk password.')
+  parser.add_argument('platform', type=str, default='panda', help='Platform of robot.')
   args = parser.parse_args()
 
-  desk = Desk(args.host, args.user, args.password)
+  desk = Desk(args.host, args.user, args.password, platform=args.platform)
   desk.lock()
   desk.deactivate_fci()
 
@@ -75,7 +77,8 @@ def reboot():
   parser.add_argument('host',  type=str, help='Robot Desk IP or hostname.')
   parser.add_argument('user', type=str, help='Desk username.')
   parser.add_argument('password', type=str, help='Desk password.')
+  parser.add_argument('platform', type=str, default='panda', help='Platform of robot.')
   args = parser.parse_args()
 
-  desk = Desk(args.host, args.user, args.password)
+  desk = Desk(args.host, args.user, args.password, platform=args.platform)
   desk.reboot()
