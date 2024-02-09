@@ -32,7 +32,7 @@ __all__ = [
     'fk', 'ik', 'ik_full', 'Desk', 'TOKEN_PATH'
 ]
 
-__version__ = '0.7.2'
+__version__ = '0.7.3'
 
 _logger = logging.getLogger('desk')
 
@@ -76,7 +76,11 @@ class Desk:
   robot's Pilot interface.
   """
 
-  def __init__(self, hostname: str, username: str, password: str, platform: str = 'panda') -> None:
+  def __init__(self,
+               hostname: str,
+               username: str,
+               password: str,
+               platform: str = 'panda') -> None:
     urllib3.disable_warnings()
     self._session = requests.Session()
     self._session.verify = False
@@ -90,7 +94,9 @@ class Desk:
     self.login()
     self._legacy = False
 
-    if platform.lower() in ['panda', 'fer', 'franka_emika_robot', 'frankaemikarobot']:
+    if platform.lower() in [
+        'panda', 'fer', 'franka_emika_robot', 'frankaemikarobot'
+    ]:
       self._platform = 'panda'
     elif platform.lower() in ['fr3', 'frankaresearch3', 'franka_research_3']:
       self._platform = 'fr3'
@@ -115,9 +121,7 @@ class Desk:
     elif self._platform == 'fr3':
       url = '/desk/api/joints/lock'
 
-    self._request('post',
-                  url,
-                  files={'force': force})
+    self._request('post', url, files={'force': force})
 
   def unlock(self, force: bool = True) -> None:
     """
