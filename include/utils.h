@@ -5,6 +5,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>  // for std::abs
+#include "constants.h"
 
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
 typedef Eigen::Matrix<double, 7, 1> Vector7d;
@@ -89,6 +90,14 @@ inline Array7d saturateTorqueRate(const Array7d& tau_d_calculated,
         std::max(std::min(difference, kDeltaTauMax), -kDeltaTauMax);
   }
   return tau_d_saturated;
+}
+
+inline Array7d clipTorques(const Array7d& tau_d_calculdated) {
+  Array7d tau_d_clipped{};
+  for (size_t i = 0; i < 7; i++) {
+    tau_d_clipped[i] = std::max(std::min(tau_d_calculdated[i], kTauJMax[i]), -kTauJMax[i]);
+  }
+  return tau_d_clipped;
 }
 
 template <typename T>

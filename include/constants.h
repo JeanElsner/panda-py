@@ -3,6 +3,12 @@
 
 using Vector7d = Eigen::Matrix<double, 7, 1>;
 
+const double kTauJMaxData[7] = {87, 87, 87, 87, 12, 12, 12};
+const Vector7d kTauJMax(kTauJMaxData);
+
+const double kDTauJMaxData[7] = {1000, 1000, 1000, 1000, 1000, 1000, 1000};
+const Vector7d kDTauJMax(kDTauJMaxData);
+
 const double kJointPositionStartData[7] = {0.0, -M_PI_4, 0.0,   -3 * M_PI_4,
                                            0.0, M_PI_2,  M_PI_4};
 const Vector7d kJointPositionStart(kJointPositionStartData);
