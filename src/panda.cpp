@@ -247,7 +247,9 @@ TorqueCallback Panda::_createTorqueCallback() {
       tau.tau_J[i] += tau_virtual_wall[i];
     }
     tau_saturated = saturateTorqueRate(tau.tau_J, robot_state.tau_J_d);
-    return clipTorques(tau_saturated);
+    tau_clipped = clipTorques(tau_saturated);
+    tau.tau_J = tau_clipped;
+    return tau;
   });
 }
 
