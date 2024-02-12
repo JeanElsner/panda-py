@@ -240,14 +240,14 @@ TorqueCallback Panda::_createTorqueCallback() {
       tau = current_controller_->step(robot_state, duration);
     }
     // Virtual joint walls
-    Array7d tau_virtual_wall, tau_saturated;
+    Array7d tau_virtual_wall, tau_saturated, tau_clipped;
     virtual_walls_->computeTorque(robot_state.q, robot_state.dq,
                                   tau_virtual_wall);
-    tau_saturated = saturateTorqueRate(tau.tau_J, robot_state.tau_J_d);
     for (int i = 0; i < 7; i++) {
-      tau.tau_J[i] = tau_saturated[i] + tau_virtual_wall[i];
+      tau.tau_J[i] += tau_virtual_wall[i];
     }
-    return tau;
+    tau_saturated = saturateTorqueRate(tau.tau_J, robot_state.tau_J_d);
+    return clipTorques(tau_saturated);
   });
 }
 

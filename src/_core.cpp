@@ -27,6 +27,8 @@ PYBIND11_MODULE(_core, m) {
   m.attr("_JOINT_POSITION_START") = kJointPositionStart;
   m.attr("_JOINT_LIMITS_LOWER") = kLowerJointLimits;
   m.attr("_JOINT_LIMITS_UPPER") = kUpperJointLimits;
+  m.attr("_TAU_J_MAX") = kTauJMax;
+  m.attr("_DTAU_J_MAX") = kDTauJMax;
 
   m.def("ik_full",
         py::overload_cast<Eigen::Matrix<double, 4, 4>, Vector7d, double>(
