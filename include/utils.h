@@ -5,6 +5,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>  // for std::abs
+#include "constants.h"
 
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
 typedef Eigen::Matrix<double, 7, 1> Vector7d;
