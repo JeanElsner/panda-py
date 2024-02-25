@@ -16,7 +16,7 @@
     {
       "label": "generate-stub",
       "type": "shell",
-      "command": "pybind11-stubgen --no-setup-py --root-module-suffix \"\" -o ./src/ --log-level INFO panda_py"
+      "command": "pybind11-stubgen -o ./src/ panda_py --enum-class-locations RealtimeConfig:panda_py.libfranka --enum-class-locations VacuumGripperProductionSetupProfile:panda_py.libfranka"
     },
     {
       "label": "build-doc",
