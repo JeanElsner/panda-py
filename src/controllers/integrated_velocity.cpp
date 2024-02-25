@@ -37,6 +37,10 @@ franka::Torques IntegratedVelocity::step(const franka::RobotState &robot_state,
   return torques;
 }
 
+Vector7d IntegratedVelocity::getQd() {
+  return q_d_;
+}
+
 void IntegratedVelocity::setControl(const Vector7d &velocity) {
   std::lock_guard<std::mutex> lock(mux_);
   dq_d_ = velocity;

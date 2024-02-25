@@ -16,6 +16,7 @@ class IntegratedVelocity : public TorqueController {
   franka::Torques step(const franka::RobotState &robot_state,
                        franka::Duration &duration) override;
 
+  Vector7d getQd();
   void setControl(const Vector7d &velocity);
   void setStiffness(const Vector7d &stiffness);
   void setDamping(const Vector7d &damping);
