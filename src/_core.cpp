@@ -296,6 +296,7 @@ PYBIND11_MODULE(_core, m) {
                     const Vector7d &>(), /*py::keep_alive<1, 0>(),*/
            py::arg("stiffness") = IntegratedVelocity::kDefaultStiffness,
            py::arg("damping") = IntegratedVelocity::kDefaultDamping)
+      .def("get_qd", &IntegratedVelocity::getQd, py::call_guard<py::gil_scoped_release>())
       .def("set_control", &IntegratedVelocity::setControl,
            py::call_guard<py::gil_scoped_release>(), py::arg("velocity"))
       .def("set_stiffness", &IntegratedVelocity::setStiffness,
