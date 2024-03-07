@@ -32,7 +32,7 @@ __all__ = [
     'fk', 'ik', 'ik_full', 'Desk', 'TOKEN_PATH'
 ]
 
-__version__ = '0.7.4'
+__version__ = '0.7.5'
 
 _logger = logging.getLogger('desk')
 
