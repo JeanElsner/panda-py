@@ -24,6 +24,7 @@ classifiers = [
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
 ]
 
 [project.optional-dependencies]
@@ -47,7 +48,7 @@ panda-reboot = "panda_py.cli:reboot"
 
 [tool.cibuildwheel]
 manylinux-x86_64-image = "manylinux2014"
-build = [ "cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*",]
+build = [ "cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*",]
 skip = [ "pp*", "*musllinux*",]
 environment = "LIBFRANKA_VER=0.9.2"
 
