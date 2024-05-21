@@ -14,8 +14,8 @@ Trajectory::Trajectory(std::shared_ptr<motion::PandaTrajectory> trajectory,
 franka::Torques Trajectory::step(const franka::RobotState &robot_state,
                                  franka::Duration &duration) {
   Vector7d q = Eigen::Map<const Vector7d>(robot_state.q.data());
-  auto q_d = traj_->getJointPositions(getTime(), q);
-  auto dq_d = traj_->getJointVelocities(getTime(), q);
+  auto q_d = traj_->getJointPositions(getTime(), q, q[7]);
+  auto dq_d = traj_->getJointVelocities(getTime(), q, q[7]);
   setControl(q_d, dq_d);
   auto torques = JointPosition::step(robot_state, duration);
   if (getTime() > traj_->getDuration()) {
