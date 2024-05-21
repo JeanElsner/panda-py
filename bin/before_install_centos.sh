@@ -1,7 +1,7 @@
 #! /bin/bash
 
 yum install -y openssl-devel
-git clone -b master https://github.com/pocoproject/poco.git
+git clone https://github.com/pocoproject/poco.git
 cd poco
 git checkout poco-1.9.2-release # focal, jammy uses 1.11.0
 mkdir cmake-build
