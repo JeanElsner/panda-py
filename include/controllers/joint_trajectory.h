@@ -4,11 +4,11 @@
 
 namespace controllers {
 
-class Trajectory : public JointPosition {
+class JointTrajectory : public JointPosition {
  public:
   static const double kDefaultDqThreshold;
 
-  Trajectory(std::shared_ptr<motion::PandaTrajectory> trajectory,
+  JointTrajectory(std::shared_ptr<motion::JointTrajectory> trajectory,
              const Vector7d &stiffness = kDefaultStiffness,
              const Vector7d &damping = kDefaultDamping,
              const double dq_threshold = kDefaultDqThreshold,
@@ -20,7 +20,7 @@ class Trajectory : public JointPosition {
   const std::string name() override;
 
  private:
-  std::shared_ptr<motion::PandaTrajectory> traj_;
+  std::shared_ptr<motion::JointTrajectory> traj_;
   double dq_threshold_;
 };
 

@@ -6,7 +6,6 @@
 #include <typeinfo>
 
 #include "constants.h"
-#include "controllers/trajectory.h"
 #include "motion/generators.h"
 
 namespace std {
@@ -333,8 +332,8 @@ bool Panda::moveToJointPosition(std::vector<Vector7d> &waypoints,
     _log("info", "Already at goal.");
     return true;
   }
-  auto ctrl = std::make_shared<controllers::Trajectory>(traj, stiffness,
-                                                        damping, dq_threshold);
+  auto ctrl = std::make_shared<controllers::JointTrajectory>(
+      traj, stiffness, damping, dq_threshold);
   _startController(ctrl);
   auto cb = _createTorqueCallback();
   _runController(cb);
@@ -344,21 +343,25 @@ bool Panda::moveToJointPosition(std::vector<Vector7d> &waypoints,
 
 bool Panda::moveToPose(const Eigen::Vector3d &position,
                        const Eigen::Matrix<double, 4, 1> &orientation,
-                       double speed_factor, const Vector7d &stiffness,
-                       const Vector7d &damping, double dq_threshold,
+                       double speed_factor,
+                       const Eigen::Matrix<double, 6, 6> &impedance,
+                       const double &damping_ratio,
+                       const double &nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   std::vector<Eigen::Vector3d> positions;
   positions.push_back(position);
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
   orientations.push_back(orientation);
-  return moveToPose(positions, orientations, speed_factor, stiffness, damping,
-                    dq_threshold, success_threshold);
+  return moveToPose(positions, orientations, speed_factor, impedance, damping_ratio,
+                    nullspace_stiffness, dq_threshold, success_threshold);
 }
 
 bool Panda::moveToPose(std::vector<Eigen::Vector3d> &positions,
                        std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
-                       double speed_factor, const Vector7d &stiffness,
-                       const Vector7d &damping, double dq_threshold,
+                       double speed_factor,
+                       const Eigen::Matrix<double, 6, 6> &impedance,
+                       const double &damping_ratio,
+                       const double &nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   stopController();
   recover();
@@ -375,8 +378,8 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d> &positions,
     _log("info", "Already at goal.");
     return true;
   }
-  auto ctrl = std::make_shared<controllers::Trajectory>(
-      traj, stiffness, damping, dq_threshold, 1.0);
+  auto ctrl = std::make_shared<controllers::CartesianTrajectory>(
+      traj, impedance, damping_ratio, nullspace_stiffness, dq_threshold, 1.0);
   _startController(ctrl);
   auto cb = _createTorqueCallback();
   _runController(cb);
@@ -389,8 +392,10 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d> &positions,
 }
 
 bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>> &poses,
-                       double speed_factor, const Vector7d &stiffness,
-                       const Vector7d &damping, double dq_threshold,
+                       double speed_factor,
+                       const Eigen::Matrix<double, 6, 6> &impedance,
+                       const double &damping_ratio,
+                       const double &nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   std::vector<Eigen::Vector3d> positions;
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
@@ -398,18 +403,20 @@ bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>> &poses,
     positions.push_back(MatrixToPosition(p));
     orientations.push_back(MatrixToOrientation(p));
   }
-  return moveToPose(positions, orientations, speed_factor, stiffness, damping,
-                    dq_threshold, success_threshold);
+  return moveToPose(positions, orientations, speed_factor, impedance, damping_ratio,
+                    nullspace_stiffness, dq_threshold, success_threshold);
 }
 
 bool Panda::moveToPose(const Eigen::Matrix<double, 4, 4> &pose,
-                       double speed_factor, const Vector7d &stiffness,
-                       const Vector7d &damping, double dq_threshold,
+                       double speed_factor,
+                       const Eigen::Matrix<double, 6, 6> &impedance,
+                       const double &damping_ratio,
+                       const double &nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   std::vector<Eigen::Matrix<double, 4, 4>> poses;
   poses.push_back(pose);
-  return moveToPose(poses, speed_factor, stiffness, damping, dq_threshold,
-                    success_threshold);
+  return moveToPose(poses, speed_factor, impedance, damping_ratio,
+                    nullspace_stiffness, dq_threshold, success_threshold);
 }
 
 bool Panda::moveToStart(double speed_factor, const Vector7d &stiffness,
