@@ -1,5 +1,12 @@
 #! /bin/bash
 
+sed -i 's/enabled=1/enabled=0/g' /etc/yum/pluginconf.d/fastestmirror.conf
+sed -i 's/^mirrorlist/#mirrorlist/g' /etc/yum.repos.d/*.repo
+sed -i 's;^.*baseurl=http://mirror;baseurl=https://vault;g' /etc/yum.repos.d/*.repo
+fixup-mirrors
+yum -y update
+fixup-mirrors
+
 yum install -y openssl-devel
 git clone https://github.com/pocoproject/poco.git
 cd poco
