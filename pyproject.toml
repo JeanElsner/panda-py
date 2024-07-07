@@ -45,6 +45,8 @@ docs = [
 panda-lock = "panda_py.cli:lock"
 panda-unlock = "panda_py.cli:unlock"
 panda-reboot = "panda_py.cli:reboot"
+panda-take-control = "panda_py.cli:take_control"
+panda-release-control = "panda_py.cli:release_control"
 
 [tool.cibuildwheel]
 manylinux-x86_64-image = "manylinux2014"
