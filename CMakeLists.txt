@@ -33,7 +33,8 @@ pybind11_add_module(_core
   src/controllers/applied_torque.cpp
   src/controllers/applied_force.cpp
   src/controllers/force.cpp
-  src/controllers/trajectory.cpp
+  src/controllers/joint_trajectory.cpp
+  src/controllers/cartesian_trajectory.cpp
   src/motion/generators.cpp
   src/motion/time_optimal/trajectory.cpp
   src/motion/time_optimal/path.cpp

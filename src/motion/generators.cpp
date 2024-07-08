@@ -72,18 +72,15 @@ time_optimal::Path JointTrajectory::_convertList(
   return time_optimal::Path(new_list, maxDeviation);
 }
 
-Vector7d JointTrajectory::getJointPositions(double time, const Vector7d &q,
-                                            double q7) {
+Vector7d JointTrajectory::getJointPositions(double time) {
   return traj_->getPosition(time);
 }
 
-Vector7d JointTrajectory::getJointVelocities(double time, const Vector7d &q,
-                                             double q7) {
+Vector7d JointTrajectory::getJointVelocities(double time) {
   return traj_->getVelocity(time);
 }
 
-Vector7d JointTrajectory::getJointAccelerations(double time, const Vector7d &q,
-                                                double q7) {
+Vector7d JointTrajectory::getJointAccelerations(double time) {
   return traj_->getAcceleration(time);
 }
 
@@ -148,8 +145,7 @@ CartesianTrajectory::CartesianTrajectory(
   }
 }
 
-Vector7d CartesianTrajectory::getJointPositions(double time, const Vector7d &q,
-                                                double q7) {
+Eigen::Matrix<double, 4, 4> CartesianTrajectory::getPose(double time) {
   auto pose = traj_->getPosition(time);
   size_t idx = traj_->getTrajectorySegmentIndex(time);
   double angle = pose.coeff(3) - angles_.at(idx);
@@ -160,34 +156,19 @@ Vector7d CartesianTrajectory::getJointPositions(double time, const Vector7d &q,
   transform = o;
   transform.translation() = pose.head(3);
 
-  auto q_d = kinematics::ik(transform.matrix(), q, q7);
-  if (q_d.hasNaN()) {
-    py::gil_scoped_acquire acquire;
-    _log("error",
-         "IK failed at time %.2f, prior to waypoint %d. Goal may be outside of "
-         "workspace.",
-         time, idx + 1);
-    throw runtime_error("IK produced NaN.");
-  }
-  return q_d;
+  return transform.matrix();
 }
 
-Vector7d CartesianTrajectory::getJointVelocities(double time, const Vector7d &q,
-                                                 double q7) {
-  Vector7d q_prev, q_curr, dq;
-  q_prev = getJointPositions(time, q, q7);
-  q_curr = getJointPositions(time + 1e-3, q_prev, q7);
-  dq = q_curr - q_prev;
-  return dq;
+Eigen::Vector3d CartesianTrajectory::getPosition(double time) {
+  auto pose = traj_->getPosition(time);
+  return pose.head(3);
 }
 
-Vector7d CartesianTrajectory::getJointAccelerations(double time,
-                                                    const Vector7d &q,
-                                                    double q7) {
-  Vector7d q_prev, dq_prev, dq_curr, ddq;
-  q_prev = getJointPositions(time, q, q7);
-  dq_prev = getJointVelocities(time, q, q7);
-  dq_curr = getJointVelocities(time + 1e-3, q_prev, q7);
-  ddq = dq_curr - dq_prev;
-  return ddq;
+Eigen::Vector4d CartesianTrajectory::getOrientation(double time) {
+  auto pose = traj_->getPosition(time);
+  size_t idx = traj_->getTrajectorySegmentIndex(time);
+  double angle = pose.coeff(3) - angles_.at(idx);
+  Eigen::AngleAxisd aa(angle, axes_.at(idx));
+  Eigen::Quaterniond o = Eigen::Quaterniond(aa) * orientations_.at(idx);
+  return o.coeffs();
 }
