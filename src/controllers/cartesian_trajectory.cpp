@@ -2,7 +2,18 @@
 
 using namespace controllers;
 
-const double CartesianTrajectory::kDefaultDqThreshold = 3e-3;
+const double CartesianTrajectory::kDefaultDqThreshold = 1e-3;
+const double CartesianTrajectory::kDefaultNullspaceStiffness = 15.0;
+// clang-format off
+double _data[36] = {800,   0,   0,  0,  0,  0,
+                      0, 800,   0,  0,  0,  0,
+                      0,   0, 800,  0,  0,  0,
+                      0,   0,   0, 40,  0,  0,
+                      0,   0,   0,  0, 40,  0,
+                      0,   0,   0,  0,  0, 40};
+// clang-format on
+const Eigen::Matrix<double, 6, 6> CartesianTrajectory::kDefaultImpedance =
+    Eigen::Matrix<double, 6, 6>(_data);
 
 CartesianTrajectory::CartesianTrajectory(std::shared_ptr<motion::CartesianTrajectory> trajectory,
              const Eigen::Matrix<double, 6, 6> &impedance,

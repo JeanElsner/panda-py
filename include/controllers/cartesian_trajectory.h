@@ -7,6 +7,8 @@ namespace controllers {
 class CartesianTrajectory : public CartesianImpedance {
  public:
   static const double kDefaultDqThreshold;
+  static const double kDefaultNullspaceStiffness;
+  static const Eigen::Matrix<double, 6, 6> kDefaultImpedance;
 
   CartesianTrajectory(std::shared_ptr<motion::CartesianTrajectory> trajectory,
              const Eigen::Matrix<double, 6, 6> &impedance = kDefaultImpedance,
