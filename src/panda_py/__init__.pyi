@@ -234,5 +234,5 @@ class Token:
 
 
 TOKEN_PATH: str = '~/.panda_py/token.conf'
-__version__: str = '0.8.0'
+__version__: str = '0.8.1'
 _logger: logging.Logger  # value = <Logger desk (INFO)>

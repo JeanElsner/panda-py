@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "panda-python"
-version = "0.8.0"
+version = "0.8.1"
 description = "Python bindings for the Panda robot"
 requires-python = ">=3.7"
 dependencies = ["websockets>=11.0", "requests", "numpy"]
