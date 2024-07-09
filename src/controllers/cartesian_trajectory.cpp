@@ -16,6 +16,7 @@ const Eigen::Matrix<double, 6, 6> CartesianTrajectory::kDefaultImpedance =
     Eigen::Matrix<double, 6, 6>(_data);
 
 CartesianTrajectory::CartesianTrajectory(std::shared_ptr<motion::CartesianTrajectory> trajectory,
+             const Vector7d &q_init,
              const Eigen::Matrix<double, 6, 6> &impedance,
              const double &damping_ratio,
              const double &nullspace_stiffness,
@@ -23,13 +24,14 @@ CartesianTrajectory::CartesianTrajectory(std::shared_ptr<motion::CartesianTrajec
              const double filter_coeff)
     : CartesianImpedance(impedance, damping_ratio, nullspace_stiffness, filter_coeff),
       traj_(trajectory),
-      dq_threshold_(dq_threshold) {}
+      dq_threshold_(dq_threshold),
+      q_init_(q_init) {}
 
 franka::Torques CartesianTrajectory::step(const franka::RobotState &robot_state,
                                  franka::Duration &duration) {
   auto position = traj_->getPosition(getTime());
   auto orientation = traj_->getOrientation(getTime());
-  setControl(position, orientation);
+  setControl(position, orientation, q_init_);
   auto torques = CartesianImpedance::step(robot_state, duration);
   if (getTime() > traj_->getDuration()) {
     bool at_rest = true;
