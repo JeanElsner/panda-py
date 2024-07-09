@@ -40,6 +40,9 @@ docs = [
     "sphinx-reredirects",
     "sphinx",
 ]
+dev = [
+    "pybind11-stubgen",
+]
 
 [project.scripts]
 panda-lock = "panda_py.cli:lock"
