@@ -1,21 +1,20 @@
-#include "controllers/trajectory.h"
+#include "controllers/joint_trajectory.h"
 
 using namespace controllers;
 
-const double Trajectory::kDefaultDqThreshold = 1e-3;
+const double JointTrajectory::kDefaultDqThreshold = 1e-3;
 
-Trajectory::Trajectory(std::shared_ptr<motion::PandaTrajectory> trajectory,
+JointTrajectory::JointTrajectory(std::shared_ptr<motion::JointTrajectory> trajectory,
                        const Vector7d &stiffness, const Vector7d &damping,
                        const double dq_threshold, const double filter_coeff)
     : JointPosition(stiffness, damping, filter_coeff),
       traj_(trajectory),
       dq_threshold_(dq_threshold) {}
 
-franka::Torques Trajectory::step(const franka::RobotState &robot_state,
+franka::Torques JointTrajectory::step(const franka::RobotState &robot_state,
                                  franka::Duration &duration) {
-  Vector7d q = Eigen::Map<const Vector7d>(robot_state.q.data());
-  auto q_d = traj_->getJointPositions(getTime(), q, q[6]);
-  auto dq_d = traj_->getJointVelocities(getTime(), q, q[6]);
+  auto q_d = traj_->getJointPositions(getTime());
+  auto dq_d = traj_->getJointVelocities(getTime());
   setControl(q_d, dq_d);
   auto torques = JointPosition::step(robot_state, duration);
   if (getTime() > traj_->getDuration()) {
@@ -30,9 +29,8 @@ franka::Torques Trajectory::step(const franka::RobotState &robot_state,
     }
   }
   return torques;
-  return franka::Torques({0,0,0,0,0,0,0});
 }
 
-const std::string Trajectory::name() {
-  return "Trajectory";
+const std::string JointTrajectory::name() {
+  return "JointTrajectory";
 }

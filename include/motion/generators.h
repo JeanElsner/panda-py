@@ -23,18 +23,6 @@ class PandaTrajectory {
  public:
   double getDuration() { return traj_->getDuration(); }
 
-  virtual Vector7d getJointPositions(double time,
-                                     const Vector7d &q = kinematics::kQDefault,
-                                     double q7 = M_PI_4) = 0;
-
-  virtual Vector7d getJointVelocities(double time,
-                                      const Vector7d &q = kinematics::kQDefault,
-                                      double q7 = M_PI_4) = 0;
-
-  virtual Vector7d getJointAccelerations(
-      double time, const Vector7d &q = kinematics::kQDefault,
-      double q7 = M_PI_4) = 0;
-
  protected:
   bool _computeTrajectory(const time_optimal::Path &path,
                           const Eigen::VectorXd &max_velocity,
@@ -57,17 +45,11 @@ class JointTrajectory : public PandaTrajectory {
                   double speed_factor = kDefaultJointSpeedFactor,
                   double maxDeviation = 0.0, double timeout = kDefaultTimeout);
 
-  Vector7d getJointPositions(double time,
-                             const Vector7d &q = kinematics::kQDefault,
-                             double q7 = M_PI_4) override;
+  Vector7d getJointPositions(double time);
 
-  Vector7d getJointVelocities(double time,
-                              const Vector7d &q = kinematics::kQDefault,
-                              double q7 = M_PI_4) override;
+  Vector7d getJointVelocities(double time);
 
-  Vector7d getJointAccelerations(double time,
-                                 const Vector7d &q = kinematics::kQDefault,
-                                 double q7 = M_PI_4) override;
+  Vector7d getJointAccelerations(double time);
 
  private:
   time_optimal::Path _convertList(const std::vector<Vector7d> &list,
@@ -91,19 +73,7 @@ class CartesianTrajectory : public PandaTrajectory {
 
   Eigen::Vector3d getPosition(double time);
 
-  Eigen::Quaterniond getOrientation(double time);
-
-  Vector7d getJointPositions(double time,
-                             const Vector7d &q = kinematics::kQDefault,
-                             double q7 = M_PI_4) override;
-
-  Vector7d getJointVelocities(double time,
-                              const Vector7d &q = kinematics::kQDefault,
-                              double q7 = M_PI_4) override;
-
-  Vector7d getJointAccelerations(double time,
-                                 const Vector7d &q = kinematics::kQDefault,
-                                 double q7 = M_PI_4) override;
+  Eigen::Vector4d getOrientation(double time);
 
  private:
   std::vector<double> angles_;

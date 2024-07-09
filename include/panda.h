@@ -12,7 +12,8 @@
 
 #include "controllers/controller.h"
 #include "controllers/joint_limits/virtual_wall_controller.h"
-#include "controllers/trajectory.h"
+#include "controllers/joint_trajectory.h"
+#include "controllers/cartesian_trajectory.h"
 #include "controllers/applied_torque.h"
 #include "utils.h"
 
@@ -59,52 +60,56 @@ class Panda {
   bool moveToJointPosition(
       const Vector7d &position,
       double speed_factor = motion::kDefaultJointSpeedFactor,
-      const Vector7d &stiffness = controllers::Trajectory::kDefaultStiffness,
-      const Vector7d &damping = controllers::Trajectory::kDefaultDamping,
-      double dq_threshold = controllers::Trajectory::kDefaultDqThreshold,
+      const Vector7d &stiffness = controllers::JointTrajectory::kDefaultStiffness,
+      const Vector7d &damping = controllers::JointTrajectory::kDefaultDamping,
+      double dq_threshold = controllers::JointTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
   bool moveToJointPosition(
       std::vector<Vector7d> &waypoints,
       double speed_factor = motion::kDefaultJointSpeedFactor,
-      const Vector7d &stiffness = controllers::Trajectory::kDefaultStiffness,
-      const Vector7d &damping = controllers::Trajectory::kDefaultDamping,
-      double dq_threshold = controllers::Trajectory::kDefaultDqThreshold,
+      const Vector7d &stiffness = controllers::JointTrajectory::kDefaultStiffness,
+      const Vector7d &damping = controllers::JointTrajectory::kDefaultDamping,
+      double dq_threshold = controllers::JointTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
   bool moveToPose(
       std::vector<Eigen::Vector3d> &positions,
       std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
-      const Vector7d &stiffness = controllers::Trajectory::kDefaultStiffness,
-      const Vector7d &damping = controllers::Trajectory::kDefaultDamping,
-      double dq_threshold = controllers::Trajectory::kDefaultDqThreshold,
+      const Eigen::Matrix<double, 6, 6> &impedance = controllers::CartesianTrajectory::kDefaultImpedance,
+      const double &damping_ratio = controllers::CartesianTrajectory::kDefaultDampingRatio,
+      const double &nullspace_stiffness = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+      double dq_threshold = controllers::CartesianTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
   bool moveToPose(
       const Eigen::Vector3d &position,
       const Eigen::Matrix<double, 4, 1> &orientation,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
-      const Vector7d &stiffness = controllers::Trajectory::kDefaultStiffness,
-      const Vector7d &damping = controllers::Trajectory::kDefaultDamping,
-      double dq_threshold = controllers::Trajectory::kDefaultDqThreshold,
+      const Eigen::Matrix<double, 6, 6> &impedance = controllers::CartesianTrajectory::kDefaultImpedance,
+      const double &damping_ratio = controllers::CartesianTrajectory::kDefaultDampingRatio,
+      const double &nullspace_stiffness = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+      double dq_threshold = controllers::CartesianTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
   bool moveToPose(
       const std::vector<Eigen::Matrix<double, 4, 4>> &poses,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
-      const Vector7d &stiffness = controllers::Trajectory::kDefaultStiffness,
-      const Vector7d &damping = controllers::Trajectory::kDefaultDamping,
-      double dq_threshold = controllers::Trajectory::kDefaultDqThreshold,
+      const Eigen::Matrix<double, 6, 6> &impedance = controllers::CartesianTrajectory::kDefaultImpedance,
+      const double &damping_ratio = controllers::CartesianTrajectory::kDefaultDampingRatio,
+      const double &nullspace_stiffness = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+      double dq_threshold = controllers::CartesianTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
   bool moveToPose(
       const Eigen::Matrix<double, 4, 4> &pose,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
-      const Vector7d &stiffness = controllers::Trajectory::kDefaultStiffness,
-      const Vector7d &damping = controllers::Trajectory::kDefaultDamping,
-      double dq_threshold = controllers::Trajectory::kDefaultDqThreshold,
+      const Eigen::Matrix<double, 6, 6> &impedance = controllers::CartesianTrajectory::kDefaultImpedance,
+      const double &damping_ratio = controllers::CartesianTrajectory::kDefaultDampingRatio,
+      const double &nullspace_stiffness = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+      double dq_threshold = controllers::CartesianTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
   bool moveToStart(
       double speed_factor = motion::kDefaultJointSpeedFactor,
-      const Vector7d &stiffness = controllers::Trajectory::kDefaultStiffness,
-      const Vector7d &damping = controllers::Trajectory::kDefaultDamping,
-      double dq_threshold = controllers::Trajectory::kDefaultDqThreshold,
+      const Vector7d &stiffness = controllers::JointTrajectory::kDefaultStiffness,
+      const Vector7d &damping = controllers::JointTrajectory::kDefaultDamping,
+      double dq_threshold = controllers::JointTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
   Eigen::Vector3d getPosition();
   Eigen::Vector4d getOrientation(bool scalar_first = false);

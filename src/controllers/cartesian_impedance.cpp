@@ -5,12 +5,12 @@
 #include "panda.h"
 
 // clang-format off
-double data[36] = {200,   0,   0,  0,  0,  0,
-                     0, 200,   0,  0,  0,  0,
-                     0,   0, 200,  0,  0,  0,
-                     0,   0,   0, 10,  0,  0,
-                     0,   0,   0,  0, 10,  0,
-                     0,   0,   0,  0,  0, 10};
+double data[36] = {600,   0,   0,  0,  0,  0,
+                     0, 600,   0,  0,  0,  0,
+                     0,   0, 600,  0,  0,  0,
+                     0,   0,   0, 30,  0,  0,
+                     0,   0,   0,  0, 30,  0,
+                     0,   0,   0,  0,  0, 30};
 // clang-format on
 const Eigen::Matrix<double, 6, 6> CartesianImpedance::kDefaultImpedance =
     Eigen::Matrix<double, 6, 6>(data);

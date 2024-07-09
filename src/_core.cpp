@@ -80,14 +80,11 @@ PYBIND11_MODULE(_core, m) {
            py::arg("timeout") = motion::kDefaultTimeout)
       .def("get_duration", &motion::JointTrajectory::getDuration)
       .def("get_joint_positions", &motion::JointTrajectory::getJointPositions,
-           py::arg("time"), py::arg("q") = kinematics::kQDefault,
-           py::arg("q7") = M_PI_4)
+           py::arg("time"))
       .def("get_joint_velocities", &motion::JointTrajectory::getJointVelocities,
-           py::arg("time"), py::arg("q") = kinematics::kQDefault,
-           py::arg("q7") = M_PI_4)
+           py::arg("time"))
       .def("get_joint_accelerations",
-           &motion::JointTrajectory::getJointAccelerations, py::arg("time"),
-           py::arg("q") = kinematics::kQDefault, py::arg("q7") = M_PI_4);
+           &motion::JointTrajectory::getJointAccelerations, py::arg("time"));
 
   py::class_<motion::CartesianTrajectory>(m, "CartesianTrajectory")
       .def(py::init<const std::vector<Eigen::Matrix<double, 3, 1>> &,
@@ -104,15 +101,12 @@ PYBIND11_MODULE(_core, m) {
            py::arg("max_deviation") = 0,
            py::arg("timeout") = motion::kDefaultTimeout)
       .def("get_duration", &motion::CartesianTrajectory::getDuration)
-      .def("get_joint_positions",
-           &motion::CartesianTrajectory::getJointPositions, py::arg("time"),
-           py::arg("q") = kinematics::kQDefault, py::arg("q7") = M_PI_4)
-      .def("get_joint_velocities",
-           &motion::CartesianTrajectory::getJointPositions, py::arg("time"),
-           py::arg("q") = kinematics::kQDefault, py::arg("q7") = M_PI_4)
-      .def("get_joint_accelerations",
-           &motion::CartesianTrajectory::getJointPositions, py::arg("time"),
-           py::arg("q") = kinematics::kQDefault, py::arg("q7") = M_PI_4);
+      .def("get_pose",
+           &motion::CartesianTrajectory::getPose, py::arg("time"))
+      .def("get_position",
+           &motion::CartesianTrajectory::getPosition, py::arg("time"))
+      .def("get_orientation",
+           &motion::CartesianTrajectory::getOrientation, py::arg("time"));
 
   py::class_<PandaContext>(m, "PandaContext")
       .def("ok", &PandaContext::ok)
@@ -173,10 +167,10 @@ PYBIND11_MODULE(_core, m) {
                &Panda::moveToJointPosition),
            py::call_guard<py::gil_scoped_release>(), py::arg("waypoints"),
            py::arg("speed_factor") = motion::kDefaultJointSpeedFactor,
-           py::arg("stiffness") = controllers::Trajectory::kDefaultStiffness,
-           py::arg("damping") = controllers::Trajectory::kDefaultDamping,
+           py::arg("stiffness") = controllers::JointTrajectory::kDefaultStiffness,
+           py::arg("damping") = controllers::JointTrajectory::kDefaultDamping,
            py::arg("dq_threshold") =
-               controllers::Trajectory::kDefaultDqThreshold,
+               controllers::JointTrajectory::kDefaultDqThreshold,
            py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold)
       .def("move_to_joint_position",
            py::overload_cast<const Vector7d &, double, const Vector7d &,
@@ -184,24 +178,27 @@ PYBIND11_MODULE(_core, m) {
                &Panda::moveToJointPosition),
            py::call_guard<py::gil_scoped_release>(), py::arg("positions"),
            py::arg("speed_factor") = motion::kDefaultJointSpeedFactor,
-           py::arg("stiffness") = controllers::Trajectory::kDefaultStiffness,
-           py::arg("damping") = controllers::Trajectory::kDefaultDamping,
+           py::arg("stiffness") = controllers::JointTrajectory::kDefaultStiffness,
+           py::arg("damping") = controllers::JointTrajectory::kDefaultDamping,
            py::arg("dq_threshold") =
-               controllers::Trajectory::kDefaultDqThreshold,
+               controllers::JointTrajectory::kDefaultDqThreshold,
            py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold)
       .def(
           "move_to_pose",
           py::overload_cast<std::vector<Eigen::Vector3d> &,
                             std::vector<Eigen::Matrix<double, 4, 1>> &, double,
-                            const Vector7d &, const Vector7d &, double, double>(
+                            const Eigen::Matrix<double, 6, 6> &,
+                            const double &,
+                            const double &, double, double>(
               &Panda::moveToPose),
           py::call_guard<py::gil_scoped_release>(), py::arg("positions"),
           py::arg("orientations"),
           py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-          py::arg("stiffness") = controllers::Trajectory::kDefaultStiffness,
-          py::arg("damping") = controllers::Trajectory::kDefaultDamping,
+          py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
+          py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
+          py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
-              controllers::Trajectory::kDefaultDqThreshold,
+              controllers::JointTrajectory::kDefaultDqThreshold,
           py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
           R"delim(
                Moves the end-effector from the current pose through the provided waypoints
@@ -214,15 +211,18 @@ PYBIND11_MODULE(_core, m) {
           "move_to_pose",
           py::overload_cast<const Eigen::Vector3d &,
                             const Eigen::Matrix<double, 4, 1> &, double,
-                            const Vector7d &, const Vector7d &, double, double>(
+                            const Eigen::Matrix<double, 6, 6> &,
+                            const double &,
+                            const double &, double, double>(
               &Panda::moveToPose),
           py::call_guard<py::gil_scoped_release>(), py::arg("position"),
           py::arg("orientation"),
           py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-          py::arg("stiffness") = controllers::Trajectory::kDefaultStiffness,
-          py::arg("damping") = controllers::Trajectory::kDefaultDamping,
+          py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
+          py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
+          py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
-              controllers::Trajectory::kDefaultDqThreshold,
+              controllers::JointTrajectory::kDefaultDqThreshold,
           py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
           R"delim(
                Same as :py:func:`move_to_pose` above, but only one target pose given as
@@ -230,14 +230,17 @@ PYBIND11_MODULE(_core, m) {
                )delim")
       .def("move_to_pose",
            py::overload_cast<const std::vector<Eigen::Matrix<double, 4, 4>> &,
-                             double, const Vector7d &, const Vector7d &, double,
-                             double>(&Panda::moveToPose),
-           py::call_guard<py::gil_scoped_release>(), py::arg("position"),
+                             double,
+                             const Eigen::Matrix<double, 6, 6> &,
+                             const double &,
+                             const double &, double, double>(&Panda::moveToPose),
+           py::call_guard<py::gil_scoped_release>(), py::arg("pose"),
            py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-           py::arg("stiffness") = controllers::Trajectory::kDefaultStiffness,
-           py::arg("damping") = controllers::Trajectory::kDefaultDamping,
+           py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
+           py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
+           py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
            py::arg("dq_threshold") =
-               controllers::Trajectory::kDefaultDqThreshold,
+               controllers::JointTrajectory::kDefaultDqThreshold,
            py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
            R"delim(
                Same as :py:func:`move_to_pose` above, but waypoints are given as a list of
@@ -246,14 +249,17 @@ PYBIND11_MODULE(_core, m) {
       .def(
           "move_to_pose",
           py::overload_cast<const Eigen::Matrix<double, 4, 4> &, double,
-                            const Vector7d &, const Vector7d &, double, double>(
+                            const Eigen::Matrix<double, 6, 6> &,
+                            const double &,
+                            const double &, double, double>(
               &Panda::moveToPose),
-          py::call_guard<py::gil_scoped_release>(), py::arg("position"),
+          py::call_guard<py::gil_scoped_release>(), py::arg("pose"),
           py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-          py::arg("stiffness") = controllers::Trajectory::kDefaultStiffness,
-          py::arg("damping") = controllers::Trajectory::kDefaultDamping,
+          py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
+          py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
+          py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
-              controllers::Trajectory::kDefaultDqThreshold,
+              controllers::JointTrajectory::kDefaultDqThreshold,
           py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
           R"delim(
                Same as :py:func:`move_to_pose` above, but only one target pose given as
@@ -262,10 +268,10 @@ PYBIND11_MODULE(_core, m) {
       .def("move_to_start", &Panda::moveToStart,
            py::call_guard<py::gil_scoped_release>(),
            py::arg("speed_factor") = motion::kDefaultJointSpeedFactor,
-           py::arg("stiffness") = controllers::Trajectory::kDefaultStiffness,
-           py::arg("damping") = controllers::Trajectory::kDefaultDamping,
+           py::arg("stiffness") = controllers::JointTrajectory::kDefaultStiffness,
+           py::arg("damping") = controllers::JointTrajectory::kDefaultDamping,
            py::arg("dq_threshold") =
-               controllers::Trajectory::kDefaultDqThreshold,
+               controllers::JointTrajectory::kDefaultDqThreshold,
            py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
            R"delim(
                Convenience function similar to :py:func:`move_to_pose`, moves the end-effector
