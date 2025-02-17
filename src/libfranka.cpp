@@ -307,7 +307,7 @@ PYBIND11_MODULE(libfranka, m) {
            py::arg("log_size") = 50)
       .def("read", &franka::Robot::read)
       .def("read_once", &franka::Robot::readOnce)
-      .def("load_model", &franka::Robot::loadModel)
+      .def("load_model", [](franka::Robot& robot) { return robot.loadModel(); })    //to solve a type mismatch when binding the loadModel method of franka::Robot to Python using pybind11.
       .def("server_version", &franka::Robot::serverVersion)
       .def("control",
            py::overload_cast<std::function<franka::Torques(

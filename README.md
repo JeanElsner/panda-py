@@ -55,3 +55,39 @@ author = {Jean Elsner}
 ```
 
 [^1]: Not actually guaranteed. Based on a sample size of one.
+
+## Installation Instructions
+
+1. **Download the Script**
+   Download or clone the projrct
+
+2. **Make the Script Executable**
+   ```bash
+   chmod +x libfranka_install.sh
+
+3. **Run the Script Execute the script by running the following command**
+   ```bash
+   ./libfranka_install.sh
+
+You will be prompted to enter the robot's firmware version (e.g., 5.7.x). The script will automatically select the appropriate version of libfranka.
+
+
+## Error: ImportError - libpinocchio_parsers.so.3.3.1
+
+If you encounter the following error:
+```
+ImportError: libpinocchio_parsers.so.3.3.1: cannot open shared object file: No such file or directory
+```
+This error occurs when the system cannot find the libpinocchio_parsers.so.3.3.1 library, which is part of the Pinocchio library that libfranka depends on.
+Solution
+
+Ensure that the environment variables for OpenRobots are correctly set so the system can locate the necessary shared libraries. Add the following to your script or manually set them in your shell before running the script:
+
+# Set environment variables for OpenRobots
+```
+export PATH=/opt/openrobots/bin:$PATH
+export PKG_CONFIG_PATH=/opt/openrobots/lib/pkgconfig:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=/opt/openrobots/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages:$PYTHONPATH 
+export CMAKE_PREFIX_PATH=/opt/openrobots:$CMAKE_PREFIX_PATH
+```
