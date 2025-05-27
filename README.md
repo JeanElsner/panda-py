@@ -1,4 +1,4 @@
-<div align="center"><img alt="panda-py Logo" src="https://raw.githubusercontent.com/JeanElsner/panda-py/main/logo.jpg" /></div>
+<div align="center"><img alt="panda-py Logo" src="https://raw.githubusercontent.com/JeanElsner/panda-py/main/logo.png" /></div>
 
 <h1 align="center">panda-py</h1>
 
