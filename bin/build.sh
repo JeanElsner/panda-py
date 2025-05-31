@@ -29,13 +29,7 @@ echo "Current version is $version"
 
 change_version() {
   local pandapy_version="$version+libfranka-$1"
-  local libfranka_version="LIBFRANKA_VER=$1"
-  local vacuum_gripper="ON"
-
-  if [[ "$1" == "0.7.1" ]]; then
-    vacuum_gripper="OFF"
-  fi
-  echo "VACUUM_GRIPPER: $vacuum_gripper"
+  local version_num=$(echo "$1" | awk -F. '{ printf "0x%02x%02x%02x", $1, $2, $3 }')
   python <<END
 import toml
 
@@ -43,8 +37,8 @@ with open('$toml', 'r') as f:
     data = toml.load(f)
 
 data['project']['version'] = '$pandapy_version'
-data['tool']['cibuildwheel']['environment'] = '$libfranka_version'
-data['tool']['scikit-build']['cmake']['define']['VACUUM_GRIPPER'] = '$vacuum_gripper'
+data['tool']['cibuildwheel']['environment'] = 'LIBFRANKA_VER=$1'
+data['tool']['scikit-build']['cmake']['define']['LIBFRANKA_VER'] = '$version_num'
 
 with open('$toml', 'w') as f:
     toml.dump(data, f)

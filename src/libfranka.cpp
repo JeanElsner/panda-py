@@ -10,8 +10,12 @@
 
 #include <sstream>
 
-#ifdef VACUUM_GRIPPER
+#if LIBFRANKA_VER >= 0x000800
 #include <franka/vacuum_gripper.h>
+#endif
+
+#if LIBFRANKA_VER >= 0x000e00
+#include <franka/robot_model.h>
 #endif
 
 #define PYBIND11_DETAILED_ERROR_MESSAGES 1
@@ -245,6 +249,18 @@ PYBIND11_MODULE(libfranka, m) {
                &franka::Model::gravity, py::const_),
            py::arg("robot_state"), py::arg("gravity_earth") = gravity_earth);
 
+  #if LIBFRANKA_VER >= 0x000e00
+  py::class_<franka::RobotModel>(m, "RobotModel")
+      .def(py::init<const std::string &>(),
+           py::arg("urdf"))
+      .def("coriolis", &franka::RobotModel::coriolis,
+        py::arg("q"), py::arg("dq"), py::arg("i_total"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("c_ne"))
+      .def("gravity", &franka::RobotModel::gravity,
+        py::arg("q"), py::arg("g_earth"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("g_ne"))
+      .def("mass", &franka::RobotModel::mass,
+        py::arg("q"), py::arg("i_total"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("m_ne"));
+  #endif
+
   py::enum_<franka::RealtimeConfig>(m, "RealtimeConfig")
       .value("kEnforce", franka::RealtimeConfig::kEnforce)
       .value("kIgnore", franka::RealtimeConfig::kIgnore);
@@ -307,7 +323,11 @@ PYBIND11_MODULE(libfranka, m) {
            py::arg("log_size") = 50)
       .def("read", &franka::Robot::read)
       .def("read_once", &franka::Robot::readOnce)
+      #if LIBFRANKA_VER >= 0x000e00
+      .def("load_model", py::overload_cast<>(&franka::Robot::loadModel))
+      #else
       .def("load_model", &franka::Robot::loadModel)
+      #endif
       .def("server_version", &franka::Robot::serverVersion)
       .def("control",
            py::overload_cast<std::function<franka::Torques(
@@ -454,7 +474,7 @@ PYBIND11_MODULE(libfranka, m) {
            py::call_guard<py::gil_scoped_release>())
       .def("read_once", &franka::Gripper::readOnce);
 
-#ifdef VACUUM_GRIPPER
+  #if LIBFRANKA_VER >= 0x000800
   py::enum_<franka::VacuumGripperDeviceStatus>(m, "VacuumGripperDeviceStatus")
       .value("kGreen", franka::VacuumGripperDeviceStatus::kGreen)
       .value("kYellow", franka::VacuumGripperDeviceStatus::kYellow)
