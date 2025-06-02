@@ -8,10 +8,10 @@ set (CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "Release")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
-option(VACUUM_GRIPPER OFF)
-if (VACUUM_GRIPPER)
-  add_definitions(-DVACUUM_GRIPPER=${VACUUM_GRIPPER})
+if(NOT DEFINED LIBFRANKA_VER)
+    message(FATAL_ERROR "LIBFRANKA_VER must be set! (e.g., -DLIBFRANKA_VER=0x000f00)")
 endif()
+add_compile_definitions(LIBFRANKA_VER=${LIBFRANKA_VER})
 
 find_package(Eigen3 REQUIRED)
 find_package(Threads REQUIRED)
@@ -65,7 +65,9 @@ target_link_libraries(libfranka PUBLIC
 )
 
 target_include_directories(libfranka SYSTEM PUBLIC
+  include
   ${Franka_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 #target_compile_definitions(libfranka
