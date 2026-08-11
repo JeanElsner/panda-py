@@ -15,32 +15,32 @@ license = {file = "LICENSE"}
 readme = "README.md"
 keywords = [ "python", "real-time", "control", "robot", "franka", "emika", "panda"]
 classifiers = [
-    "Intended Audience :: Science/Research", 
-    "Intended Audience :: Developers", 
-    "License :: OSI Approved :: Apache Software License", 
-    "Topic :: Scientific/Engineering", 
-    "Programming Language :: Python :: 3.9", 
-    "Programming Language :: Python :: 3.10", 
-    "Programming Language :: Python :: 3.11", 
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 
 [project.optional-dependencies]
-examples = [ 
-    "roboticstoolbox-python", 
-    "matplotlib", 
-    "spatialmath-python", 
-    "ansitable", 
+examples = [
+    "roboticstoolbox-python",
+    "matplotlib",
+    "spatialmath-python",
+    "ansitable",
     "qpsolvers",
 ]
-docs = [ 
-    "furo", 
-    "sphinx-reredirects", 
+docs = [
+    "furo",
+    "sphinx-reredirects",
     "sphinx",
 ]
-dev = [ "pybind11-stubgen",]
+dev = [ "pybind11-stubgen", "pre-commit", "black",]
 
 [project.scripts]
 panda-lock = "panda_py.cli:lock"
@@ -48,6 +48,9 @@ panda-unlock = "panda_py.cli:unlock"
 panda-reboot = "panda_py.cli:reboot"
 panda-take-control = "panda_py.cli:take_control"
 panda-release-control = "panda_py.cli:release_control"
+
+[tool.black]
+target-version = [ "py39",]
 
 [tool.cibuildwheel]
 manylinux-x86_64-image = "manylinux_2_28"

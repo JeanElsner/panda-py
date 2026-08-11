@@ -1,0 +1,36 @@
+# Formatting and hygiene checks. Install with:
+#
+#   pip install pre-commit && pre-commit install
+#
+# Black is used with its defaults; the only setting is the target Python
+# version, in pyproject.toml under [tool.black].
+#
+# Run against everything, which is worth doing once after installing:
+#
+#   pre-commit run --all-files
+
+exclude: |
+  (?x)^(
+    # Byte for byte patches: stripping whitespace stops them applying.
+    bin/patches/.*\.patch|
+    # Written by bin/gen_stubs.sh; reformatting them fights the generator.
+    src/panda_py/.*\.pyi
+  )$
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-added-large-files
+
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.5.1
+    hooks:
+      - id: black

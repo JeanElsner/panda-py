@@ -1,3 +1,6 @@
+#!/bin/bash
+# Regenerates the sphinx apidoc rst files in docs/ from the installed package.
+
 package_name="panda-python"
 
 if metadata=$(pip show "$package_name" 2>/dev/null); then
