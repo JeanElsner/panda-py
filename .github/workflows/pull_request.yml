@@ -9,11 +9,29 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.12.1", "0.13.6", "0.14.2", "0.15.0"]
+        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.12.1", "0.13.6", "0.14.2", "0.15.0", "0.21.3"]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.16.2
+        run: python -m pip install cibuildwheel==4.2.0
+      # Pull requests from forks get a read-only GITHUB_TOKEN that cannot read
+      # GHCR packages, so they fall back to building the dependency chain from
+      # source via the before-all in pyproject.toml. Slow, but it needs no
+      # secrets. Same-repo branches use the prebuilt image.
+      - uses: docker/login-action@v3
+        if: github.event.pull_request.head.repo.fork == false
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Use the prebuilt build environment
+        if: github.event.pull_request.head.repo.fork == false
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "CIBW_MANYLINUX_X86_64_IMAGE=ghcr.io/$owner/panda-py-build:${{ matrix.libfranka-version }}" >> "$GITHUB_ENV"
+          echo "CIBW_BEFORE_ALL=" >> "$GITHUB_ENV"
       - name: Build using cibuildwheel
         run: ./bin/build.sh "${{ matrix.libfranka-version }}"
