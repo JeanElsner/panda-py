@@ -11,10 +11,7 @@ name: Build build-environment images
 
 on:
   push:
-    # TODO: drop jean/chore/update-upstream before merging. workflow_dispatch is
-    # only available once this file is on the default branch, so the branch is
-    # listed here to exercise the image build before the merge.
-    branches: ["main", "jean/chore/update-upstream"]
+    branches: ["main"]
     paths:
       - "Dockerfile"
       - "bin/before_install_centos.sh"
