@@ -48,6 +48,18 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
 - `controllers.CartesianImpedance.set_control` ignored its `q_nullspace`
   argument. The nullspace target was never propagated out of the filter update,
   so it stayed at the configuration the controller started in.
+- `controllers.CartesianImpedance.set_impedance` left the controller
+  mis-damped. The damping was derived from the previous stiffness rather than
+  the one being set, and the filter never corrected it.
+- Cumulative path section lengths omitted half of every blend segment, so
+  trajectories built with a non-zero `max_deviation` resolved positions to the
+  wrong waypoint and interpolated the wrong orientation.
+- Several data races between the control thread and the caller: `_setState`
+  unlocked a mutex its own guard still owned, `stopController` read the robot
+  state without the mutex, and the pending exception was passed between threads
+  unsynchronised.
+- `Desk` raised `ConnectionError` on any response other than 200, so endpoints
+  answering 204 No Content, such as releasing a control token, appeared to fail.
 - The nullspace stiffness was read from the control thread without holding the
   mutex that guards it.
 - `bin/build.sh` left `pyproject.toml` pinned to a nonexistent libfranka version
