@@ -1,27 +1,47 @@
 from __future__ import annotations
+import collections.abc
 import datetime
-import pybind11_stubgen.typing_ext
 import typing
-__all__ = ['CartesianPose', 'CartesianVelocities', 'ControllerMode', 'Duration', 'Errors', 'Frame', 'Gripper', 'GripperState', 'JointPositions', 'JointVelocities', 'MAX_TORQUE_RATE', 'Model', 'RealtimeConfig', 'Robot', 'RobotMode', 'RobotState', 'Torques', 'VacuumGripper', 'VacuumGripperDeviceStatus', 'VacuumGripperProductionSetupProfile', 'VacuumGripperState', 'has_realtime_kernel', 'is_homogeneous_transformation', 'is_valid_elbow', 'limit_rate', 'motion_finished', 'set_current_thread_to_highest_scheduler_priority']
+__all__: list[str] = ['CartesianPose', 'CartesianVelocities', 'ControllerMode', 'Duration', 'Errors', 'Frame', 'Gripper', 'GripperState', 'JointPositions', 'JointVelocities', 'MAX_TORQUE_RATE', 'Model', 'RealtimeConfig', 'Robot', 'RobotMode', 'RobotState', 'Torques', 'VacuumGripper', 'VacuumGripperDeviceStatus', 'VacuumGripperProductionSetupProfile', 'VacuumGripperState', 'has_realtime_kernel', 'is_homogeneous_transformation', 'is_valid_elbow', 'limit_rate', 'motion_finished', 'set_current_thread_to_highest_scheduler_priority']
 class CartesianPose:
-    O_T_EE: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]
-    elbow: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]
     motion_finished: bool
     @typing.overload
-    def __init__(self, cartesian_pose: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]) -> None:
+    def __init__(self, cartesian_pose: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
         ...
     @typing.overload
-    def __init__(self, cartesian_pose: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)], elbow: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]) -> None:
+    def __init__(self, cartesian_pose: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], elbow: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
+        ...
+    @property
+    def O_T_EE(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
+        ...
+    @O_T_EE.setter
+    def O_T_EE(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
+        ...
+    @property
+    def elbow(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
+        ...
+    @elbow.setter
+    def elbow(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
         ...
 class CartesianVelocities:
-    O_dP_EE: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]
-    elbow: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]
     motion_finished: bool
     @typing.overload
-    def __init__(self, cartesian_velocities: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]) -> None:
+    def __init__(self, cartesian_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
         ...
     @typing.overload
-    def __init__(self, cartesian_velocities: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)], elbow: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]) -> None:
+    def __init__(self, cartesian_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], elbow: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
+        ...
+    @property
+    def O_dP_EE(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
+        ...
+    @O_dP_EE.setter
+    def O_dP_EE(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
+        ...
+    @property
+    def elbow(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
+        ...
+    @elbow.setter
+    def elbow(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
         ...
 class ControllerMode:
     """
@@ -34,6 +54,10 @@ class ControllerMode:
     __members__: typing.ClassVar[dict[str, ControllerMode]]  # value = {'kCartesianImpedance': <ControllerMode.kCartesianImpedance: 1>, 'kJointImpedance': <ControllerMode.kJointImpedance: 0>}
     kCartesianImpedance: typing.ClassVar[ControllerMode]  # value = <ControllerMode.kCartesianImpedance: 1>
     kJointImpedance: typing.ClassVar[ControllerMode]  # value = <ControllerMode.kJointImpedance: 0>
+    @typing.overload
+    def __eq__(self, other: ControllerMode) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -42,15 +66,19 @@ class ControllerMode:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: ControllerMode) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -65,7 +93,7 @@ class Duration:
     def __init__(self) -> None:
         ...
     @typing.overload
-    def __init__(self, milliseconds: int) -> None:
+    def __init__(self, milliseconds: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     @typing.overload
     def __init__(self, duration: datetime.timedelta) -> None:
@@ -227,6 +255,10 @@ class Frame:
     kJoint6: typing.ClassVar[Frame]  # value = <Frame.kJoint6: 5>
     kJoint7: typing.ClassVar[Frame]  # value = <Frame.kJoint7: 6>
     kStiffness: typing.ClassVar[Frame]  # value = <Frame.kStiffness: 9>
+    @typing.overload
+    def __eq__(self, other: Frame) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -235,15 +267,19 @@ class Frame:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: Frame) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -256,11 +292,11 @@ class Frame:
 class Gripper:
     def __init__(self, franka_address: str) -> None:
         ...
-    def grasp(self, width: float, speed: float, force: float, epsilon_inner: float = 0.005, epsilon_outer: float = 0.005) -> bool:
+    def grasp(self, width: typing.SupportsFloat | typing.SupportsIndex, speed: typing.SupportsFloat | typing.SupportsIndex, force: typing.SupportsFloat | typing.SupportsIndex, epsilon_inner: typing.SupportsFloat | typing.SupportsIndex = 0.005, epsilon_outer: typing.SupportsFloat | typing.SupportsIndex = 0.005) -> bool:
         ...
     def homing(self) -> bool:
         ...
-    def move(self, width: float, speed: float) -> bool:
+    def move(self, width: typing.SupportsFloat | typing.SupportsIndex, speed: typing.SupportsFloat | typing.SupportsIndex) -> bool:
         ...
     def read_once(self) -> GripperState:
         ...
@@ -286,50 +322,60 @@ class GripperState:
         ...
 class JointPositions:
     motion_finished: bool
-    q: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]
-    def __init__(self, joint_positions: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]) -> None:
+    def __init__(self, joint_positions: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+    @property
+    def q(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @q.setter
+    def q(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
         ...
 class JointVelocities:
-    dq: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]
     motion_finished: bool
-    def __init__(self, joint_velocities: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]) -> None:
+    def __init__(self, joint_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+    @property
+    def dq(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @dq.setter
+    def dq(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
         ...
 class Model:
     @typing.overload
-    def body_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(42)]:
+    def body_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(42)"]:
         ...
     @typing.overload
-    def body_jacobian(self, frame: Frame, q: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], F_T_EE: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)], EE_T_K: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(42)]:
+    def body_jacobian(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(42)"]:
         ...
     @typing.overload
-    def coriolis(self, robot_state: RobotState) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def coriolis(self, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @typing.overload
-    def coriolis(self, q: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], dq: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], I_total: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(9)], m_total: float, F_x_Ctotal: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def coriolis(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], dq: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], I_total: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"]) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @typing.overload
-    def gravity(self, q: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], m_total: float, F_x_Ctotal: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)], gravity_earth: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def gravity(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"], gravity_earth: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @typing.overload
-    def gravity(self, robot_state: RobotState, gravity_earth: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def gravity(self, robot_state: RobotState, gravity_earth: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @typing.overload
-    def mass(self, robot_state: RobotState) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(49)]:
+    def mass(self, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(49)"]:
         ...
     @typing.overload
-    def mass(self, q: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], I_total: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(9)], m_total: float, F_x_Ctotal: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(49)]:
+    def mass(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], I_total: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"]) -> typing.Annotated[list[float], "FixedSize(49)"]:
         ...
     @typing.overload
-    def pose(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]:
+    def pose(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(16)"]:
         ...
     @typing.overload
-    def pose(self, frame: Frame, q: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], F_T_EE: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)], EE_T_K: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]:
+    def pose(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(16)"]:
         ...
     @typing.overload
-    def zero_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(42)]:
+    def zero_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(42)"]:
         ...
     @typing.overload
-    def zero_jacobian(self, frame: Frame, q: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], F_T_EE: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)], EE_T_K: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(42)]:
+    def zero_jacobian(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(42)"]:
         ...
 class RealtimeConfig:
     """
@@ -342,6 +388,10 @@ class RealtimeConfig:
     __members__: typing.ClassVar[dict[str, RealtimeConfig]]  # value = {'kEnforce': <RealtimeConfig.kEnforce: 0>, 'kIgnore': <RealtimeConfig.kIgnore: 1>}
     kEnforce: typing.ClassVar[RealtimeConfig]  # value = <RealtimeConfig.kEnforce: 0>
     kIgnore: typing.ClassVar[RealtimeConfig]  # value = <RealtimeConfig.kIgnore: 1>
+    @typing.overload
+    def __eq__(self, other: RealtimeConfig) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -350,15 +400,19 @@ class RealtimeConfig:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: RealtimeConfig) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -369,37 +423,53 @@ class RealtimeConfig:
     def value(self) -> int:
         ...
 class Robot:
-    def __init__(self, franka_address: str, realtime_config: RealtimeConfig = RealtimeConfig.kIgnore, log_size: int = 50) -> None:
+    def __init__(self, franka_address: str, realtime_config: RealtimeConfig = RealtimeConfig.kIgnore, log_size: typing.SupportsInt | typing.SupportsIndex = 50) -> None:
         ...
     def automatic_error_recovery(self) -> None:
         ...
-    def control(self, control_callback: typing.Callable[[RobotState, Duration], Torques], limit_rate: bool = True, cutoff_frequency: float = 100.0) -> None:
+    def control(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_cartesian_pose(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianPose], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_cartesian_velocity(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianVelocities], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_joint_position(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointPositions], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_joint_velocity(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointVelocities], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_cartesian_pose(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianPose], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_cartesian_velocity(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianVelocities], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_joint_position(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointPositions], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_joint_velocity(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointVelocities], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
         ...
     def load_model(self) -> Model:
         ...
-    def read(self, arg0: typing.Callable[[RobotState], bool]) -> None:
+    def read(self, arg0: collections.abc.Callable[[RobotState], bool]) -> None:
         ...
     def read_once(self) -> RobotState:
         ...
     def server_version(self) -> int:
         ...
-    def set_cartesian_impedance(self, K_x: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]) -> None:
+    def set_cartesian_impedance(self, K_x: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
         ...
     @typing.overload
-    def set_collision_behavior(self, lower_torque_thresholds_acceleration: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], upper_torque_thresholds_acceleration: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], lower_torque_thresholds_nominal: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], upper_torque_thresholds_nominal: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], lower_force_thresholds_acceleration: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)], upper_force_thresholds_acceleration: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)], lower_force_thresholds_nominal: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)], upper_force_thresholds_nominal: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]) -> None:
+    def set_collision_behavior(self, lower_torque_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_torque_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_force_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], lower_force_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
         ...
     @typing.overload
-    def set_collision_behavior(self, lower_torque_thresholds: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], upper_torque_thresholds: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], lower_force_thresholds: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)], upper_force_thresholds: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]) -> None:
+    def set_collision_behavior(self, lower_torque_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_force_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
         ...
-    def set_ee(self, NE_T_EE: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]) -> None:
+    def set_ee(self, NE_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
         ...
-    def set_guiding_mode(self, guiding_mode: typing.Annotated[list[bool], pybind11_stubgen.typing_ext.FixedSize(6)], elbow: bool) -> None:
+    def set_guiding_mode(self, guiding_mode: typing.Annotated[collections.abc.Sequence[bool], "FixedSize(6)"], elbow: bool) -> None:
         ...
-    def set_joint_impedance(self, K_theta: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]) -> None:
+    def set_joint_impedance(self, K_theta: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
         ...
-    def set_k(self, EE_T_K: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]) -> None:
+    def set_k(self, EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
         ...
-    def set_load(self, load_mass: float, F_x_Cload: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)], load_inertia: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(9)]) -> None:
+    def set_load(self, load_mass: typing.SupportsFloat | typing.SupportsIndex, F_x_Cload: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"], load_inertia: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"]) -> None:
         ...
     def stop(self) -> None:
         ...
@@ -429,6 +499,10 @@ class RobotMode:
     kOther: typing.ClassVar[RobotMode]  # value = <RobotMode.kOther: 0>
     kReflex: typing.ClassVar[RobotMode]  # value = <RobotMode.kReflex: 4>
     kUserStopped: typing.ClassVar[RobotMode]  # value = <RobotMode.kUserStopped: 5>
+    @typing.overload
+    def __eq__(self, other: RobotMode) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -437,15 +511,19 @@ class RobotMode:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: RobotMode) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -459,58 +537,58 @@ class RobotState:
     def __repr__(self) -> str:
         ...
     @property
-    def EE_T_K(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]:
+    def EE_T_K(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
         ...
     @property
-    def F_T_EE(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]:
+    def F_T_EE(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
         ...
     @property
-    def F_x_Cee(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)]:
+    def F_x_Cee(self) -> typing.Annotated[list[float], "FixedSize(3)"]:
         ...
     @property
-    def F_x_Cload(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)]:
+    def F_x_Cload(self) -> typing.Annotated[list[float], "FixedSize(3)"]:
         ...
     @property
-    def F_x_Ctotal(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)]:
+    def F_x_Ctotal(self) -> typing.Annotated[list[float], "FixedSize(3)"]:
         ...
     @property
-    def I_ee(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(9)]:
+    def I_ee(self) -> typing.Annotated[list[float], "FixedSize(9)"]:
         ...
     @property
-    def I_load(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(9)]:
+    def I_load(self) -> typing.Annotated[list[float], "FixedSize(9)"]:
         ...
     @property
-    def I_total(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(9)]:
+    def I_total(self) -> typing.Annotated[list[float], "FixedSize(9)"]:
         ...
     @property
-    def K_F_ext_hat_K(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]:
+    def K_F_ext_hat_K(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
         ...
     @property
-    def O_F_ext_hat_K(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]:
+    def O_F_ext_hat_K(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
         ...
     @property
-    def O_T_EE(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]:
+    def O_T_EE(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
         ...
     @property
-    def O_T_EE_c(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]:
+    def O_T_EE_c(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
         ...
     @property
-    def O_T_EE_d(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]:
+    def O_T_EE_d(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
         ...
     @property
-    def O_dP_EE_c(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]:
+    def O_dP_EE_c(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
         ...
     @property
-    def O_dP_EE_d(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]:
+    def O_dP_EE_d(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
         ...
     @property
-    def O_ddP_EE_c(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]:
+    def O_ddP_EE_c(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
         ...
     @property
-    def cartesian_collision(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]:
+    def cartesian_collision(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
         ...
     @property
-    def cartesian_contact(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(6)]:
+    def cartesian_contact(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
         ...
     @property
     def control_command_success_rate(self) -> float:
@@ -519,40 +597,40 @@ class RobotState:
     def current_errors(self) -> Errors:
         ...
     @property
-    def ddelbow_c(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]:
+    def ddelbow_c(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
         ...
     @property
-    def ddq_d(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def ddq_d(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def delbow_c(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]:
+    def delbow_c(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
         ...
     @property
-    def dq(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def dq(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def dq_d(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def dq_d(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def dtau_J(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def dtau_J(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def dtheta(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def dtheta(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def elbow(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]:
+    def elbow(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
         ...
     @property
-    def elbow_c(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]:
+    def elbow_c(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
         ...
     @property
-    def elbow_d(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]:
+    def elbow_d(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
         ...
     @property
-    def joint_collision(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def joint_collision(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def joint_contact(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def joint_contact(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
     def last_motion_errors(self) -> Errors:
@@ -567,33 +645,38 @@ class RobotState:
     def m_total(self) -> float:
         ...
     @property
-    def q(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def q(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def q_d(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def q_d(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
     def robot_mode(self) -> RobotMode:
         ...
     @property
-    def tau_J(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def tau_J(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def tau_J_d(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def tau_J_d(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def tau_ext_hat_filtered(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def tau_ext_hat_filtered(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
-    def theta(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+    def theta(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
         ...
     @property
     def time(self) -> Duration:
         ...
 class Torques:
     motion_finished: bool
-    tau_J: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]
-    def __init__(self, torques: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]) -> None:
+    def __init__(self, torques: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+    @property
+    def tau_J(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @tau_J.setter
+    def tau_J(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
         ...
 class VacuumGripper:
     def __init__(self, franka_address: str) -> None:
@@ -606,7 +689,7 @@ class VacuumGripper:
         ...
     def stop(self) -> bool:
         ...
-    def vacuum(self, vacuum: int, timeout: datetime.timedelta, profile: VacuumGripperProductionSetupProfile = VacuumGripperProductionSetupProfile.kP0) -> bool:
+    def vacuum(self, vacuum: typing.SupportsInt | typing.SupportsIndex, timeout: datetime.timedelta, profile: VacuumGripperProductionSetupProfile = VacuumGripperProductionSetupProfile.kP0) -> bool:
         ...
 class VacuumGripperDeviceStatus:
     """
@@ -625,6 +708,10 @@ class VacuumGripperDeviceStatus:
     kOrange: typing.ClassVar[VacuumGripperDeviceStatus]  # value = <VacuumGripperDeviceStatus.kOrange: 2>
     kRed: typing.ClassVar[VacuumGripperDeviceStatus]  # value = <VacuumGripperDeviceStatus.kRed: 3>
     kYellow: typing.ClassVar[VacuumGripperDeviceStatus]  # value = <VacuumGripperDeviceStatus.kYellow: 1>
+    @typing.overload
+    def __eq__(self, other: VacuumGripperDeviceStatus) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -633,15 +720,19 @@ class VacuumGripperDeviceStatus:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: VacuumGripperDeviceStatus) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -668,6 +759,10 @@ class VacuumGripperProductionSetupProfile:
     kP1: typing.ClassVar[VacuumGripperProductionSetupProfile]  # value = <VacuumGripperProductionSetupProfile.kP1: 1>
     kP2: typing.ClassVar[VacuumGripperProductionSetupProfile]  # value = <VacuumGripperProductionSetupProfile.kP2: 2>
     kP3: typing.ClassVar[VacuumGripperProductionSetupProfile]  # value = <VacuumGripperProductionSetupProfile.kP3: 3>
+    @typing.overload
+    def __eq__(self, other: VacuumGripperProductionSetupProfile) -> bool:
+        ...
+    @typing.overload
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -676,15 +771,19 @@ class VacuumGripperProductionSetupProfile:
         ...
     def __index__(self) -> int:
         ...
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __int__(self) -> int:
         ...
+    @typing.overload
+    def __ne__(self, other: VacuumGripperProductionSetupProfile) -> bool:
+        ...
+    @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
         ...
     def __repr__(self) -> str:
         ...
-    def __setstate__(self, state: int) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     def __str__(self) -> str:
         ...
@@ -718,11 +817,11 @@ class VacuumGripperState:
         ...
 def has_realtime_kernel() -> bool:
     ...
-def is_homogeneous_transformation(transform: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(16)]) -> bool:
+def is_homogeneous_transformation(transform: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> bool:
     ...
-def is_valid_elbow(elbow: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(2)]) -> bool:
+def is_valid_elbow(elbow: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> bool:
     ...
-def limit_rate(arg0: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], arg1: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)], arg2: typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]:
+def limit_rate(arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], arg1: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], arg2: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> typing.Annotated[list[float], "FixedSize(7)"]:
     ...
 @typing.overload
 def motion_finished(command: Torques) -> Torques:
