@@ -8,14 +8,30 @@ set (CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "Release")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
-if(NOT DEFINED LIBFRANKA_VER)
-    message(FATAL_ERROR "LIBFRANKA_VER must be set! (e.g., -DLIBFRANKA_VER=0x000f00)")
-endif()
-add_compile_definitions(LIBFRANKA_VER=${LIBFRANKA_VER})
-
 find_package(Eigen3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Franka REQUIRED)
+
+# Derive the preprocessor version guard from the libfranka package that was
+# actually found, so it can never disagree with the headers we compile against.
+# It can still be overridden explicitly, e.g. -DLIBFRANKA_VER=0x000902.
+if(NOT DEFINED LIBFRANKA_VER)
+  if(NOT Franka_VERSION)
+    message(FATAL_ERROR
+      "find_package(Franka) reported no version. Pass the version explicitly, "
+      "e.g. -DLIBFRANKA_VER=0x000902 for libfranka 0.9.2.")
+  endif()
+  string(REPLACE "." ";" _franka_version_parts "${Franka_VERSION}")
+  list(GET _franka_version_parts 0 _franka_major)
+  list(GET _franka_version_parts 1 _franka_minor)
+  list(GET _franka_version_parts 2 _franka_patch)
+  math(EXPR LIBFRANKA_VER
+       "(${_franka_major} << 16) + (${_franka_minor} << 8) + ${_franka_patch}"
+       OUTPUT_FORMAT HEXADECIMAL)
+  message(STATUS
+    "Derived LIBFRANKA_VER=${LIBFRANKA_VER} from libfranka ${Franka_VERSION}")
+endif()
+add_compile_definitions(LIBFRANKA_VER=${LIBFRANKA_VER})
 find_package(
   Python
   COMPONENTS Interpreter Development.Module

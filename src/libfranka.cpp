@@ -14,7 +14,16 @@
 #include <franka/vacuum_gripper.h>
 #endif
 
-#if LIBFRANKA_VER >= 0x000e00
+// franka::RobotModel was introduced in libfranka 0.14.0. Its public header was
+// removed again in 0.20.5, which hid the Pinocchio dependency from the
+// interface, so the binding only exists for the versions in between.
+#if LIBFRANKA_VER >= 0x000e00 && LIBFRANKA_VER < 0x001405
+#define PANDA_PY_HAS_ROBOT_MODEL 1
+#else
+#define PANDA_PY_HAS_ROBOT_MODEL 0
+#endif
+
+#if PANDA_PY_HAS_ROBOT_MODEL
 #include <franka/robot_model.h>
 #endif
 
@@ -228,6 +237,18 @@ PYBIND11_MODULE(libfranka, m) {
            py::overload_cast<const franka::RobotState &>(
                &franka::Model::coriolis, py::const_),
            py::arg("robot_state"))
+// libfranka 0.18.0 added a gravity_earth parameter to Model::coriolis and
+// deprecated the five-argument overload.
+#if LIBFRANKA_VER >= 0x001200
+      .def("coriolis",
+           py::overload_cast<const std::array<double, 7> &,
+                             const std::array<double, 7> &,
+                             const std::array<double, 9> &, double,
+                             const std::array<double, 3> &, const std::array<double, 3> &>(
+               &franka::Model::coriolis, py::const_),
+           py::arg("q"), py::arg("dq"), py::arg("I_total"), py::arg("m_total"),
+           py::arg("F_x_Ctotal"), py::arg("gravity_earth") = gravity_earth)
+#else
       .def("coriolis",
            py::overload_cast<const std::array<double, 7> &,
                              const std::array<double, 7> &,
@@ -236,6 +257,7 @@ PYBIND11_MODULE(libfranka, m) {
                &franka::Model::coriolis, py::const_),
            py::arg("q"), py::arg("dq"), py::arg("I_total"), py::arg("m_total"),
            py::arg("F_x_Ctotal"))
+#endif
       .def("gravity",
            py::overload_cast<const std::array<double, 7> &, double,
                              const std::array<double, 3> &,
@@ -249,7 +271,7 @@ PYBIND11_MODULE(libfranka, m) {
                &franka::Model::gravity, py::const_),
            py::arg("robot_state"), py::arg("gravity_earth") = gravity_earth);
 
-  #if LIBFRANKA_VER >= 0x000e00
+  #if PANDA_PY_HAS_ROBOT_MODEL
   py::class_<franka::RobotModel>(m, "RobotModel")
       .def(py::init<const std::string &>(),
            py::arg("urdf"))

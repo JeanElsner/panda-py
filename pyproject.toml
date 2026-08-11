@@ -62,6 +62,3 @@ build-type = "Release"
 
 [tool.scikit-build.wheel]
 packages = [ "src/panda_py",]
-
-[tool.scikit-build.cmake.define]
-LIBFRANKA_VER = "0x000902"
