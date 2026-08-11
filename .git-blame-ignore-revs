@@ -1,0 +1,7 @@
+# Revisions to skip when running git blame, i.e. bulk reformats with no
+# functional change. Enable locally with:
+#
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: apply black and the whitespace hooks
+cb63054989e043a9d0943e4d47a3dfbcb2c47d77
