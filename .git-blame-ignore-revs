@@ -5,3 +5,6 @@
 
 # style: apply black and the whitespace hooks
 cb63054989e043a9d0943e4d47a3dfbcb2c47d77
+
+# style: apply clang-format
+69ca942f886948a850c8f2eac9932ff7319b773e
