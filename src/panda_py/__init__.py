@@ -330,7 +330,9 @@ class Desk:
                                       json=json,
                                       headers=headers,
                                       files=files)
-    if response.status_code != 200:
+    # Any 2xx is a success. Some endpoints, in particular the DELETE used to
+    # release a control token, answer 204 No Content.
+    if not 200 <= response.status_code < 300:
       raise ConnectionError(response.text)
     return response
 
