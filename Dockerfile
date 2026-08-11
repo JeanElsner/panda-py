@@ -50,6 +50,7 @@ RUN mkdir -p ${WORK_DIR}
 
 COPY bin/before_install_centos.sh /opt/panda-py/bin/
 COPY bin/patches /opt/panda-py/bin/patches
+COPY bin/cmake /opt/panda-py/bin/cmake
 RUN /opt/panda-py/bin/before_install_centos.sh system \
  && yum clean all && rm -rf /var/cache/yum
 

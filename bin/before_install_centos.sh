@@ -208,7 +208,13 @@ install_libfranka() {
     git checkout $LIBFRANKA_VER
     git submodule update
     mkdir build && cd build
-    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
+
+    # libfranka 0.14.x-0.17.x reach Pinocchio's urdfdom export without finding
+    # console_bridge, so its imported target is missing. The injected file only
+    # makes QUIET lookups, so it is a no-op for versions that do not need it.
+    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF \
+      -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -DCMAKE_PROJECT_INCLUDE="$SCRIPT_DIR/cmake/franka_find_deps.cmake" ..
     cmake --build . -j$(nproc)
     cmake --install . --strip
     cd ../.. && rm -rf libfranka
