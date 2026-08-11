@@ -28,6 +28,10 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
 - `Panda.is_moving()` and `Panda.refresh_state()`. The state getters now read the
   robot when no controller is running, instead of returning a cached state that
   could be arbitrarily stale.
+- Joint limits for the FR3, both the original set and the wider one introduced
+  with robot system 5.9.0, exported from `panda_py.constants` alongside the FER
+  set, plus `Panda.get_joint_limits_lower()` and `get_joint_limits_upper()` for
+  the set in use.
 
 ### Changed
 
@@ -67,6 +71,10 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
   short of the goal (#49). They now also require the goal to be reached, within
   a one second settling window, and log a warning with the remaining error when
   it is not.
+- The virtual walls used the FER joint envelope on every robot, so on an FR3
+  they threw from inside the control loop for legal configurations, joint 6
+  above 3.7525 rad in particular, and the robot stopped until recovery. The
+  envelope is now chosen from the robot's server version.
 - Several data races between the control thread and the caller: `_setState`
   unlocked a mutex its own guard still owned, `stopController` read the robot
   state without the mutex, and the pending exception was passed between threads
