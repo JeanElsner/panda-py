@@ -135,6 +135,7 @@ class Panda {
   std::shared_ptr<franka::Model> model_;
   franka::RobotState state_;
   std::mutex mux_;
+  std::mutex error_mux_;
   std::shared_ptr<TorqueController> current_controller_;
   std::thread current_thread_;
   std::shared_ptr<controllers::joint_limits::VirtualWallController>

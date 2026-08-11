@@ -203,7 +203,6 @@ Eigen::Matrix4d Panda::getPose() {
 void Panda::_setState(const franka::RobotState &state) {
   std::lock_guard<std::mutex> lock(mux_);
   state_ = state;
-  mux_.unlock();
   if (log_enabled_) {
     log_.push_back(state);
     if (log_.size() > log_size_) {
@@ -256,7 +255,9 @@ void Panda::stopController() {
   if (current_controller_ /*&& current_controller_->isRunning()*/) {
     _log("info", "Stopping active controller (%s).",
          current_controller_->name());
-    current_controller_->stop(state_, model_);
+    // getState() copies under the mutex; state_ is written by the control
+    // thread at 1 kHz and must not be read directly from here.
+    current_controller_->stop(getState(), model_);
   }
   if (current_thread_.joinable()) {
     current_thread_.join();
@@ -278,15 +279,20 @@ void Panda::_runController(TorqueCallback &control_callback) {
     robot_->control(control_callback);
   } catch (const franka::Exception &e) {
     _log("error", "Control loop interruped: %s", e.what());
+    std::lock_guard<std::mutex> lock(error_mux_);
     last_error_ = std::make_shared<franka::Exception>(e);
   }
 }
 
 void Panda::raiseError() {
-  if (last_error_) {
-    franka::Exception e = *last_error_;
-    last_error_.reset();
-    throw e;
+  // Written by the control thread, read here from the caller's thread.
+  std::shared_ptr<franka::Exception> error;
+  {
+    std::lock_guard<std::mutex> lock(error_mux_);
+    error = std::move(last_error_);
+  }
+  if (error) {
+    throw *error;
   }
 }
 
