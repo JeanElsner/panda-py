@@ -107,6 +107,7 @@ franka::Robot &Panda::getRobot() { return *robot_; }
 franka::Model &Panda::getModel() { return *model_; }
 
 franka::RobotState Panda::getState() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   return state_;
 }
@@ -160,7 +161,32 @@ std::map<std::string, std::list<Eigen::VectorXd>> Panda::getLog() {
   return log;
 }
 
+bool Panda::isMoving() {
+  return current_controller_ && current_controller_->isRunning();
+}
+
+void Panda::refreshState() {
+  // While a controller runs, the control loop feeds state_ at 1 kHz and
+  // readOnce() must not be called concurrently with control. Outside of that the
+  // cached state is only as recent as the last motion, so read the robot once.
+  if (isMoving()) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(read_mux_);
+  // The state getters reach this either with the GIL held, when called from
+  // Python, or without it, when called internally from move_to_* which releases
+  // it for the duration of the motion. Releasing an unheld GIL aborts, so only
+  // give it up if this thread actually holds it.
+  if (PyGILState_Check()) {
+    py::gil_scoped_release release;
+    _setState(robot_->readOnce());
+  } else {
+    _setState(robot_->readOnce());
+  }
+}
+
 Eigen::Vector3d Panda::getPosition() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   Eigen::Affine3d transform(Eigen::Matrix4d::Map(state_.O_T_EE.data()));
   Eigen::Vector3d position(transform.translation());
@@ -168,6 +194,7 @@ Eigen::Vector3d Panda::getPosition() {
 }
 
 Eigen::Vector4d Panda::getOrientation(bool scalar_first) {
+  refreshState();
   if (scalar_first) {
     return getOrientationScalarFirst();
   }
@@ -191,11 +218,13 @@ Eigen::Vector4d Panda::getOrientationScalarFirst() {
 }
 
 Vector7d Panda::getJointPositions() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   return Eigen::Map<Vector7d>(state_.q.data());
 }
 
 Eigen::Matrix4d Panda::getPose() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   return Eigen::Matrix4d::Map(state_.O_T_EE.data());
 }
@@ -344,7 +373,14 @@ bool Panda::moveToJointPosition(std::vector<Vector7d> &waypoints,
   auto cb = _createTorqueCallback();
   _runController(cb);
   const Vector7d q = Eigen::Map<const Vector7d>(robot_->readOnce().q.data());
-  return waypoints.back().isApprox(q, success_threshold);
+  const bool success = waypoints.back().isApprox(q, success_threshold);
+  if (!success) {
+    _log("warning",
+         "Motion finished %.4f rad from the goal, above the success threshold. "
+         "Consider a higher stiffness or a slower speed_factor.",
+         (waypoints.back() - q).cwiseAbs().maxCoeff());
+  }
+  return success;
 }
 
 bool Panda::moveToPose(const Eigen::Vector3d &position,
@@ -393,8 +429,16 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d> &positions,
       Eigen::Matrix4d::Map(robot_->readOnce().O_T_EE.data()));
   Eigen::Vector3d position(transform.translation());
   Eigen::Quaterniond orientation(transform.rotation());
-  return positions.back().isApprox(position, success_threshold) &&
-         orientations.back().isApprox(orientation.coeffs(), success_threshold);
+  const bool success =
+      positions.back().isApprox(position, success_threshold) &&
+      orientations.back().isApprox(orientation.coeffs(), success_threshold);
+  if (!success) {
+    _log("warning",
+         "Motion finished %.4f m from the goal, above the success threshold. "
+         "Consider a higher impedance or a slower speed_factor.",
+         (positions.back() - position).norm());
+  }
+  return success;
 }
 
 bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>> &poses,

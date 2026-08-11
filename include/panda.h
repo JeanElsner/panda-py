@@ -111,6 +111,8 @@ class Panda {
       const Vector7d &damping = controllers::JointTrajectory::kDefaultDamping,
       double dq_threshold = controllers::JointTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToJointPositionThreshold);
+  bool isMoving();
+  void refreshState();
   Eigen::Vector3d getPosition();
   Eigen::Vector4d getOrientation(bool scalar_first = false);
   Eigen::Vector4d getOrientationScalarLast();
@@ -136,6 +138,7 @@ class Panda {
   franka::RobotState state_;
   std::mutex mux_;
   std::mutex error_mux_;
+  std::mutex read_mux_;
   std::shared_ptr<TorqueController> current_controller_;
   std::thread current_thread_;
   std::shared_ptr<controllers::joint_limits::VirtualWallController>

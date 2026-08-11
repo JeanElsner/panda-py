@@ -135,6 +135,16 @@ PYBIND11_MODULE(_core, m) {
            )delim")
       .def("get_model", &Panda::getModel,
            py::return_value_policy::reference_internal)
+      .def("is_moving", &Panda::isMoving, R"delim(
+          True while a controller is running, i.e. while the robot is under
+          active control by this instance.
+      )delim")
+      .def("refresh_state", &Panda::refreshState, R"delim(
+          Reads the robot state once and updates the cached copy. The state
+          getters call this for you when no controller is running; while one is,
+          the control loop already refreshes the state at 1KHz and this is a
+          no-op.
+      )delim")
       .def("get_state", &Panda::getState, R"delim(
           Get a copy of the last :py:class:`libfranka.RobotState` received from the robot.
       )delim")
