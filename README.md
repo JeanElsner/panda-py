@@ -23,7 +23,7 @@ To get started, check out the [tutorial paper](https://www.sciencedirect.com/sci
 pip install panda-python
 ```
 
-This will install panda-py and all its requirements. The pip version ships with libfranka 0.9.2, the newest version for the Franka Emika Robot. Please refer to the section below if you use an older system version or the more recent Franka Research 3 robot. 
+This will install panda-py and all its requirements. The pip version ships with libfranka 0.9.2, the newest version for the Franka Emika Robot. Please refer to the section below if you use an older system version or the more recent Franka Research 3 robot.
 
 ## libfranka Version
 

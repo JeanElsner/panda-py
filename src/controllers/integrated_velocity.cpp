@@ -5,7 +5,7 @@
 const double kDefaultStiffnessData[7] = {600, 600, 600, 600, 250, 150, 50};
 const Vector7d IntegratedVelocity::kDefaultStiffness =
     Vector7d(kDefaultStiffnessData);
-  
+
 const double kDefaultDampingData[7] = {50, 50, 50, 20, 20, 20, 10};
 const Vector7d IntegratedVelocity::kDefaultDamping =
     Vector7d(kDefaultDampingData);

@@ -533,7 +533,7 @@ PYBIND11_MODULE(libfranka, m) {
       .value("kYellow", franka::VacuumGripperDeviceStatus::kYellow)
       .value("kOrange", franka::VacuumGripperDeviceStatus::kOrange)
       .value("kRed", franka::VacuumGripperDeviceStatus::kRed);
-  
+
   py::class_<franka::VacuumGripperState>(m, "VacuumGripperState")
       .def_readonly("in_control_range", &franka::VacuumGripperState::in_control_range)
       .def_readonly("part_detached", &franka::VacuumGripperState::part_detached)
@@ -542,25 +542,25 @@ PYBIND11_MODULE(libfranka, m) {
       .def_readonly("actual_power", &franka::VacuumGripperState::actual_power)
       .def_readonly("vacuum", &franka::VacuumGripperState::vacuum)
       .def_readonly("time", &franka::VacuumGripperState::time);
-  
+
   py::enum_<franka::VacuumGripper::ProductionSetupProfile>(m, "VacuumGripperProductionSetupProfile")
       .value("kP0", franka::VacuumGripper::ProductionSetupProfile::kP0)
       .value("kP1", franka::VacuumGripper::ProductionSetupProfile::kP1)
       .value("kP2", franka::VacuumGripper::ProductionSetupProfile::kP2)
       .value("kP3", franka::VacuumGripper::ProductionSetupProfile::kP3);
-  
+
   py::class_<franka::VacuumGripper>(m, "VacuumGripper")
       .def(py::init<std::string>(), py::arg("franka_address"))
       .def("server_version", &franka::VacuumGripper::serverVersion)
       .def("vacuum", &franka::VacuumGripper::vacuum,
            py::call_guard<py::gil_scoped_release>(), py::arg("vacuum"),
-         py::arg("timeout"), 
+         py::arg("timeout"),
            py::arg("profile") = franka::VacuumGripper::ProductionSetupProfile::kP0)
       .def("drop_off", &franka::VacuumGripper::dropOff,
            py::call_guard<py::gil_scoped_release>(), py::arg("timeout"))
       .def("stop", &franka::VacuumGripper::stop,
            py::call_guard<py::gil_scoped_release>())
-      .def("read_once", &franka::VacuumGripper::readOnce);       
+      .def("read_once", &franka::VacuumGripper::readOnce);
   #endif
 
   m.def("is_valid_elbow", &franka::isValidElbow, py::arg("elbow"));
@@ -570,7 +570,7 @@ PYBIND11_MODULE(libfranka, m) {
   m.def("set_current_thread_to_highest_scheduler_priority",
         &franka::setCurrentThreadToHighestSchedulerPriority,
         py::arg("error_message"));
-  
+
   m.def("motion_finished",
         py::overload_cast<franka::Torques>(&franka::MotionFinished),
         py::arg("command"));

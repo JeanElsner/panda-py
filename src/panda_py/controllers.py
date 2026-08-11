@@ -6,11 +6,22 @@ function :py:func:`panda_py.Panda.start_controller`.
 """
 
 # pylint: disable=no-name-in-module
-from ._core import AppliedForce, AppliedTorque,\
-                    CartesianImpedance, Force, IntegratedVelocity,\
-                    JointPosition, TorqueController
+from ._core import (
+    AppliedForce,
+    AppliedTorque,
+    CartesianImpedance,
+    Force,
+    IntegratedVelocity,
+    JointPosition,
+    TorqueController,
+)
 
 __all__ = [
-    'TorqueController', 'CartesianImpedance', 'IntegratedVelocity',
-    'JointPosition', 'AppliedTorque', 'AppliedForce', 'Force'
+    "TorqueController",
+    "CartesianImpedance",
+    "IntegratedVelocity",
+    "JointPosition",
+    "AppliedTorque",
+    "AppliedForce",
+    "Force",
 ]

@@ -50,7 +50,7 @@ PYBIND11_MODULE(_core, m) {
         py::arg("O_T_EE"), py::arg("q_init") = kinematics::kQDefault,
         py::arg("q_7") = M_PI_4,
         R"delim(
-          Compute analytical inverse kinematics. 
+          Compute analytical inverse kinematics.
           Solution is case consistent with configuration  given in `q_init`.
 
           Args:
@@ -173,7 +173,7 @@ PYBIND11_MODULE(_core, m) {
                Args:
                  scalar_first: If True returns quaternion in scalar first
                    representation (default: False)
-               
+
                Returns:
                  Vector of shape (4,) holding quaternion coefficients.
            )delim")
