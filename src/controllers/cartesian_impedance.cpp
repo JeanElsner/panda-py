@@ -32,7 +32,10 @@ CartesianImpedance::CartesianImpedance(
 };
 
 void CartesianImpedance::_computeDamping() {
-  K_d_target_ = damping_ratio_ * 2 * K_p_.cwiseSqrt();
+  // Derive from the target, not the currently filtered value: setImpedance()
+  // assigns K_p_target_ and then calls this, so using K_p_ would compute the
+  // damping for the previous stiffness and never correct it.
+  K_d_target_ = damping_ratio_ * 2 * K_p_target_.cwiseSqrt();
 };
 
 franka::Torques CartesianImpedance::step(const franka::RobotState &robot_state,
