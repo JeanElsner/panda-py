@@ -17,18 +17,10 @@ jobs:
           python-version: "3.12"
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==4.2.0
-      # Pull requests from forks get a read-only GITHUB_TOKEN that cannot read
-      # GHCR packages, so they fall back to building the dependency chain from
-      # source via the before-all in pyproject.toml. Slow, but it needs no
-      # secrets. Same-repo branches use the prebuilt image.
-      - uses: docker/login-action@v3
-        if: github.event.pull_request.head.repo.fork == false
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # The build-environment images are public, so no registry login is needed
+      # and pull requests from forks can use them too, despite their read-only
+      # GITHUB_TOKEN.
       - name: Use the prebuilt build environment
-        if: github.event.pull_request.head.repo.fork == false
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "CIBW_MANYLINUX_X86_64_IMAGE=ghcr.io/$owner/panda-py-build:${{ matrix.libfranka-version }}" >> "$GITHUB_ENV"
