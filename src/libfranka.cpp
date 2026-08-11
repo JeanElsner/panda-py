@@ -380,80 +380,88 @@ PYBIND11_MODULE(libfranka, m) {
                              bool, double>(&franka::Robot::control),
            py::arg("control_callback"), py::arg("limit_rate") = true,
            py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_joint_position",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::JointPositions(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_joint_velocity",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::JointVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_cartesian_pose",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::CartesianPose(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::call_guard<py::gil_scoped_release>(),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_cartesian_velocity",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::CartesianVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_joint_position",
-    //        py::overload_cast<std::function<franka::JointPositions(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_joint_velocity",
-    //        py::overload_cast<std::function<franka::JointVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_cartesian_pose",
-    //        py::overload_cast<std::function<franka::CartesianPose(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_cartesian_velocity",
-    //        py::overload_cast<std::function<franka::CartesianVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-      //.def("get_virtual_wall", &franka::Robot::getVirtualWall, py::arg("id"))
+      // The motion generator overloads of Robot::control. panda-py's own
+      // controllers do not use these; they run a torque loop in C++ and are the
+      // recommended way to control the robot. These are bound so that callbacks
+      // returning JointPositions, JointVelocities, CartesianPose or
+      // CartesianVelocities can be used directly, rather than being silently
+      // cast to Torques.
+      //
+      // Like the torque overload above, these deliberately keep the GIL for the
+      // duration of the call. Releasing it would mean a full GIL acquisition per
+      // callback, which on a 1 kHz loop can add latency spikes.
+      .def("control_torque_joint_position",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::JointPositions(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_torque_joint_velocity",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::JointVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_torque_cartesian_pose",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::CartesianPose(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_torque_cartesian_velocity",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::CartesianVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_joint_position",
+           py::overload_cast<std::function<franka::JointPositions(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_joint_velocity",
+           py::overload_cast<std::function<franka::JointVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_cartesian_pose",
+           py::overload_cast<std::function<franka::CartesianPose(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_cartesian_velocity",
+           py::overload_cast<std::function<franka::CartesianVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
       .def("set_collision_behavior",
            py::overload_cast<
                const std::array<double, 7> &, const std::array<double, 7> &,
