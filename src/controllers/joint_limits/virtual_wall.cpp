@@ -7,11 +7,12 @@
 using controllers::joint_limits::VirtualWall;
 
 VirtualWall::VirtualWall(const double& soft_upper_joint_position_limit,
-                     const double& soft_lower_joint_position_limit,
-                     const double& PD_zone_width, const double& D_zone_width,
-                     const double& PD_zone_stiffness,
-                     const double& PD_zone_damping,
-                     const double& D_zone_damping)
+                         const double& soft_lower_joint_position_limit,
+                         const double& PD_zone_width,
+                         const double& D_zone_width,
+                         const double& PD_zone_stiffness,
+                         const double& PD_zone_damping,
+                         const double& D_zone_damping)
     : soft_upper_joint_position_limit_(soft_upper_joint_position_limit),
       soft_lower_joint_position_limit_(soft_lower_joint_position_limit),
       PD_zone_width_(PD_zone_width),
@@ -128,7 +129,8 @@ void VirtualWall::adjustMovingWall(const double& q, const double& dq) {
 double VirtualWall::positiveCheck(double value) {
   if (value < 0) {
     printf(
-        "ERROR: VirtualWall expects positive parameters, but got negative. Using "
+        "ERROR: VirtualWall expects positive parameters, but got negative. "
+        "Using "
         "its absolute "
         "value.");
     value = fabs(value);
@@ -137,7 +139,7 @@ double VirtualWall::positiveCheck(double value) {
 }
 
 VirtualWall::MotionInWall VirtualWall::getMotionInWall(const double& q,
-                                                   const double& dq) const {
+                                                       const double& dq) const {
   double D_zone_boundary_max =
       soft_upper_joint_position_limit_ - PD_zone_width_ - D_zone_width_;
   double D_zone_boundary_min =

@@ -4,22 +4,21 @@
 #include <array>
 #include <memory>
 
-#include "utils.h"
 #include "controllers/joint_limits/virtual_wall.h"
+#include "utils.h"
 
 namespace controllers {
 namespace joint_limits {
 
 class VirtualWallController {
  public:
-  VirtualWallController(
-      const Vector7d& soft_upper_joint_position_limits,
-      const Vector7d& soft_lower_joint_position_limits,
-      const Vector7d& PD_zone_widths,
-      const Vector7d& D_zone_widths,
-      const Vector7d& PD_zone_stiffnesses,
-      const Vector7d& PD_zone_dampings,
-      const Vector7d& D_zone_dampings) {
+  VirtualWallController(const Vector7d& soft_upper_joint_position_limits,
+                        const Vector7d& soft_lower_joint_position_limits,
+                        const Vector7d& PD_zone_widths,
+                        const Vector7d& D_zone_widths,
+                        const Vector7d& PD_zone_stiffnesses,
+                        const Vector7d& PD_zone_dampings,
+                        const Vector7d& D_zone_dampings) {
     for (size_t i = 0; i < 7; i++) {
       virtual_walls_.at(i) = std::make_unique<VirtualWall>(
           soft_upper_joint_position_limits[i],
@@ -31,9 +30,7 @@ class VirtualWallController {
 
   VirtualWallController() = delete;
 
-  void computeTorque(const Array7d& q,
-                     const Array7d& dq,
-                     Array7d& torque) {
+  void computeTorque(const Array7d& q, const Array7d& dq, Array7d& torque) {
     for (size_t i = 0; i < 7; i++) {
       torque[i] = virtual_walls_[i]->computeTorque(q[i], dq[i]);
     };

@@ -40,12 +40,12 @@
 
 #include <Eigen/Geometry>
 #include <algorithm>
-#include <limits>
 #include <cmath>
 #include <fstream>
 #include <iostream>
-#include <vector>
+#include <limits>
 #include <numeric>
+#include <vector>
 
 using namespace motion::time_optimal;
 
@@ -216,7 +216,8 @@ Path::Path(const std::list<Eigen::VectorXd>& path, double max_deviation)
     ++path_iterator2;
     section_lengths.push_back(section_length);
   }
-  std::partial_sum(section_lengths.begin(), section_lengths.end(), section_lengths.begin());
+  std::partial_sum(section_lengths.begin(), section_lengths.end(),
+                   section_lengths.begin());
 
   // Create list of switching point candidates, calculate total path length and
   // absolute positions of path segments

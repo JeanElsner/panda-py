@@ -18,16 +18,17 @@ class CartesianTrajectory : public CartesianImpedance {
   static const double kDefaultNullspaceStiffness;
   static const Eigen::Matrix<double, 6, 6> kDefaultImpedance;
 
-  CartesianTrajectory(std::shared_ptr<motion::CartesianTrajectory> trajectory,
-             const Vector7d &q_init,
-             const Eigen::Matrix<double, 6, 6> &impedance = kDefaultImpedance,
-             const double &damping_ratio = kDefaultDampingRatio,
-             const double &nullspace_stiffness = kDefaultNullspaceStiffness,
-             const double dq_threshold = kDefaultDqThreshold,
-             const double filter_coeff = kDefaultFilterCoeff);
+  CartesianTrajectory(
+      std::shared_ptr<motion::CartesianTrajectory> trajectory,
+      const Vector7d& q_init,
+      const Eigen::Matrix<double, 6, 6>& impedance = kDefaultImpedance,
+      const double& damping_ratio = kDefaultDampingRatio,
+      const double& nullspace_stiffness = kDefaultNullspaceStiffness,
+      const double dq_threshold = kDefaultDqThreshold,
+      const double filter_coeff = kDefaultFilterCoeff);
 
-  franka::Torques step(const franka::RobotState &robot_state,
-                       franka::Duration &duration) override;
+  franka::Torques step(const franka::RobotState& robot_state,
+                       franka::Duration& duration) override;
 
   const std::string name() override;
 
@@ -37,4 +38,4 @@ class CartesianTrajectory : public CartesianImpedance {
   double dq_threshold_;
 };
 
-} // namespace
+}  // namespace controllers

@@ -16,13 +16,13 @@ class JointTrajectory : public JointPosition {
   static const double kSettleTimeout;
 
   JointTrajectory(std::shared_ptr<motion::JointTrajectory> trajectory,
-             const Vector7d &stiffness = kDefaultStiffness,
-             const Vector7d &damping = kDefaultDamping,
-             const double dq_threshold = kDefaultDqThreshold,
-             const double filter_coeff = kDefaultFilterCoeff);
+                  const Vector7d& stiffness = kDefaultStiffness,
+                  const Vector7d& damping = kDefaultDamping,
+                  const double dq_threshold = kDefaultDqThreshold,
+                  const double filter_coeff = kDefaultFilterCoeff);
 
-  franka::Torques step(const franka::RobotState &robot_state,
-                       franka::Duration &duration) override;
+  franka::Torques step(const franka::RobotState& robot_state,
+                       franka::Duration& duration) override;
 
   const std::string name() override;
 
@@ -31,4 +31,4 @@ class JointTrajectory : public JointPosition {
   double dq_threshold_;
 };
 
-} // namespace
+}  // namespace controllers

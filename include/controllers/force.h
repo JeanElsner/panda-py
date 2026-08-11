@@ -13,23 +13,23 @@ class Force : public TorqueController {
   static const double kDefaultThreshold;
   static const Vector7d kDefaultDamping;
 
-  Force(const double &k_p = kDefaultProportionalGain,
-        const double &k_i = kDefaultIntegralGain,
-        const Vector7d &damping = kDefaultDamping,
-        const double &threshold = kDefaultThreshold,
-        const double &filter_coeff = kDefaultFilterCoeff);
+  Force(const double& k_p = kDefaultProportionalGain,
+        const double& k_i = kDefaultIntegralGain,
+        const Vector7d& damping = kDefaultDamping,
+        const double& threshold = kDefaultThreshold,
+        const double& filter_coeff = kDefaultFilterCoeff);
 
-  franka::Torques step(const franka::RobotState &robot_state,
-                       franka::Duration &duration) override;
-  void setControl(const Eigen::Vector3d &force);
-  void setProportionalGain(const double &k_p);
-  void setIntegralGain(const double &k_i);
-  void setThreshold(const double &threshold);
-  void setDamping(const Vector7d &damping);
-  void setFilter(const double &filter_coeff);
-  void start(const franka::RobotState &robot_state,
+  franka::Torques step(const franka::RobotState& robot_state,
+                       franka::Duration& duration) override;
+  void setControl(const Eigen::Vector3d& force);
+  void setProportionalGain(const double& k_p);
+  void setIntegralGain(const double& k_i);
+  void setThreshold(const double& threshold);
+  void setDamping(const Vector7d& damping);
+  void setFilter(const double& filter_coeff);
+  void start(const franka::RobotState& robot_state,
              std::shared_ptr<franka::Model> model) override;
-  void stop(const franka::RobotState &robot_state,
+  void stop(const franka::RobotState& robot_state,
             std::shared_ptr<franka::Model> model) override;
   bool isRunning() override;
   const std::string name() override;

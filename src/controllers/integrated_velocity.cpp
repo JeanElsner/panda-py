@@ -1,6 +1,8 @@
 #include "controllers/integrated_velocity.h"
-#include "constants.h"
+
 #include <iostream>
+
+#include "constants.h"
 
 const double kDefaultStiffnessData[7] = {600, 600, 600, 600, 250, 150, 50};
 const Vector7d IntegratedVelocity::kDefaultStiffness =
@@ -10,14 +12,14 @@ const double kDefaultDampingData[7] = {50, 50, 50, 20, 20, 20, 10};
 const Vector7d IntegratedVelocity::kDefaultDamping =
     Vector7d(kDefaultDampingData);
 
-IntegratedVelocity::IntegratedVelocity(const Vector7d &stiffness,
-                                       const Vector7d &damping) {
+IntegratedVelocity::IntegratedVelocity(const Vector7d& stiffness,
+                                       const Vector7d& damping) {
   K_p_ = stiffness;
   K_d_ = damping;
 };
 
-franka::Torques IntegratedVelocity::step(const franka::RobotState &robot_state,
-                                         franka::Duration &duration) {
+franka::Torques IntegratedVelocity::step(const franka::RobotState& robot_state,
+                                         franka::Duration& duration) {
   // Observed states
   Vector7d q, dq, dq_d, tau_d, K_p, K_d;
   q = Eigen::Map<const Vector7d>(robot_state.q.data());
@@ -37,39 +39,35 @@ franka::Torques IntegratedVelocity::step(const franka::RobotState &robot_state,
   return torques;
 }
 
-Vector7d IntegratedVelocity::getQd() {
-  return q_d_;
-}
+Vector7d IntegratedVelocity::getQd() { return q_d_; }
 
-void IntegratedVelocity::setControl(const Vector7d &velocity) {
+void IntegratedVelocity::setControl(const Vector7d& velocity) {
   std::lock_guard<std::mutex> lock(mux_);
   dq_d_ = velocity;
 }
 
-void IntegratedVelocity::setStiffness(const Vector7d &stiffness) {
+void IntegratedVelocity::setStiffness(const Vector7d& stiffness) {
   std::lock_guard<std::mutex> lock(mux_);
   K_p_ = stiffness;
 }
 
-void IntegratedVelocity::setDamping(const Vector7d &damping) {
+void IntegratedVelocity::setDamping(const Vector7d& damping) {
   std::lock_guard<std::mutex> lock(mux_);
   K_d_ = damping;
 }
 
-void IntegratedVelocity::start(const franka::RobotState &robot_state, std::shared_ptr<franka::Model> model) {
+void IntegratedVelocity::start(const franka::RobotState& robot_state,
+                               std::shared_ptr<franka::Model> model) {
   motion_finished_ = false;
   q_d_ = Eigen::Map<const Vector7d>(robot_state.q.data());
   dq_d_.setZero();
 }
 
-void IntegratedVelocity::stop(const franka::RobotState &robot_state, std::shared_ptr<franka::Model> model) {
+void IntegratedVelocity::stop(const franka::RobotState& robot_state,
+                              std::shared_ptr<franka::Model> model) {
   motion_finished_ = true;
 }
 
-bool IntegratedVelocity::isRunning() {
-  return !motion_finished_;
-}
+bool IntegratedVelocity::isRunning() { return !motion_finished_; }
 
-const std::string IntegratedVelocity::name() {
-  return "Integrated Velocity";
-}
+const std::string IntegratedVelocity::name() { return "Integrated Velocity"; }

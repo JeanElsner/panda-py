@@ -5,6 +5,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>  // for std::abs
+
 #include "constants.h"
 
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
@@ -39,7 +40,8 @@ inline std::array<double, T> VectorToArray(const Eigen::VectorXd& vector) {
   return array;
 }
 
-inline Eigen::Matrix4d PositionOrientationToMatrix(const Eigen::Vector3d &position, const Eigen::Vector4d &orientation) {
+inline Eigen::Matrix4d PositionOrientationToMatrix(
+    const Eigen::Vector3d& position, const Eigen::Vector4d& orientation) {
   Eigen::Quaterniond q(orientation);
   Eigen::Affine3d transform;
   transform = q;
@@ -47,12 +49,12 @@ inline Eigen::Matrix4d PositionOrientationToMatrix(const Eigen::Vector3d &positi
   return transform.matrix();
 }
 
-inline Eigen::Vector3d MatrixToPosition(const Eigen::Matrix4d &matrix) {
+inline Eigen::Vector3d MatrixToPosition(const Eigen::Matrix4d& matrix) {
   Eigen::Affine3d transform(matrix);
   return transform.translation();
 }
 
-inline Eigen::Vector4d MatrixToOrientation(const Eigen::Matrix4d &matrix) {
+inline Eigen::Vector4d MatrixToOrientation(const Eigen::Matrix4d& matrix) {
   Eigen::Affine3d transform(matrix);
   Eigen::Quaterniond q(transform.rotation());
   return q.coeffs();
@@ -95,7 +97,8 @@ inline Array7d saturateTorqueRate(const Array7d& tau_d_calculated,
 inline Array7d clipTorques(const Array7d& tau_d_calculdated) {
   Array7d tau_d_clipped{};
   for (size_t i = 0; i < 7; i++) {
-    tau_d_clipped[i] = std::max(std::min(tau_d_calculdated[i], kTauJMax[i]), -kTauJMax[i]);
+    tau_d_clipped[i] =
+        std::max(std::min(tau_d_calculdated[i], kTauJMax[i]), -kTauJMax[i]);
   }
   return tau_d_clipped;
 }

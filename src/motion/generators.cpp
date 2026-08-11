@@ -11,8 +11,8 @@ using namespace Eigen;
 using namespace motion;
 
 bool PandaTrajectory::_computeTrajectory(
-    const time_optimal::Path &path, const Eigen::VectorXd &max_velocity,
-    const Eigen::VectorXd &max_acceleration, double timeout) {
+    const time_optimal::Path& path, const Eigen::VectorXd& max_velocity,
+    const Eigen::VectorXd& max_acceleration, double timeout) {
   auto startTime = std::chrono::high_resolution_clock::now();
   bool success = false;
   int i = 0;
@@ -38,7 +38,7 @@ bool PandaTrajectory::_computeTrajectory(
   return success;
 }
 
-JointTrajectory::JointTrajectory(const std::vector<Vector7d> &waypoints,
+JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
                                  double speed_factor, double maxDeviation,
                                  double timeout) {
   py::gil_scoped_acquire acquire;
@@ -64,7 +64,7 @@ JointTrajectory::JointTrajectory(const std::vector<Vector7d> &waypoints,
 }
 
 time_optimal::Path JointTrajectory::_convertList(
-    const std::vector<Vector7d> &list, double maxDeviation) {
+    const std::vector<Vector7d>& list, double maxDeviation) {
   std::list<Eigen::VectorXd> new_list;
   for (auto l : list) {
     new_list.push_back(Eigen::Map<Eigen::VectorXd>(l.data(), 7, 1));
@@ -85,7 +85,7 @@ Vector7d JointTrajectory::getJointAccelerations(double time) {
 }
 
 CartesianTrajectory::CartesianTrajectory(
-    const std::vector<Eigen::Matrix<double, 4, 4>> &poses, double speed_factor,
+    const std::vector<Eigen::Matrix<double, 4, 4>>& poses, double speed_factor,
     double maxDeviation, double timeout) {
   std::vector<Eigen::Matrix<double, 3, 1>> positions;
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
@@ -97,15 +97,15 @@ CartesianTrajectory::CartesianTrajectory(
 }
 
 CartesianTrajectory::CartesianTrajectory(
-    const std::vector<Eigen::Matrix<double, 3, 1>> &positions,
-    const std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
+    const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
+    const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
     double speed_factor, double maxDeviation, double timeout) {
   _init(positions, orientations, speed_factor, maxDeviation, timeout);
 }
 
 void CartesianTrajectory::_init(
-    const std::vector<Eigen::Matrix<double, 3, 1>> &positions,
-    const std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
+    const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
+    const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
     double speed_factor, double maxDeviation, double timeout) {
   py::gil_scoped_acquire acquire;
   py::object logging = py::module_::import("logging");

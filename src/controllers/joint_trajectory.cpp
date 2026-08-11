@@ -6,15 +6,16 @@ const double JointTrajectory::kDefaultDqThreshold = 1e-3;
 const double JointTrajectory::kSettleTolerance = 2e-3;
 const double JointTrajectory::kSettleTimeout = 1.0;
 
-JointTrajectory::JointTrajectory(std::shared_ptr<motion::JointTrajectory> trajectory,
-                       const Vector7d &stiffness, const Vector7d &damping,
-                       const double dq_threshold, const double filter_coeff)
+JointTrajectory::JointTrajectory(
+    std::shared_ptr<motion::JointTrajectory> trajectory,
+    const Vector7d& stiffness, const Vector7d& damping,
+    const double dq_threshold, const double filter_coeff)
     : JointPosition(stiffness, damping, filter_coeff),
       traj_(trajectory),
       dq_threshold_(dq_threshold) {}
 
-franka::Torques JointTrajectory::step(const franka::RobotState &robot_state,
-                                 franka::Duration &duration) {
+franka::Torques JointTrajectory::step(const franka::RobotState& robot_state,
+                                      franka::Duration& duration) {
   auto q_d = traj_->getJointPositions(getTime());
   auto dq_d = traj_->getJointVelocities(getTime());
   setControl(q_d, dq_d);
@@ -32,8 +33,7 @@ franka::Torques JointTrajectory::step(const franka::RobotState &robot_state,
     // error, which can be well short of the goal.
     const Vector7d q = Eigen::Map<const Vector7d>(robot_state.q.data());
     const Vector7d q_goal = traj_->getJointPositions(traj_->getDuration());
-    const bool at_goal =
-        (q_goal - q).cwiseAbs().maxCoeff() <= kSettleTolerance;
+    const bool at_goal = (q_goal - q).cwiseAbs().maxCoeff() <= kSettleTolerance;
     if ((at_rest && at_goal) || overrun >= kSettleTimeout) {
       torques.motion_finished = true;
     }
@@ -41,6 +41,4 @@ franka::Torques JointTrajectory::step(const franka::RobotState &robot_state,
   return torques;
 }
 
-const std::string JointTrajectory::name() {
-  return "JointTrajectory";
-}
+const std::string JointTrajectory::name() { return "JointTrajectory"; }

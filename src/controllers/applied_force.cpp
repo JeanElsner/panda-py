@@ -8,11 +8,11 @@ const double kDefaultDampingData[7] = {0, 0, 0, 0, 0, 0, 0};
 const Vector7d AppliedForce::kDefaultDamping = Vector7d(kDefaultDampingData);
 const double AppliedForce::kDefaultFilterCoeff = 1.0;
 
-AppliedForce::AppliedForce(const Vector7d &damping, const double filter_coeff)
-    : filter_coeff_(filter_coeff), K_d_(damping), K_d_target_(damping){};
+AppliedForce::AppliedForce(const Vector7d& damping, const double filter_coeff)
+    : filter_coeff_(filter_coeff), K_d_(damping), K_d_target_(damping) {};
 
-franka::Torques AppliedForce::step(const franka::RobotState &robot_state,
-                                   franka::Duration &duration) {
+franka::Torques AppliedForce::step(const franka::RobotState& robot_state,
+                                   franka::Duration& duration) {
   // Observed states
   Vector6d f_d;
   Vector7d dq, tau_d, K_d;
@@ -27,7 +27,7 @@ franka::Torques AppliedForce::step(const franka::RobotState &robot_state,
       model_->zeroJacobian(franka::Frame::kEndEffector, robot_state);
   Eigen::Map<Eigen::Matrix<double, 6, 7>> jacobian(jacobian_array.data());
   // Apply torque and damping
-  tau_d << jacobian.transpose()*f_d - K_d.asDiagonal() * dq;
+  tau_d << jacobian.transpose() * f_d - K_d.asDiagonal() * dq;
 
   franka::Torques torques = VectorToArray(tau_d);
   torques.motion_finished = motion_finished_;
@@ -39,12 +39,12 @@ void AppliedForce::_updateFilter() {
   K_d_ = ema_filter(K_d_, K_d_target_, filter_coeff_, true);
 }
 
-void AppliedForce::setControl(const Vector6d &force) {
+void AppliedForce::setControl(const Vector6d& force) {
   std::lock_guard<std::mutex> lock(mux_);
   f_d_target_ = force;
 }
 
-void AppliedForce::setDamping(const Vector7d &damping) {
+void AppliedForce::setDamping(const Vector7d& damping) {
   std::lock_guard<std::mutex> lock(mux_);
   K_d_target_ = damping;
 }
@@ -54,7 +54,7 @@ void AppliedForce::setFilter(const double filter_coeff) {
   filter_coeff_ = filter_coeff;
 }
 
-void AppliedForce::start(const franka::RobotState &robot_state,
+void AppliedForce::start(const franka::RobotState& robot_state,
                          std::shared_ptr<franka::Model> model) {
   motion_finished_ = false;
   f_d_.setZero();
@@ -62,7 +62,7 @@ void AppliedForce::start(const franka::RobotState &robot_state,
   model_ = model;
 }
 
-void AppliedForce::stop(const franka::RobotState &robot_state,
+void AppliedForce::stop(const franka::RobotState& robot_state,
                         std::shared_ptr<franka::Model> model) {
   motion_finished_ = true;
 }

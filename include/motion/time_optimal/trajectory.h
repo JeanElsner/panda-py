@@ -38,8 +38,10 @@
 
 #pragma once
 
-#include <Eigen/Core>
 #include <pybind11/pybind11.h>
+
+#include <Eigen/Core>
+
 #include "motion/time_optimal/path.h"
 
 namespace py = pybind11;
