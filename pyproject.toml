@@ -68,6 +68,11 @@ build = [ "cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*",]
 # auditing before claiming free-threading support.
 skip = [ "*musllinux*", "*t-*",]
 environment = "LIBFRANKA_VER=0.9.2"
+# Run the test suite against each wheel, inside the container it was built in.
+# The tests need no robot; they cover the kinematics, the trajectory generation,
+# the constants and the Desk client against a fake session.
+test-requires = "pytest"
+test-command = "pytest {project}/tests"
 
 [tool.cibuildwheel.linux]
 before-all = [ "./bin/before_install_centos.sh",]
