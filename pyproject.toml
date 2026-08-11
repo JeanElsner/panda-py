@@ -27,6 +27,14 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 
+[project.urls]
+Homepage = "https://github.com/JeanElsner/panda-py"
+Documentation = "https://jeanelsner.github.io/panda-py/"
+Repository = "https://github.com/JeanElsner/panda-py"
+Issues = "https://github.com/JeanElsner/panda-py/issues"
+Changelog = "https://github.com/JeanElsner/panda-py/blob/main/CHANGELOG.md"
+Paper = "https://www.sciencedirect.com/science/article/pii/S2352711023002285"
+
 [project.optional-dependencies]
 examples = [
     "roboticstoolbox-python",
