@@ -18,7 +18,7 @@ To get started, check out the [tutorial paper](https://www.sciencedirect.com/sci
 
 ## Extensions
 
-* [franka_desk](https://github.com/geriatronics/franka_desk) Client for the Desk REST API that Franka introduced with robot system version 5.8.0, covering safety recovery, self-tests, software updates and more. It requires an FR3 running 5.8.0 or newer; for earlier systems and for the Franka Emika Robot, use the `Desk` class included here.
+* [franka_desk](https://github.com/geriatronics/franka_desk) Client for the Desk REST API, with a ROS 2 wrapper. Requires an FR3 with robot system version 5.8.0 or newer.
 
 ## Install
 
