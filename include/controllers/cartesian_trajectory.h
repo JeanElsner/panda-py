@@ -7,6 +7,14 @@ namespace controllers {
 class CartesianTrajectory : public CartesianImpedance {
  public:
   static const double kDefaultDqThreshold;
+  // Impedance control has no integral term, so the robot settles a little short
+  // of the goal. Keep holding the final setpoint until the remaining error is
+  // below these tolerances, but give up after kSettleTimeout so that a goal
+  // which cannot be reached, because of a payload or an obstacle, still
+  // terminates.
+  static const double kSettlePositionTolerance;
+  static const double kSettleOrientationTolerance;
+  static const double kSettleTimeout;
   static const double kDefaultNullspaceStiffness;
   static const Eigen::Matrix<double, 6, 6> kDefaultImpedance;
 

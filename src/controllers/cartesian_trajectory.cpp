@@ -3,6 +3,9 @@
 using namespace controllers;
 
 const double CartesianTrajectory::kDefaultDqThreshold = 1e-3;
+const double CartesianTrajectory::kSettlePositionTolerance = 2e-3;
+const double CartesianTrajectory::kSettleOrientationTolerance = 2e-3;
+const double CartesianTrajectory::kSettleTimeout = 1.0;
 const double CartesianTrajectory::kDefaultNullspaceStiffness = 15.0;
 // clang-format off
 double _data[36] = {800,   0,   0,  0,  0,  0,
@@ -33,14 +36,33 @@ franka::Torques CartesianTrajectory::step(const franka::RobotState &robot_state,
   auto orientation = traj_->getOrientation(getTime());
   setControl(position, orientation, q_init_);
   auto torques = CartesianImpedance::step(robot_state, duration);
-  if (getTime() > traj_->getDuration()) {
+  const double overrun = getTime() - traj_->getDuration();
+  if (overrun > 0.0) {
     bool at_rest = true;
     for (auto dq : robot_state.dq) {
       if (std::abs(dq) > dq_threshold_) {
         at_rest = false;
       }
     }
-    if (at_rest) {
+    // Being at rest is not enough on its own: without an integral term the
+    // controller comes to rest wherever the stiffness balances the residual
+    // error, which can be well short of the goal.
+    const Eigen::Affine3d transform(
+        Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
+    const double position_error =
+        (traj_->getPosition(traj_->getDuration()) - transform.translation())
+            .norm();
+    const Eigen::Quaterniond orientation(transform.rotation());
+    Eigen::Quaterniond orientation_goal(
+        traj_->getOrientation(traj_->getDuration()));
+    if (orientation_goal.coeffs().dot(orientation.coeffs()) < 0.0) {
+      orientation_goal.coeffs() << -orientation_goal.coeffs();
+    }
+    const double orientation_error =
+        orientation.angularDistance(orientation_goal);
+    const bool at_goal = position_error <= kSettlePositionTolerance &&
+                         orientation_error <= kSettleOrientationTolerance;
+    if ((at_rest && at_goal) || overrun >= kSettleTimeout) {
       torques.motion_finished = true;
     }
   }
