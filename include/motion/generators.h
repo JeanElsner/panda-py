@@ -24,6 +24,8 @@ class PandaTrajectory {
   double getDuration() { return traj_->getDuration(); }
 
  protected:
+  static void _validateWaypointCount(size_t count);
+
   bool _computeTrajectory(const time_optimal::Path& path,
                           const Eigen::VectorXd& max_velocity,
                           const Eigen::VectorXd& max_acceleration,
