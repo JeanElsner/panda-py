@@ -16,6 +16,9 @@ Finally, Python bindings for the Panda. These will increase your productivity by
 
 To get started, check out the [tutorial paper](https://www.sciencedirect.com/science/article/pii/S2352711023002285), Jupyter [notebooks](https://github.com/JeanElsner/panda-py/tree/main/examples/notebooks) and other examples you can run directly on your robot. For more details on the API, please refer to the [documentation](https://jeanelsner.github.io/panda-py/).
 
+## Extensions
+
+* [franka_desk](https://github.com/geriatronics/franka_desk) Client for the Desk REST API that Franka introduced with robot system version 5.8.0, covering safety recovery, self-tests, software updates and more. It requires an FR3 running 5.8.0 or newer; for earlier systems and for the Franka Emika Robot, use the `Desk` class included here.
 
 ## Install
 
