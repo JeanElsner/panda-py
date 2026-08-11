@@ -275,8 +275,31 @@ PYBIND11_MODULE(libfranka, m) {
   py::class_<franka::RobotModel>(m, "RobotModel")
       .def(py::init<const std::string &>(),
            py::arg("urdf"))
+      // RobotModel::coriolis gained a g_earth overload in 0.16.0, so the
+      // member pointer has to be disambiguated from 0.16.0 onwards.
+#if LIBFRANKA_VER >= 0x001000
+      .def("coriolis",
+           py::overload_cast<const std::array<double, 7> &,
+                             const std::array<double, 7> &,
+                             const std::array<double, 9> &, double,
+                             const std::array<double, 3> &,
+                             std::array<double, 7> &>(
+               &franka::RobotModel::coriolis),
+        py::arg("q"), py::arg("dq"), py::arg("i_total"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("c_ne"))
+      .def("coriolis",
+           py::overload_cast<const std::array<double, 7> &,
+                             const std::array<double, 7> &,
+                             const std::array<double, 9> &, double,
+                             const std::array<double, 3> &,
+                             const std::array<double, 3> &,
+                             std::array<double, 7> &>(
+               &franka::RobotModel::coriolis),
+        py::arg("q"), py::arg("dq"), py::arg("i_total"), py::arg("m_total"),
+        py::arg("f_x_ctotal"), py::arg("g_earth"), py::arg("c_ne"))
+#else
       .def("coriolis", &franka::RobotModel::coriolis,
         py::arg("q"), py::arg("dq"), py::arg("i_total"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("c_ne"))
+#endif
       .def("gravity", &franka::RobotModel::gravity,
         py::arg("q"), py::arg("g_earth"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("g_ne"))
       .def("mass", &franka::RobotModel::mass,
