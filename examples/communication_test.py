@@ -65,5 +65,5 @@ if __name__ == '__main__':
   if AVG_SUCCESS_RATE < 0.95:
     print('\nWARNING: MANY PACKETS GOT LOST!')
     print('PLEASE INSPECT YOUR SETUP AND FOLLOW ADVICE ON')
-    print('https://frankaemika.github.io/docs/troubleshooting.html')
+    print('https://frankarobotics.github.io/docs/troubleshooting.html')
   print('#######################################################')
