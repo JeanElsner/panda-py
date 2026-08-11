@@ -85,11 +85,18 @@ Panda::Panda(std::string hostname, std::string name,
   hostname_ = hostname;
   _log("info", "Connected to robot (%s).", hostname_);
   _setState(robot_->readOnce());
+  // The virtual walls throw if the robot is already outside their range, so they
+  // have to match the robot actually connected. The FER envelope applied to an
+  // FR3 rejects a wide band of perfectly legal configurations, joint 6 above
+  // 3.7525 rad in particular.
+  joint_limits_ = jointLimitsForServerVersion(robot_->serverVersion());
+  _log("info", "Using %s joint limits (robot server version %d).",
+       joint_limits_.name, robot_->serverVersion());
   virtual_walls_ =
       std::shared_ptr<controllers::joint_limits::VirtualWallController>(
           new controllers::joint_limits::VirtualWallController(
-              kUpperJointLimits, kLowerJointLimits, kPDZoneWidth, kDZoneWidth,
-              kPDZoneStiffness, kPDZoneDamping, kDZoneDamping));
+              joint_limits_.upper, joint_limits_.lower, kPDZoneWidth,
+              kDZoneWidth, kPDZoneStiffness, kPDZoneDamping, kDZoneDamping));
 }
 
 Panda::~Panda() {
@@ -160,6 +167,10 @@ std::map<std::string, std::list<Eigen::VectorXd>> Panda::getLog() {
 
   return log;
 }
+
+Vector7d Panda::getJointLimitsLower() { return joint_limits_.lower; }
+
+Vector7d Panda::getJointLimitsUpper() { return joint_limits_.upper; }
 
 bool Panda::isMoving() {
   return current_controller_ && current_controller_->isRunning();

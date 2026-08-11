@@ -10,6 +10,7 @@
 #include <mutex>
 #include <thread>
 
+#include "constants.h"
 #include "controllers/controller.h"
 #include "controllers/joint_limits/virtual_wall_controller.h"
 #include "controllers/joint_trajectory.h"
@@ -113,6 +114,8 @@ class Panda {
       double success_threshold = kMoveToJointPositionThreshold);
   bool isMoving();
   void refreshState();
+  Vector7d getJointLimitsLower();
+  Vector7d getJointLimitsUpper();
   Eigen::Vector3d getPosition();
   Eigen::Vector4d getOrientation(bool scalar_first = false);
   Eigen::Vector4d getOrientationScalarLast();
@@ -143,6 +146,7 @@ class Panda {
   std::thread current_thread_;
   std::shared_ptr<controllers::joint_limits::VirtualWallController>
       virtual_walls_;
+  JointLimits joint_limits_;
   py::object logger_;
   std::string hostname_;
   std::shared_ptr<franka::Exception> last_error_;

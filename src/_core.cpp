@@ -27,6 +27,10 @@ PYBIND11_MODULE(_core, m) {
   m.attr("_JOINT_POSITION_START") = kJointPositionStart;
   m.attr("_JOINT_LIMITS_LOWER") = kLowerJointLimits;
   m.attr("_JOINT_LIMITS_UPPER") = kUpperJointLimits;
+  m.attr("_JOINT_LIMITS_LOWER_FR3") = kLowerJointLimitsFR3;
+  m.attr("_JOINT_LIMITS_UPPER_FR3") = kUpperJointLimitsFR3;
+  m.attr("_JOINT_LIMITS_LOWER_FR3_5_9") = kLowerJointLimitsFR3_5_9;
+  m.attr("_JOINT_LIMITS_UPPER_FR3_5_9") = kUpperJointLimitsFR3_5_9;
   m.attr("_TAU_J_MAX") = kTauJMax;
   m.attr("_DTAU_J_MAX") = kDTauJMax;
 
@@ -135,6 +139,15 @@ PYBIND11_MODULE(_core, m) {
            )delim")
       .def("get_model", &Panda::getModel,
            py::return_value_policy::reference_internal)
+      .def("get_joint_limits_lower", &Panda::getJointLimitsLower, R"delim(
+          Lower joint position limits of the connected robot, selected from its
+          server version. The FER and the FR3 have different envelopes, and the
+          FR3's were widened with robot system 5.9.0.
+      )delim")
+      .def("get_joint_limits_upper", &Panda::getJointLimitsUpper, R"delim(
+          Upper joint position limits of the connected robot (cf.
+          :py:func:`get_joint_limits_lower`).
+      )delim")
       .def("is_moving", &Panda::isMoving, R"delim(
           True while a controller is running, i.e. while the robot is under
           active control by this instance.
