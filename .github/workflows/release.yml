@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.12.1", "0.13.6", "0.14.2", "0.15.0", "0.21.3"]
+        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.13.2", "0.13.6", "0.14.2", "0.17.0", "0.21.3"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.12.1", "0.13.6", "0.14.2", "0.15.0", "0.21.3"]
+        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.13.2", "0.13.6", "0.14.2", "0.17.0", "0.21.3"]
     steps:
       - uses: actions/download-artifact@v4
         with:

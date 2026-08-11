@@ -14,7 +14,7 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
 
 ### Added
 
-- Support for libfranka 0.12.1, 0.13.6, 0.14.2, 0.15.0 and 0.21.3. Versions from
+- Support for libfranka 0.13.2, 0.13.6, 0.14.2, 0.17.0 and 0.21.3. Versions from
   0.14.0 onwards compute the robot's dynamic model with Pinocchio, which the
   build now provides.
 - Wheels for Python 3.13 and 3.14.

@@ -37,10 +37,10 @@ jobs:
           - { libfranka-version: "0.7.1", deps: legacy }
           - { libfranka-version: "0.8.0", deps: legacy }
           - { libfranka-version: "0.9.2", deps: legacy }
-          - { libfranka-version: "0.12.1", deps: legacy }
+          - { libfranka-version: "0.13.2", deps: legacy }
           - { libfranka-version: "0.13.6", deps: legacy }
           - { libfranka-version: "0.14.2", deps: modern }
-          - { libfranka-version: "0.15.0", deps: modern }
+          - { libfranka-version: "0.17.0", deps: modern }
           - { libfranka-version: "0.21.3", deps: modern }
     steps:
       - uses: actions/checkout@v4
