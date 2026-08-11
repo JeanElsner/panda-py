@@ -41,6 +41,7 @@ franka::Torques CartesianImpedance::step(const franka::RobotState &robot_state,
   Eigen::Quaterniond orientation_d;
   Vector7d q_nullspace_d;
   Eigen::Matrix<double, 6, 6> K_p, K_d;
+  double nullspace_stiffness;
   // These quantities may be modified outside of the control loop
   mux_.lock();
   _updateFilter();
@@ -49,6 +50,7 @@ franka::Torques CartesianImpedance::step(const franka::RobotState &robot_state,
   position_d = position_d_;
   orientation_d = orientation_d_;
   q_nullspace_d = q_nullspace_d_;
+  nullspace_stiffness = nullspace_stiffness_;
   mux_.unlock();
 
   // get state variables
@@ -96,8 +98,8 @@ franka::Torques CartesianImpedance::step(const franka::RobotState &robot_state,
   // nullspace PD control with damping ratio = 1
   tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) -
                     jacobian.transpose() * jacobian_transpose_pinv) *
-                       (nullspace_stiffness_ * (q_nullspace_d - q) -
-                        (2.0 * sqrt(nullspace_stiffness_)) * dq);
+                       (nullspace_stiffness * (q_nullspace_d - q) -
+                        (2.0 * sqrt(nullspace_stiffness)) * dq);
   // Desired torque
   tau_d << tau_task + tau_nullspace + coriolis;
 
@@ -113,6 +115,8 @@ void CartesianImpedance::_updateFilter() {
       nullspace_stiffness_, nullspace_stiffnes_target_, filter_coeff_, true);
   position_d_ =
       ema_filter(position_d_, position_d_target_, filter_coeff_, true);
+  q_nullspace_d_ =
+      ema_filter(q_nullspace_d_, q_nullspace_d_target_, filter_coeff_, true);
   orientation_d_ = orientation_d_.slerp(filter_coeff_, orientation_d_target_);
 }
 

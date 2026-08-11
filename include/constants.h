@@ -46,7 +46,7 @@ const double kPDZoneStiffnessData[7] = {2000.0, 2000.0, 1000.0, 1000.0,
 const Vector7d kPDZoneStiffness(kPDZoneStiffnessData);
 
 const double kPDZoneDampingData[7] = {30.0, 30.0, 30.0, 10.0, 5.0, 5.0, 5.0};
-const Vector7d kPDZoneDamping(kPDZoneDamping);
+const Vector7d kPDZoneDamping(kPDZoneDampingData);
 
 const double kDZoneDampingData[7] = {30.0, 30.0, 30.0, 10.0, 5.0, 5.0, 5.0};
 const Vector7d kDZoneDamping(kDZoneDampingData);

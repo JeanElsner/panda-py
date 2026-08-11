@@ -93,11 +93,17 @@ CartesianTrajectory::CartesianTrajectory(
     positions.push_back(MatrixToPosition(p));
     orientations.push_back(MatrixToOrientation(p));
   }
-  CartesianTrajectory(positions, orientations, speed_factor, maxDeviation,
-                      timeout);
+  _init(positions, orientations, speed_factor, maxDeviation, timeout);
 }
 
 CartesianTrajectory::CartesianTrajectory(
+    const std::vector<Eigen::Matrix<double, 3, 1>> &positions,
+    const std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
+    double speed_factor, double maxDeviation, double timeout) {
+  _init(positions, orientations, speed_factor, maxDeviation, timeout);
+}
+
+void CartesianTrajectory::_init(
     const std::vector<Eigen::Matrix<double, 3, 1>> &positions,
     const std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
     double speed_factor, double maxDeviation, double timeout) {

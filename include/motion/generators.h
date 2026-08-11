@@ -76,6 +76,10 @@ class CartesianTrajectory : public PandaTrajectory {
   Eigen::Vector4d getOrientation(double time);
 
  private:
+  void _init(const std::vector<Eigen::Matrix<double, 3, 1>> &positions,
+             const std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
+             double speed_factor, double maxDeviation, double timeout);
+
   std::vector<double> angles_;
   std::vector<Eigen::Vector3d> axes_;
   std::vector<Eigen::Quaterniond> orientations_;
