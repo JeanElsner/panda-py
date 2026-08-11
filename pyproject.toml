@@ -23,6 +23,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10", 
     "Programming Language :: Python :: 3.11", 
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [project.optional-dependencies]
@@ -48,9 +50,12 @@ panda-take-control = "panda_py.cli:take_control"
 panda-release-control = "panda_py.cli:release_control"
 
 [tool.cibuildwheel]
-manylinux-x86_64-image = "manylinux2014"
-build = [ "cp39-*", "cp310-*", "cp311-*", "cp312-*",]
-skip = [ "pp*", "*musllinux*",]
+manylinux-x86_64-image = "manylinux_2_28"
+build = [ "cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*",]
+# Free-threaded builds are opt-in in cibuildwheel, but skip them explicitly:
+# the controllers hold the GIL around callbacks into Python and would need
+# auditing before claiming free-threading support.
+skip = [ "pp*", "*musllinux*", "*t-*",]
 environment = "LIBFRANKA_VER=0.9.2"
 
 [tool.cibuildwheel.linux]
