@@ -179,8 +179,16 @@ Path::Path(const std::list<Eigen::VectorXd>& path, double max_deviation)
   ++path_iterator2;
   std::list<Eigen::VectorXd>::const_iterator path_iterator3;
   Eigen::VectorXd start_config = *path_iterator1;
+  // A blend segment straddles a waypoint, so half of its arc belongs to the
+  // section before it and half to the section after. The second half has to be
+  // carried into the next iteration, otherwise the cumulative section lengths
+  // end up short by the sum of all half blends and
+  // Trajectory::getTrajectorySegmentIndex resolves positions to the wrong
+  // waypoint whenever max_deviation > 0.
+  double carried_blend_length = 0.0;
   while (path_iterator2 != path.end()) {
-    double section_length = 0.0;
+    double section_length = carried_blend_length;
+    carried_blend_length = 0.0;
     path_iterator3 = path_iterator2;
     ++path_iterator3;
     if (max_deviation > 0.0 && path_iterator3 != path.end()) {
@@ -194,13 +202,15 @@ Path::Path(const std::list<Eigen::VectorXd>& path, double max_deviation)
         section_length += path_segments_.back()->getLength();
       }
       path_segments_.emplace_back(blend_segment);
-      section_length += path_segments_.back()->getLength()/2.0;
+      const double blend_length = path_segments_.back()->getLength();
+      section_length += blend_length / 2.0;
+      carried_blend_length = blend_length / 2.0;
       start_config = blend_segment->getConfig(blend_segment->getLength());
     } else {
       path_segments_.push_back(
           std::make_unique<LinearPathSegment>(start_config, *path_iterator2));
       start_config = *path_iterator2;
-      section_length = path_segments_.back()->getLength();
+      section_length += path_segments_.back()->getLength();
     }
     path_iterator1 = path_iterator2;
     ++path_iterator2;
