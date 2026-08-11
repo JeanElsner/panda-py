@@ -33,13 +33,14 @@
   def_readonly(#name, &franka::RobotState::name)
 #define def_property_readonly_errors(name) \
   def_property_readonly(                   \
-      #name, [](const franka::Errors &errors) { return errors.name; })
+      #name, [](const franka::Errors& errors) { return errors.name; })
 
 namespace py = pybind11;
 
 const std::array<double, 3> gravity_earth = {0., 0., -9.81};
 
 PYBIND11_MODULE(libfranka, m) {
+  // clang-format off
   py::options options;
   //   options.disable_function_signatures();
   //   options.disable_enum_members_docstring();
@@ -596,4 +597,5 @@ PYBIND11_MODULE(libfranka, m) {
 
   // TODO: lowpass_filter.h
   // TODO: rate_limiting.h
+  // clang-format on
 }

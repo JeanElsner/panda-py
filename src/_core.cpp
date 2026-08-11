@@ -19,6 +19,7 @@
 namespace py = pybind11;
 
 PYBIND11_MODULE(_core, m) {
+  // clang-format off
   py::module::import("panda_py.libfranka");
   py::options options;
   //  options.disable_function_signatures();
@@ -430,4 +431,5 @@ PYBIND11_MODULE(_core, m) {
       .def("set_filter", &Force::setFilter,
            py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"))
       .def_property_readonly("name", &Force::name);
+  // clang-format on
 }
