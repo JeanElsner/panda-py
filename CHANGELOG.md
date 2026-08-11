@@ -20,6 +20,14 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
 - Wheels for Python 3.13 and 3.14.
 - Prebuilt container images with libfranka and its dependencies installed,
   published to GHCR and used to build the wheels. See `Dockerfile`.
+- All nine overloads of `libfranka.Robot.control`. Previously only the one
+  taking a `Torques` callback was bound, so a callback returning
+  `JointPositions`, `JointVelocities`, `CartesianPose` or `CartesianVelocities`
+  failed with a conversion error (#44). The torque controllers remain the
+  recommended interface.
+- `Panda.is_moving()` and `Panda.refresh_state()`. The state getters now read the
+  robot when no controller is running, instead of returning a cached state that
+  could be arbitrarily stale.
 
 ### Changed
 
@@ -54,6 +62,11 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
 - Cumulative path section lengths omitted half of every blend segment, so
   trajectories built with a non-zero `max_deviation` resolved positions to the
   wrong waypoint and interpolated the wrong orientation.
+- `move_to_joint_position` and `move_to_pose` reported a motion as complete as
+  soon as the robot stopped moving, which with impedance control can be well
+  short of the goal (#49). They now also require the goal to be reached, within
+  a one second settling window, and log a warning with the remaining error when
+  it is not.
 - Several data races between the control thread and the caller: `_setState`
   unlocked a mutex its own guard still owned, `stopController` read the robot
   state without the mutex, and the pending exception was passed between threads
