@@ -30,6 +30,27 @@ if(NOT DEFINED LIBFRANKA_VER)
        OUTPUT_FORMAT HEXADECIMAL)
   message(STATUS
     "Derived LIBFRANKA_VER=${LIBFRANKA_VER} from libfranka ${Franka_VERSION}")
+
+  # libfranka does not always bump the version in its CMakeLists: the 0.14.2 tag
+  # still declares 0.14.1, for instance. That is harmless while both fall inside
+  # the same version guard, but a mismatch across a minor version would select
+  # the wrong bindings, so say so loudly.
+  if(DEFINED ENV{LIBFRANKA_VER})
+    if(NOT "$ENV{LIBFRANKA_VER}" VERSION_EQUAL "${Franka_VERSION}")
+      if(NOT "$ENV{LIBFRANKA_VER}" MATCHES
+         "^${_franka_major}\\.${_franka_minor}\\.")
+        message(WARNING
+          "libfranka reports version ${Franka_VERSION} but $ENV{LIBFRANKA_VER} "
+          "was requested. These differ in the minor version, so the version "
+          "guards may select bindings that do not match the headers. Pass "
+          "-DLIBFRANKA_VER explicitly if the reported version is wrong.")
+      else()
+        message(STATUS
+          "Note: libfranka reports ${Franka_VERSION} for requested "
+          "$ENV{LIBFRANKA_VER}; same minor version, guards unaffected.")
+      endif()
+    endif()
+  endif()
 endif()
 add_compile_definitions(LIBFRANKA_VER=${LIBFRANKA_VER})
 find_package(
