@@ -15,29 +15,46 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.13.3"]
+        libfranka-version: ["0.7.1", "0.8.0", "0.9.2", "0.13.2", "0.13.6", "0.14.2", "0.17.0", "0.21.3"]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.16.2
+        run: python -m pip install cibuildwheel==4.2.0
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Use the prebuilt build environment
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "CIBW_MANYLINUX_X86_64_IMAGE=ghcr.io/$owner/panda-py-build:${{ matrix.libfranka-version }}" >> "$GITHUB_ENV"
+          echo "CIBW_BEFORE_ALL=" >> "$GITHUB_ENV"
       - name: Build using cibuildwheel
         run: ./bin/build.sh "${{ matrix.libfranka-version }}"
   documentation:
     name: "Build and deploy documentation"
     needs: [build_wheels]
     runs-on: ubuntu-latest
-    env:
-      LIBFRANKA_VER: "0.9.2"
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-      - name: Install requirements
-        run: ./bin/before_install_ubuntu.sh
-      - name: Build package
-        run: pip install .[docs]
-      - name: Build documentation
-        run: cd docs && make html
+      - uses: actions/checkout@v4
+      # autodoc imports panda_py, so the extension has to be built, which needs
+      # libfranka. Build inside the same image the wheels use rather than
+      # installing libfranka onto the runner.
+      - name: Build the documentation
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker run --rm -v "$PWD:/project" -w /project \
+            "ghcr.io/$owner/panda-py-build:0.9.2" bash -c '
+              set -e
+              export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64
+              export PATH=/opt/python/cp312-cp312/bin:$PATH
+              pip install ".[docs]"
+              cd docs && make html'
+          sudo chown -R "$(id -u):$(id -g)" docs/_build
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

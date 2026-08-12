@@ -14,8 +14,8 @@ const double Force::kDefaultProportionalGain = 1;
 const double Force::kDefaultIntegralGain = 2;
 const double Force::kDefaultThreshold = 0.01;
 
-Force::Force(const double &k_p, const double &k_i, const Vector7d &damping,
-             const double &threshold, const double &filter_coeff)
+Force::Force(const double& k_p, const double& k_i, const Vector7d& damping,
+             const double& threshold, const double& filter_coeff)
     : filter_coeff_(filter_coeff),
       k_p_(k_p),
       k_i_(k_i),
@@ -24,17 +24,16 @@ Force::Force(const double &k_p, const double &k_i, const Vector7d &damping,
       K_d_(damping),
       K_d_target_(damping),
       threshold_(threshold),
-      threshold_target_(threshold){};
+      threshold_target_(threshold) {};
 
-franka::Torques Force::step(const franka::RobotState &robot_state,
-                            franka::Duration &duration) {
+franka::Torques Force::step(const franka::RobotState& robot_state,
+                            franka::Duration& duration) {
   // get state variables
   std::array<double, 42> jacobian_array =
       model_->zeroJacobian(franka::Frame::kEndEffector, robot_state);
   std::array<double, 7> gravity_array = model_->gravity(robot_state);
   Eigen::Map<const Eigen::Matrix<double, 6, 7>> jacobian(jacobian_array.data());
-  Eigen::Map<const Vector7d> tau_measured(
-      robot_state.tau_J.data());
+  Eigen::Map<const Vector7d> tau_measured(robot_state.tau_J.data());
   Eigen::Map<const Vector7d> gravity(gravity_array.data());
   Eigen::Affine3d transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
   Eigen::Vector3d position(transform.translation());
@@ -62,7 +61,8 @@ franka::Torques Force::step(const franka::RobotState &robot_state,
   tau_d << jacobian.transpose() * force_torque_d;
   tau_error_integral_ += duration.toSec() * (tau_d - tau_ext);
   // FF + PI control
-  tau_d << tau_d + k_p * (tau_d - tau_ext) + k_i * tau_error_integral_ - K_d.asDiagonal() * dq;
+  tau_d << tau_d + k_p * (tau_d - tau_ext) + k_i * tau_error_integral_ -
+               K_d.asDiagonal() * dq;
 
   franka::Torques torques = VectorToArray<7>(tau_d);
   torques.motion_finished = motion_finished_;
@@ -77,37 +77,37 @@ void Force::_updateFilter() {
   threshold_ = ema_filter(threshold_, threshold_target_, filter_coeff_, true);
 }
 
-void Force::setControl(const Eigen::Vector3d &force) {
+void Force::setControl(const Eigen::Vector3d& force) {
   std::lock_guard<std::mutex> lock(mux_);
   f_d_target_ = force;
 }
 
-void Force::setFilter(const double &filter_coeff) {
+void Force::setFilter(const double& filter_coeff) {
   std::lock_guard<std::mutex> lock(mux_);
   filter_coeff_ = filter_coeff;
 }
 
-void Force::setProportionalGain(const double &k_p) {
+void Force::setProportionalGain(const double& k_p) {
   std::lock_guard<std::mutex> lock(mux_);
   k_p_target_ = k_p;
 }
 
-void Force::setIntegralGain(const double &k_i) {
+void Force::setIntegralGain(const double& k_i) {
   std::lock_guard<std::mutex> lock(mux_);
   k_i_target_ = k_i;
 }
 
-void Force::setThreshold(const double &threshold) {
+void Force::setThreshold(const double& threshold) {
   std::lock_guard<std::mutex> lock(mux_);
   threshold_target_ = threshold;
 }
 
-void Force::setDamping(const Vector7d &damping) {
+void Force::setDamping(const Vector7d& damping) {
   std::lock_guard<std::mutex> lock(mux_);
   K_d_target_ = damping;
 }
 
-void Force::start(const franka::RobotState &robot_state,
+void Force::start(const franka::RobotState& robot_state,
                   std::shared_ptr<franka::Model> model) {
   motion_finished_ = false;
   f_d_.setZero();
@@ -122,8 +122,7 @@ void Force::start(const franka::RobotState &robot_state,
   // Bias torque sensor
   std::array<double, 7> gravity_array = model->gravity(robot_state);
   std::array<double, 7> tau_measured_array = robot_state.tau_J;
-  Eigen::Map<Vector7d> initial_tau_measured(
-      tau_measured_array.data());
+  Eigen::Map<Vector7d> initial_tau_measured(tau_measured_array.data());
   Eigen::Map<Vector7d> initial_gravity(gravity_array.data());
   tau_ext_init_ = initial_tau_measured - initial_gravity;
 
@@ -131,7 +130,7 @@ void Force::start(const franka::RobotState &robot_state,
   tau_error_integral_.setZero();
 }
 
-void Force::stop(const franka::RobotState &robot_state,
+void Force::stop(const franka::RobotState& robot_state,
                  std::shared_ptr<franka::Model> model) {
   motion_finished_ = true;
 }

@@ -4,7 +4,7 @@
 
 namespace kinematics {
 
-Eigen::Matrix<double, 4, 4> fk(const Eigen::Matrix<double, 7, 1> &q) {
+Eigen::Matrix<double, 4, 4> fk(const Eigen::Matrix<double, 7, 1>& q) {
   Eigen::Matrix<double, 4, 4> pose;
   pose.setZero();
   pose.row(0)(0) =

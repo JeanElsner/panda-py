@@ -299,7 +299,8 @@ bool Trajectory::integrateForward(std::list<TrajectoryStep>& trajectory,
     } else if (path_vel < 0.0) {
       valid_ = false;
       py::gil_scoped_acquire acquire;
-      logger_.attr("debug")("Negative path velocity while integrating forward.");
+      logger_.attr("debug")(
+          "Negative path velocity while integrating forward.");
       return true;
     }
 
@@ -388,7 +389,8 @@ void Trajectory::integrateBackward(std::list<TrajectoryStep>& start_trajectory,
       if (path_vel < 0.0) {
         valid_ = false;
         py::gil_scoped_acquire acquire;
-        logger_.attr("debug")("Negative path velocity while integrating forward.");
+        logger_.attr("debug")(
+            "Negative path velocity while integrating forward.");
         end_trajectory_ = trajectory;
         return;
       }
@@ -421,7 +423,8 @@ void Trajectory::integrateBackward(std::list<TrajectoryStep>& start_trajectory,
 
   valid_ = false;
   py::gil_scoped_acquire acquire;
-  logger_.attr("debug")("Did not hit start trajectory while integrating backward.");
+  logger_.attr("debug")(
+      "Did not hit start trajectory while integrating backward.");
   end_trajectory_ = trajectory;
 }
 

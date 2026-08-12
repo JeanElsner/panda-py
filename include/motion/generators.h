@@ -24,13 +24,15 @@ class PandaTrajectory {
   double getDuration() { return traj_->getDuration(); }
 
  protected:
-  bool _computeTrajectory(const time_optimal::Path &path,
-                          const Eigen::VectorXd &max_velocity,
-                          const Eigen::VectorXd &max_acceleration,
+  static void _validateWaypointCount(size_t count);
+
+  bool _computeTrajectory(const time_optimal::Path& path,
+                          const Eigen::VectorXd& max_velocity,
+                          const Eigen::VectorXd& max_acceleration,
                           double timeout);
 
   template <typename... Args>
-  void _log(const std::string level, Args &&...args) {
+  void _log(const std::string level, Args&&... args) {
     py::gil_scoped_acquire acquire;
     logger_.attr(level.c_str())(args...);
   }
@@ -41,7 +43,7 @@ class PandaTrajectory {
 
 class JointTrajectory : public PandaTrajectory {
  public:
-  JointTrajectory(const std::vector<Vector7d> &waypoints,
+  JointTrajectory(const std::vector<Vector7d>& waypoints,
                   double speed_factor = kDefaultJointSpeedFactor,
                   double maxDeviation = 0.0, double timeout = kDefaultTimeout);
 
@@ -52,19 +54,19 @@ class JointTrajectory : public PandaTrajectory {
   Vector7d getJointAccelerations(double time);
 
  private:
-  time_optimal::Path _convertList(const std::vector<Vector7d> &list,
+  time_optimal::Path _convertList(const std::vector<Vector7d>& list,
                                   double maxDeviation = 0.0);
 };
 
 class CartesianTrajectory : public PandaTrajectory {
  public:
   CartesianTrajectory(
-      const std::vector<Eigen::Matrix<double, 3, 1>> &positions,
-      const std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
+      const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
+      const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
       double speed_factor = kDefaultCartesianSpeedFactor,
       double maxDeviation = 0.0, double timeout = kDefaultTimeout);
 
-  CartesianTrajectory(const std::vector<Eigen::Matrix<double, 4, 4>> &poses,
+  CartesianTrajectory(const std::vector<Eigen::Matrix<double, 4, 4>>& poses,
                       double speed_factor = kDefaultCartesianSpeedFactor,
                       double maxDeviation = 0.0,
                       double timeout = kDefaultTimeout);
@@ -76,6 +78,10 @@ class CartesianTrajectory : public PandaTrajectory {
   Eigen::Vector4d getOrientation(double time);
 
  private:
+  void _init(const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
+             const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
+             double speed_factor, double maxDeviation, double timeout);
+
   std::vector<double> angles_;
   std::vector<Eigen::Vector3d> axes_;
   std::vector<Eigen::Quaterniond> orientations_;

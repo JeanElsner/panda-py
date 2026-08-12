@@ -19,8 +19,8 @@ const double CartesianImpedance::kDefaultNullspaceStiffness = 0.5;
 const double CartesianImpedance::kDefaultFilterCoeff = 1.0;
 
 CartesianImpedance::CartesianImpedance(
-    const Eigen::Matrix<double, 6, 6> &impedance, const double &damping_ratio,
-    const double &nullspace_stiffness, const double &filter_coeff) {
+    const Eigen::Matrix<double, 6, 6>& impedance, const double& damping_ratio,
+    const double& nullspace_stiffness, const double& filter_coeff) {
   K_p_ = impedance;
   K_p_target_ = impedance;
   damping_ratio_ = damping_ratio;
@@ -32,15 +32,19 @@ CartesianImpedance::CartesianImpedance(
 };
 
 void CartesianImpedance::_computeDamping() {
-  K_d_target_ = damping_ratio_ * 2 * K_p_.cwiseSqrt();
+  // Derive from the target, not the currently filtered value: setImpedance()
+  // assigns K_p_target_ and then calls this, so using K_p_ would compute the
+  // damping for the previous stiffness and never correct it.
+  K_d_target_ = damping_ratio_ * 2 * K_p_target_.cwiseSqrt();
 };
 
-franka::Torques CartesianImpedance::step(const franka::RobotState &robot_state,
-                                         franka::Duration &duration) {
+franka::Torques CartesianImpedance::step(const franka::RobotState& robot_state,
+                                         franka::Duration& duration) {
   Eigen::Vector3d position_d;
   Eigen::Quaterniond orientation_d;
   Vector7d q_nullspace_d;
   Eigen::Matrix<double, 6, 6> K_p, K_d;
+  double nullspace_stiffness;
   // These quantities may be modified outside of the control loop
   mux_.lock();
   _updateFilter();
@@ -49,6 +53,7 @@ franka::Torques CartesianImpedance::step(const franka::RobotState &robot_state,
   position_d = position_d_;
   orientation_d = orientation_d_;
   q_nullspace_d = q_nullspace_d_;
+  nullspace_stiffness = nullspace_stiffness_;
   mux_.unlock();
 
   // get state variables
@@ -96,8 +101,8 @@ franka::Torques CartesianImpedance::step(const franka::RobotState &robot_state,
   // nullspace PD control with damping ratio = 1
   tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) -
                     jacobian.transpose() * jacobian_transpose_pinv) *
-                       (nullspace_stiffness_ * (q_nullspace_d - q) -
-                        (2.0 * sqrt(nullspace_stiffness_)) * dq);
+                       (nullspace_stiffness * (q_nullspace_d - q) -
+                        (2.0 * sqrt(nullspace_stiffness)) * dq);
   // Desired torque
   tau_d << tau_task + tau_nullspace + coriolis;
 
@@ -113,12 +118,14 @@ void CartesianImpedance::_updateFilter() {
       nullspace_stiffness_, nullspace_stiffnes_target_, filter_coeff_, true);
   position_d_ =
       ema_filter(position_d_, position_d_target_, filter_coeff_, true);
+  q_nullspace_d_ =
+      ema_filter(q_nullspace_d_, q_nullspace_d_target_, filter_coeff_, true);
   orientation_d_ = orientation_d_.slerp(filter_coeff_, orientation_d_target_);
 }
 
-void CartesianImpedance::setControl(const Eigen::Vector3d &position,
-                                    const Eigen::Vector4d &orientation,
-                                    const Vector7d &q_nullspace) {
+void CartesianImpedance::setControl(const Eigen::Vector3d& position,
+                                    const Eigen::Vector4d& orientation,
+                                    const Vector7d& q_nullspace) {
   std::lock_guard<std::mutex> lock(mux_);
   position_d_target_ = position;
   orientation_d_target_ = orientation;
@@ -126,20 +133,20 @@ void CartesianImpedance::setControl(const Eigen::Vector3d &position,
 }
 
 void CartesianImpedance::setImpedance(
-    const Eigen::Matrix<double, 6, 6> &impedance) {
+    const Eigen::Matrix<double, 6, 6>& impedance) {
   std::lock_guard<std::mutex> lock(mux_);
   K_p_target_ = impedance;
   _computeDamping();
 }
 
-void CartesianImpedance::setDampingRatio(const double &damping_ratio) {
+void CartesianImpedance::setDampingRatio(const double& damping_ratio) {
   std::lock_guard<std::mutex> lock(mux_);
   damping_ratio_ = damping_ratio;
   _computeDamping();
 }
 
 void CartesianImpedance::setNullspaceStiffness(
-    const double &nullspace_stiffness) {
+    const double& nullspace_stiffness) {
   std::lock_guard<std::mutex> lock(mux_);
   nullspace_stiffnes_target_ = nullspace_stiffness;
 }
@@ -149,7 +156,7 @@ void CartesianImpedance::setFilter(const double filter_coeff) {
   filter_coeff_ = filter_coeff;
 }
 
-void CartesianImpedance::start(const franka::RobotState &robot_state,
+void CartesianImpedance::start(const franka::RobotState& robot_state,
                                std::shared_ptr<franka::Model> model) {
   motion_finished_ = false;
   Eigen::Affine3d transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
@@ -165,7 +172,7 @@ void CartesianImpedance::start(const franka::RobotState &robot_state,
   model_ = model;
 }
 
-void CartesianImpedance::stop(const franka::RobotState &robot_state,
+void CartesianImpedance::stop(const franka::RobotState& robot_state,
                               std::shared_ptr<franka::Model> model) {
   motion_finished_ = true;
 }

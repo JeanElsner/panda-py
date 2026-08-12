@@ -13,25 +13,24 @@ class CartesianImpedance : public TorqueController {
   static const double kDefaultNullspaceStiffness;
   static const double kDefaultFilterCoeff;
 
-  CartesianImpedance(const Eigen::Matrix<double, 6, 6> &impedance =
-                        kDefaultImpedance,
-                     const double &damping_ratio = kDefaultDampingRatio,
-                     const double &nullspace_stiffness =
-                         kDefaultNullspaceStiffness,
-                     const double &filter_coeff = kDefaultFilterCoeff);
+  CartesianImpedance(
+      const Eigen::Matrix<double, 6, 6>& impedance = kDefaultImpedance,
+      const double& damping_ratio = kDefaultDampingRatio,
+      const double& nullspace_stiffness = kDefaultNullspaceStiffness,
+      const double& filter_coeff = kDefaultFilterCoeff);
 
-  franka::Torques step(const franka::RobotState &robot_state,
-                       franka::Duration &duration) override;
-  void setControl(const Eigen::Vector3d &position,
-                  const Eigen::Vector4d &orientation,
-                  const Vector7d &q_nullspace = kJointPositionStart);
-  void setImpedance(const Eigen::Matrix<double, 6, 6> &impedance);
-  void setDampingRatio(const double &damping_ratio);
-  void setNullspaceStiffness(const double &nullspace_stiffness);
+  franka::Torques step(const franka::RobotState& robot_state,
+                       franka::Duration& duration) override;
+  void setControl(const Eigen::Vector3d& position,
+                  const Eigen::Vector4d& orientation,
+                  const Vector7d& q_nullspace = kJointPositionStart);
+  void setImpedance(const Eigen::Matrix<double, 6, 6>& impedance);
+  void setDampingRatio(const double& damping_ratio);
+  void setNullspaceStiffness(const double& nullspace_stiffness);
   void setFilter(const double filter_coeff);
-  void start(const franka::RobotState &robot_state,
+  void start(const franka::RobotState& robot_state,
              std::shared_ptr<franka::Model> model) override;
-  void stop(const franka::RobotState &robot_state,
+  void stop(const franka::RobotState& robot_state,
             std::shared_ptr<franka::Model> model) override;
   bool isRunning() override;
   const std::string name() override;

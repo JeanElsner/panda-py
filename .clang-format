@@ -1,0 +1,9 @@
+# The sources already largely followed Google style, so this mostly records it.
+# Pointer alignment is left at Google's default, which normalises the mixture of
+# "Type &name" and "Type& name" in the tree to the latter.
+#
+# The pybind11 binding chains in src/_core.cpp and src/libfranka.cpp are wrapped
+# in "clang-format off/on": their hand alignment, one argument group per line,
+# reads better than the automatic wrapping, and the same idiom is already used
+# for the impedance matrix literals in the controllers.
+BasedOnStyle: Google

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://jeanelsner.github.io/panda-py/
+    about: API reference and examples.
+  - name: Which wheel do I need
+    url: https://github.com/JeanElsner/panda-py#libfranka-version
+    about: The compatibility table maps robot system versions to wheels.
+  - name: Franka Control Interface documentation
+    url: https://frankarobotics.github.io/docs/
+    about: For questions about the robot itself rather than panda-py.

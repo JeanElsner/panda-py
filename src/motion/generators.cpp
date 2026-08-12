@@ -10,9 +10,18 @@ using namespace std;
 using namespace Eigen;
 using namespace motion;
 
+void PandaTrajectory::_validateWaypointCount(size_t count) {
+  // Fewer than two waypoints is not just useless, it underflows: the loops that
+  // walk the segments compute count - 1 on an unsigned type.
+  if (count < 2) {
+    throw std::invalid_argument(
+        "At least two waypoints are required to build a trajectory.");
+  }
+}
+
 bool PandaTrajectory::_computeTrajectory(
-    const time_optimal::Path &path, const Eigen::VectorXd &max_velocity,
-    const Eigen::VectorXd &max_acceleration, double timeout) {
+    const time_optimal::Path& path, const Eigen::VectorXd& max_velocity,
+    const Eigen::VectorXd& max_acceleration, double timeout) {
   auto startTime = std::chrono::high_resolution_clock::now();
   bool success = false;
   int i = 0;
@@ -38,18 +47,37 @@ bool PandaTrajectory::_computeTrajectory(
   return success;
 }
 
-JointTrajectory::JointTrajectory(const std::vector<Vector7d> &waypoints,
+JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
                                  double speed_factor, double maxDeviation,
                                  double timeout) {
-  py::gil_scoped_acquire acquire;
-  py::object logging = py::module_::import("logging");
-  logger_ = logging.attr("getLogger")("motion");
-  py::gil_scoped_release release;
+  // Validate before any GIL juggling. An exception thrown while a
+  // gil_scoped_release is in scope unwinds without the GIL held, and pybind11
+  // then has to turn it into a Python exception without the GIL, which
+  // segfaults on Python 3.9 through 3.11 rather than raising.
+  _validateWaypointCount(waypoints.size());
+  for (const auto& waypoint : waypoints) {
+    if (!waypoint.allFinite()) {
+      throw std::invalid_argument("Waypoints must be finite.");
+    }
+  }
 
-  if (!_computeTrajectory(_convertList(waypoints, maxDeviation),
-                          speed_factor * kQMaxVelocity,
-                          speed_factor * kQMaxAcceleration, timeout)) {
-    throw runtime_error("Trajectory generation faild.");
+  {
+    py::gil_scoped_acquire acquire;
+    py::object logging = py::module_::import("logging");
+    logger_ = logging.attr("getLogger")("motion");
+  }
+
+  // The computation itself needs no GIL, but the release has to end before
+  // anything can throw.
+  bool computed;
+  {
+    py::gil_scoped_release release;
+    computed = _computeTrajectory(_convertList(waypoints, maxDeviation),
+                                  speed_factor * kQMaxVelocity,
+                                  speed_factor * kQMaxAcceleration, timeout);
+  }
+  if (!computed) {
+    throw runtime_error("Trajectory generation failed.");
   }
 
   if (waypoints.size() == 2) {
@@ -64,7 +92,7 @@ JointTrajectory::JointTrajectory(const std::vector<Vector7d> &waypoints,
 }
 
 time_optimal::Path JointTrajectory::_convertList(
-    const std::vector<Vector7d> &list, double maxDeviation) {
+    const std::vector<Vector7d>& list, double maxDeviation) {
   std::list<Eigen::VectorXd> new_list;
   for (auto l : list) {
     new_list.push_back(Eigen::Map<Eigen::VectorXd>(l.data(), 7, 1));
@@ -85,7 +113,7 @@ Vector7d JointTrajectory::getJointAccelerations(double time) {
 }
 
 CartesianTrajectory::CartesianTrajectory(
-    const std::vector<Eigen::Matrix<double, 4, 4>> &poses, double speed_factor,
+    const std::vector<Eigen::Matrix<double, 4, 4>>& poses, double speed_factor,
     double maxDeviation, double timeout) {
   std::vector<Eigen::Matrix<double, 3, 1>> positions;
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
@@ -93,44 +121,76 @@ CartesianTrajectory::CartesianTrajectory(
     positions.push_back(MatrixToPosition(p));
     orientations.push_back(MatrixToOrientation(p));
   }
-  CartesianTrajectory(positions, orientations, speed_factor, maxDeviation,
-                      timeout);
+  _init(positions, orientations, speed_factor, maxDeviation, timeout);
 }
 
 CartesianTrajectory::CartesianTrajectory(
-    const std::vector<Eigen::Matrix<double, 3, 1>> &positions,
-    const std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
+    const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
+    const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
     double speed_factor, double maxDeviation, double timeout) {
-  py::gil_scoped_acquire acquire;
-  py::object logging = py::module_::import("logging");
-  logger_ = logging.attr("getLogger")("motion");
-  py::gil_scoped_release release;
-  angles_.push_back(0);
+  _init(positions, orientations, speed_factor, maxDeviation, timeout);
+}
 
-  for (size_t i = 0; i < orientations.size() - 1; i++) {
-    Eigen::Quaterniond q1(orientations.at(i)), q2(orientations.at(i + 1));
-    Eigen::AngleAxisd aa(q2 * q1.inverse());
-    double angle = aa.angle();
-    Eigen::Vector3d axis = aa.axis();
-    angles_.push_back(angle);
-    axes_.push_back(axis);
-    orientations_.push_back(q1);
+void CartesianTrajectory::_init(
+    const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
+    const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
+    double speed_factor, double maxDeviation, double timeout) {
+  // See the note in the JointTrajectory constructor: validation has to happen
+  // before the GIL is released, or throwing takes the interpreter down.
+  _validateWaypointCount(orientations.size());
+  if (positions.size() != orientations.size()) {
+    throw std::invalid_argument(
+        "The number of positions and orientations must match.");
   }
-  orientations_.push_back(Eigen::Quaterniond(orientations.back()));
-  std::partial_sum(angles_.begin(), angles_.end(), angles_.begin());
-  std::list<Eigen::VectorXd> waypoints;
-
-  for (size_t i = 0; i < orientations.size(); i++) {
-    Eigen::VectorXd point;
-    point.resize(4);
-    point.head(3) = positions.at(i);
-    point.coeffRef(3) = angles_.at(i);
-    waypoints.push_back(point);
+  for (const auto& position : positions) {
+    if (!position.allFinite()) {
+      throw std::invalid_argument("Waypoint positions must be finite.");
+    }
+  }
+  for (const auto& orientation : orientations) {
+    if (!orientation.allFinite() || orientation.norm() < 1e-9) {
+      throw std::invalid_argument(
+          "Waypoint orientations must be finite, non-zero quaternions.");
+    }
   }
 
-  if (!_computeTrajectory(time_optimal::Path(waypoints, maxDeviation),
-                          speed_factor * kXMaxVelocity,
-                          speed_factor * kXMaxAcceleration, timeout)) {
+  {
+    py::gil_scoped_acquire acquire;
+    py::object logging = py::module_::import("logging");
+    logger_ = logging.attr("getLogger")("motion");
+  }
+
+  bool computed;
+  {
+    py::gil_scoped_release release;
+    angles_.push_back(0);
+
+    for (size_t i = 0; i < orientations.size() - 1; i++) {
+      Eigen::Quaterniond q1(orientations.at(i)), q2(orientations.at(i + 1));
+      Eigen::AngleAxisd aa(q2 * q1.inverse());
+      double angle = aa.angle();
+      Eigen::Vector3d axis = aa.axis();
+      angles_.push_back(angle);
+      axes_.push_back(axis);
+      orientations_.push_back(q1);
+    }
+    orientations_.push_back(Eigen::Quaterniond(orientations.back()));
+    std::partial_sum(angles_.begin(), angles_.end(), angles_.begin());
+    std::list<Eigen::VectorXd> waypoints;
+
+    for (size_t i = 0; i < orientations.size(); i++) {
+      Eigen::VectorXd point;
+      point.resize(4);
+      point.head(3) = positions.at(i);
+      point.coeffRef(3) = angles_.at(i);
+      waypoints.push_back(point);
+    }
+
+    computed = _computeTrajectory(time_optimal::Path(waypoints, maxDeviation),
+                                  speed_factor * kXMaxVelocity,
+                                  speed_factor * kXMaxAcceleration, timeout);
+  }
+  if (!computed) {
     throw runtime_error("Trajectory generation failed.");
   }
 

@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # GitHub retires action major versions without warning: upload-artifact and
+  # download-artifact v3 were disabled outright, which silently broke the release
+  # workflow until someone tried to cut a release.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+
+  # The pinned cibuildwheel and the runtime dependencies in pyproject.toml.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+    commit-message:
+      prefix: "build"
+
+  # pre-commit pins each hook to a revision, so they go stale the same way.
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      hooks:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore"

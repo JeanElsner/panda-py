@@ -1,0 +1,71 @@
+name: Build build-environment images
+
+# Builds one container image per supported libfranka version, each with
+# libfranka and its dependencies preinstalled, and pushes them to GHCR. The
+# wheel workflows consume these instead of rebuilding the dependency chain on
+# every run, which takes ~7 minutes per row for libfranka >= 0.14.
+#
+# Run this after changing the Dockerfile, the build scripts or the patches, and
+# whenever a libfranka version is added to the matrix. The wheel workflows will
+# fail until the image for their row exists.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Dockerfile"
+      - "bin/before_install_centos.sh"
+      - "bin/patches/**"
+      - ".github/workflows/build_images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build_images:
+    name: libfranka ${{ matrix.libfranka-version }} (${{ matrix.deps }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { libfranka-version: "0.7.1", deps: legacy }
+          - { libfranka-version: "0.8.0", deps: legacy }
+          - { libfranka-version: "0.9.2", deps: legacy }
+          - { libfranka-version: "0.13.2", deps: legacy }
+          - { libfranka-version: "0.13.6", deps: legacy }
+          - { libfranka-version: "0.14.2", deps: modern }
+          - { libfranka-version: "0.17.0", deps: modern }
+          - { libfranka-version: "0.21.3", deps: modern }
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR rejects uppercase characters in image names, and the owner here is
+      # "JeanElsner".
+      - name: Resolve image name
+        id: image
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "name=ghcr.io/$owner/panda-py-build" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ matrix.libfranka-version }}
+          build-args: |
+            LIBFRANKA_VER=${{ matrix.libfranka-version }}
+            DEPS=${{ matrix.deps }}
+          # Share the system/Poco/Pinocchio layers across matrix rows and runs.
+          cache-from: type=gha,scope=${{ matrix.deps }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.deps }}

@@ -10,7 +10,7 @@
 
 namespace std {
 template <typename T, u_long V>
-std::ostream &operator<<(std::ostream &os, const std::array<T, V> &vec) {
+std::ostream& operator<<(std::ostream& os, const std::array<T, V>& vec) {
   for (auto item : vec) {
     os << item << " ";
   }
@@ -39,8 +39,8 @@ bool PandaContext::ok() {
   }
 }
 
-PandaContext::PandaContext(Panda &panda, const double &frequency,
-                           const double &t_max, const uint64_t &max_ticks)
+PandaContext::PandaContext(Panda& panda, const double& frequency,
+                           const double& t_max, const uint64_t& max_ticks)
     : dt_(1.0 / frequency),
       t_prev_(t_start_),
       max_ticks_(max_ticks),
@@ -55,20 +55,20 @@ double PandaContext::getTime() {
          1e-6;
 }
 
-const PandaContext &PandaContext::enter() {
+const PandaContext& PandaContext::enter() {
   t_start_ = std::chrono::high_resolution_clock::now();
   return *this;
 }
 
-bool PandaContext::exit(const py::object &type, const py::object &value,
-                        const py::object &traceback) {
+bool PandaContext::exit(const py::object& type, const py::object& value,
+                        const py::object& traceback) {
   return false;
 }
 
 uint64_t PandaContext::getNumTicks() { return num_ticks_; }
 
 template <typename... Args>
-void Panda::_log(const std::string level, Args &&...args) {
+void Panda::_log(const std::string level, Args&&... args) {
   py::gil_scoped_acquire acquire;
   logger_.attr(level.c_str())(args...);
 }
@@ -85,11 +85,18 @@ Panda::Panda(std::string hostname, std::string name,
   hostname_ = hostname;
   _log("info", "Connected to robot (%s).", hostname_);
   _setState(robot_->readOnce());
+  // The virtual walls throw if the robot is already outside their range, so
+  // they have to match the robot actually connected. The FER envelope applied
+  // to an FR3 rejects a wide band of perfectly legal configurations, joint 6
+  // above 3.7525 rad in particular.
+  joint_limits_ = jointLimitsForServerVersion(robot_->serverVersion());
+  _log("info", "Using %s joint limits (robot server version %d).",
+       joint_limits_.name, robot_->serverVersion());
   virtual_walls_ =
       std::shared_ptr<controllers::joint_limits::VirtualWallController>(
           new controllers::joint_limits::VirtualWallController(
-              kUpperJointLimits, kLowerJointLimits, kPDZoneWidth, kDZoneWidth,
-              kPDZoneStiffness, kPDZoneDamping, kDZoneDamping));
+              joint_limits_.upper, joint_limits_.lower, kPDZoneWidth,
+              kDZoneWidth, kPDZoneStiffness, kPDZoneDamping, kDZoneDamping));
 }
 
 Panda::~Panda() {
@@ -102,11 +109,12 @@ const PandaContext Panda::createContext(double frequency, double max_runtime,
   return PandaContext(*this, frequency, max_runtime, max_iter);
 }
 
-franka::Robot &Panda::getRobot() { return *robot_; }
+franka::Robot& Panda::getRobot() { return *robot_; }
 
-franka::Model &Panda::getModel() { return *model_; }
+franka::Model& Panda::getModel() { return *model_; }
 
 franka::RobotState Panda::getState() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   return state_;
 }
@@ -160,7 +168,37 @@ std::map<std::string, std::list<Eigen::VectorXd>> Panda::getLog() {
   return log;
 }
 
+Vector7d Panda::getJointLimitsLower() { return joint_limits_.lower; }
+
+Vector7d Panda::getJointLimitsUpper() { return joint_limits_.upper; }
+
+bool Panda::isMoving() {
+  return current_controller_ && current_controller_->isRunning();
+}
+
+void Panda::refreshState() {
+  // While a controller runs, the control loop feeds state_ at 1 kHz and
+  // readOnce() must not be called concurrently with control. Outside of that
+  // the cached state is only as recent as the last motion, so read the robot
+  // once.
+  if (isMoving()) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(read_mux_);
+  // The state getters reach this either with the GIL held, when called from
+  // Python, or without it, when called internally from move_to_* which releases
+  // it for the duration of the motion. Releasing an unheld GIL aborts, so only
+  // give it up if this thread actually holds it.
+  if (PyGILState_Check()) {
+    py::gil_scoped_release release;
+    _setState(robot_->readOnce());
+  } else {
+    _setState(robot_->readOnce());
+  }
+}
+
 Eigen::Vector3d Panda::getPosition() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   Eigen::Affine3d transform(Eigen::Matrix4d::Map(state_.O_T_EE.data()));
   Eigen::Vector3d position(transform.translation());
@@ -168,6 +206,7 @@ Eigen::Vector3d Panda::getPosition() {
 }
 
 Eigen::Vector4d Panda::getOrientation(bool scalar_first) {
+  refreshState();
   if (scalar_first) {
     return getOrientationScalarFirst();
   }
@@ -191,19 +230,20 @@ Eigen::Vector4d Panda::getOrientationScalarFirst() {
 }
 
 Vector7d Panda::getJointPositions() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   return Eigen::Map<Vector7d>(state_.q.data());
 }
 
 Eigen::Matrix4d Panda::getPose() {
+  refreshState();
   std::lock_guard<std::mutex> lock(mux_);
   return Eigen::Matrix4d::Map(state_.O_T_EE.data());
 }
 
-void Panda::_setState(const franka::RobotState &state) {
+void Panda::_setState(const franka::RobotState& state) {
   std::lock_guard<std::mutex> lock(mux_);
   state_ = state;
-  mux_.unlock();
   if (log_enabled_) {
     log_.push_back(state);
     if (log_.size() > log_size_) {
@@ -229,7 +269,7 @@ void Panda::_startController(std::shared_ptr<TorqueController> controller_ptr) {
 }
 
 TorqueCallback Panda::_createTorqueCallback() {
-  return TorqueCallback([&](const franka::RobotState &robot_state,
+  return TorqueCallback([&](const franka::RobotState& robot_state,
                             franka::Duration duration) -> franka::Torques {
     _setState(robot_state);
     franka::Torques tau = franka::Torques({0, 0, 0, 0, 0, 0, 0});
@@ -256,7 +296,9 @@ void Panda::stopController() {
   if (current_controller_ /*&& current_controller_->isRunning()*/) {
     _log("info", "Stopping active controller (%s).",
          current_controller_->name());
-    current_controller_->stop(state_, model_);
+    // getState() copies under the mutex; state_ is written by the control
+    // thread at 1 kHz and must not be read directly from here.
+    current_controller_->stop(getState(), model_);
   }
   if (current_thread_.joinable()) {
     current_thread_.join();
@@ -273,28 +315,33 @@ void Panda::recover() {
   }
 }
 
-void Panda::_runController(TorqueCallback &control_callback) {
+void Panda::_runController(TorqueCallback& control_callback) {
   try {
     robot_->control(control_callback);
-  } catch (const franka::Exception &e) {
+  } catch (const franka::Exception& e) {
     _log("error", "Control loop interruped: %s", e.what());
+    std::lock_guard<std::mutex> lock(error_mux_);
     last_error_ = std::make_shared<franka::Exception>(e);
   }
 }
 
 void Panda::raiseError() {
-  if (last_error_) {
-    franka::Exception e = *last_error_;
-    last_error_.reset();
-    throw e;
+  // Written by the control thread, read here from the caller's thread.
+  std::shared_ptr<franka::Exception> error;
+  {
+    std::lock_guard<std::mutex> lock(error_mux_);
+    error = std::move(last_error_);
+  }
+  if (error) {
+    throw *error;
   }
 }
 
 const double Panda::kMoveToJointPositionThreshold = 1e-2;
 
-bool Panda::moveToJointPosition(const Vector7d &position, double speed_factor,
-                                const Vector7d &stiffness,
-                                const Vector7d &damping, double dq_threshold,
+bool Panda::moveToJointPosition(const Vector7d& position, double speed_factor,
+                                const Vector7d& stiffness,
+                                const Vector7d& damping, double dq_threshold,
                                 double success_threshold) {
   std::vector<Vector7d> waypoints;
   waypoints.push_back(position);
@@ -306,7 +353,7 @@ const double kDefaultTeachingDampingData[7] = {0, 0, 0, 0, 0, 0, 0};
 const Vector7d Panda::kDefaultTeachingDamping =
     Vector7d(kDefaultTeachingDampingData);
 
-void Panda::teaching_mode(bool active, const Vector7d &damping) {
+void Panda::teaching_mode(bool active, const Vector7d& damping) {
   stopController();
   recover();
   if (!active) {
@@ -316,9 +363,9 @@ void Panda::teaching_mode(bool active, const Vector7d &damping) {
   startController(ctrl);
 }
 
-bool Panda::moveToJointPosition(std::vector<Vector7d> &waypoints,
-                                double speed_factor, const Vector7d &stiffness,
-                                const Vector7d &damping, double dq_threshold,
+bool Panda::moveToJointPosition(std::vector<Vector7d>& waypoints,
+                                double speed_factor, const Vector7d& stiffness,
+                                const Vector7d& damping, double dq_threshold,
                                 double success_threshold) {
   stopController();
   recover();
@@ -338,30 +385,38 @@ bool Panda::moveToJointPosition(std::vector<Vector7d> &waypoints,
   auto cb = _createTorqueCallback();
   _runController(cb);
   const Vector7d q = Eigen::Map<const Vector7d>(robot_->readOnce().q.data());
-  return waypoints.back().isApprox(q, success_threshold);
+  const bool success = waypoints.back().isApprox(q, success_threshold);
+  if (!success) {
+    _log("warning",
+         "Motion finished %.4f rad from the goal, above the success threshold. "
+         "Consider a higher stiffness or a slower speed_factor.",
+         (waypoints.back() - q).cwiseAbs().maxCoeff());
+  }
+  return success;
 }
 
-bool Panda::moveToPose(const Eigen::Vector3d &position,
-                       const Eigen::Matrix<double, 4, 1> &orientation,
+bool Panda::moveToPose(const Eigen::Vector3d& position,
+                       const Eigen::Matrix<double, 4, 1>& orientation,
                        double speed_factor,
-                       const Eigen::Matrix<double, 6, 6> &impedance,
-                       const double &damping_ratio,
-                       const double &nullspace_stiffness, double dq_threshold,
+                       const Eigen::Matrix<double, 6, 6>& impedance,
+                       const double& damping_ratio,
+                       const double& nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   std::vector<Eigen::Vector3d> positions;
   positions.push_back(position);
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
   orientations.push_back(orientation);
-  return moveToPose(positions, orientations, speed_factor, impedance, damping_ratio,
-                    nullspace_stiffness, dq_threshold, success_threshold);
+  return moveToPose(positions, orientations, speed_factor, impedance,
+                    damping_ratio, nullspace_stiffness, dq_threshold,
+                    success_threshold);
 }
 
-bool Panda::moveToPose(std::vector<Eigen::Vector3d> &positions,
-                       std::vector<Eigen::Matrix<double, 4, 1>> &orientations,
+bool Panda::moveToPose(std::vector<Eigen::Vector3d>& positions,
+                       std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
                        double speed_factor,
-                       const Eigen::Matrix<double, 6, 6> &impedance,
-                       const double &damping_ratio,
-                       const double &nullspace_stiffness, double dq_threshold,
+                       const Eigen::Matrix<double, 6, 6>& impedance,
+                       const double& damping_ratio,
+                       const double& nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   stopController();
   recover();
@@ -379,7 +434,8 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d> &positions,
     return true;
   }
   auto ctrl = std::make_shared<controllers::CartesianTrajectory>(
-      traj, getJointPositions(), impedance, damping_ratio, nullspace_stiffness, dq_threshold, 1.0);
+      traj, getJointPositions(), impedance, damping_ratio, nullspace_stiffness,
+      dq_threshold, 1.0);
   _startController(ctrl);
   auto cb = _createTorqueCallback();
   _runController(cb);
@@ -387,15 +443,23 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d> &positions,
       Eigen::Matrix4d::Map(robot_->readOnce().O_T_EE.data()));
   Eigen::Vector3d position(transform.translation());
   Eigen::Quaterniond orientation(transform.rotation());
-  return positions.back().isApprox(position, success_threshold) &&
-         orientations.back().isApprox(orientation.coeffs(), success_threshold);
+  const bool success =
+      positions.back().isApprox(position, success_threshold) &&
+      orientations.back().isApprox(orientation.coeffs(), success_threshold);
+  if (!success) {
+    _log("warning",
+         "Motion finished %.4f m from the goal, above the success threshold. "
+         "Consider a higher impedance or a slower speed_factor.",
+         (positions.back() - position).norm());
+  }
+  return success;
 }
 
-bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>> &poses,
+bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>>& poses,
                        double speed_factor,
-                       const Eigen::Matrix<double, 6, 6> &impedance,
-                       const double &damping_ratio,
-                       const double &nullspace_stiffness, double dq_threshold,
+                       const Eigen::Matrix<double, 6, 6>& impedance,
+                       const double& damping_ratio,
+                       const double& nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   std::vector<Eigen::Vector3d> positions;
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
@@ -403,15 +467,16 @@ bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>> &poses,
     positions.push_back(MatrixToPosition(p));
     orientations.push_back(MatrixToOrientation(p));
   }
-  return moveToPose(positions, orientations, speed_factor, impedance, damping_ratio,
-                    nullspace_stiffness, dq_threshold, success_threshold);
+  return moveToPose(positions, orientations, speed_factor, impedance,
+                    damping_ratio, nullspace_stiffness, dq_threshold,
+                    success_threshold);
 }
 
-bool Panda::moveToPose(const Eigen::Matrix<double, 4, 4> &pose,
+bool Panda::moveToPose(const Eigen::Matrix<double, 4, 4>& pose,
                        double speed_factor,
-                       const Eigen::Matrix<double, 6, 6> &impedance,
-                       const double &damping_ratio,
-                       const double &nullspace_stiffness, double dq_threshold,
+                       const Eigen::Matrix<double, 6, 6>& impedance,
+                       const double& damping_ratio,
+                       const double& nullspace_stiffness, double dq_threshold,
                        double success_threshold) {
   std::vector<Eigen::Matrix<double, 4, 4>> poses;
   poses.push_back(pose);
@@ -419,8 +484,8 @@ bool Panda::moveToPose(const Eigen::Matrix<double, 4, 4> &pose,
                     nullspace_stiffness, dq_threshold, success_threshold);
 }
 
-bool Panda::moveToStart(double speed_factor, const Vector7d &stiffness,
-                        const Vector7d &damping, double dq_threshold,
+bool Panda::moveToStart(double speed_factor, const Vector7d& stiffness,
+                        const Vector7d& damping, double dq_threshold,
                         double success_threshold) {
   return moveToJointPosition(kJointPositionStart, speed_factor, stiffness,
                              damping, dq_threshold, success_threshold);

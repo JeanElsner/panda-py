@@ -9,7 +9,6 @@ that allows you to program and control the robot in real-time.
 
 """
 from __future__ import annotations
-
 import base64 as base64
 import configparser as configparser
 import dataclasses as dataclasses
@@ -17,18 +16,20 @@ import hashlib as hashlib
 import json as json_module
 import logging as logging
 import os as os
+from panda_py._core import Panda
+from panda_py._core import PandaContext
+from panda_py._core import fk
+from panda_py._core import ik
+from panda_py._core import ik_full
+import requests as requests
 import ssl as ssl
 import threading as threading
 import typing as typing
 from urllib import parse
-
-import requests as requests
 import urllib3 as urllib3
 from websockets.sync.client import connect
-
-from panda_py._core import Panda, PandaContext, fk, ik, ik_full
-
-from . import _core, libfranka
+from . import _core
+from . import libfranka
 
 __all__: list = [
     'Panda', 'PandaContext', 'constants', 'controllers', 'libfranka', 'motion',
@@ -234,5 +235,5 @@ class Token:
 
 
 TOKEN_PATH: str = '~/.panda_py/token.conf'
-__version__: str = '0.8.1'
+__version__: str = '1.0.0'
 _logger: logging.Logger  # value = <Logger desk (INFO)>

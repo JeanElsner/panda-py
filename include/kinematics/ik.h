@@ -204,8 +204,8 @@ inline Eigen::Matrix<double, 4, 7> ik_full(Eigen::Matrix<double, 4, 4> O_T_EE,
   return q_all;
 }
 
-inline Eigen::Matrix<double, 4, 7> ik_full(const Eigen::Vector3d &position,
-                                           const Eigen::Vector4d &orientation,
+inline Eigen::Matrix<double, 4, 7> ik_full(const Eigen::Vector3d& position,
+                                           const Eigen::Vector4d& orientation,
                                            Vector7d q_actual_array = kQDefault,
                                            double q7 = M_PI_4) {
   Eigen::Matrix<double, 4, 4> T =
@@ -409,8 +409,8 @@ inline Vector7d ik(Eigen::Matrix<double, 4, 4> O_T_EE,
   return q;
 }
 
-inline Vector7d ik(const Eigen::Vector3d &position,
-                   const Eigen::Vector4d &orientation,
+inline Vector7d ik(const Eigen::Vector3d& position,
+                   const Eigen::Vector4d& orientation,
                    Vector7d q_actual_array = kQDefault, double q7 = M_PI_4) {
   Eigen::Matrix<double, 4, 4> T =
       PositionOrientationToMatrix(position, orientation);

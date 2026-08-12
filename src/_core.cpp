@@ -19,6 +19,7 @@
 namespace py = pybind11;
 
 PYBIND11_MODULE(_core, m) {
+  // clang-format off
   py::module::import("panda_py.libfranka");
   py::options options;
   //  options.disable_function_signatures();
@@ -27,6 +28,10 @@ PYBIND11_MODULE(_core, m) {
   m.attr("_JOINT_POSITION_START") = kJointPositionStart;
   m.attr("_JOINT_LIMITS_LOWER") = kLowerJointLimits;
   m.attr("_JOINT_LIMITS_UPPER") = kUpperJointLimits;
+  m.attr("_JOINT_LIMITS_LOWER_FR3") = kLowerJointLimitsFR3;
+  m.attr("_JOINT_LIMITS_UPPER_FR3") = kUpperJointLimitsFR3;
+  m.attr("_JOINT_LIMITS_LOWER_FR3_5_9") = kLowerJointLimitsFR3_5_9;
+  m.attr("_JOINT_LIMITS_UPPER_FR3_5_9") = kUpperJointLimitsFR3_5_9;
   m.attr("_TAU_J_MAX") = kTauJMax;
   m.attr("_DTAU_J_MAX") = kDTauJMax;
 
@@ -46,7 +51,7 @@ PYBIND11_MODULE(_core, m) {
         py::arg("O_T_EE"), py::arg("q_init") = kinematics::kQDefault,
         py::arg("q_7") = M_PI_4,
         R"delim(
-          Compute analytical inverse kinematics. 
+          Compute analytical inverse kinematics.
           Solution is case consistent with configuration  given in `q_init`.
 
           Args:
@@ -135,6 +140,25 @@ PYBIND11_MODULE(_core, m) {
            )delim")
       .def("get_model", &Panda::getModel,
            py::return_value_policy::reference_internal)
+      .def("get_joint_limits_lower", &Panda::getJointLimitsLower, R"delim(
+          Lower joint position limits of the connected robot, selected from its
+          server version. The FER and the FR3 have different envelopes, and the
+          FR3's were widened with robot system 5.9.0.
+      )delim")
+      .def("get_joint_limits_upper", &Panda::getJointLimitsUpper, R"delim(
+          Upper joint position limits of the connected robot (cf.
+          :py:func:`get_joint_limits_lower`).
+      )delim")
+      .def("is_moving", &Panda::isMoving, R"delim(
+          True while a controller is running, i.e. while the robot is under
+          active control by this instance.
+      )delim")
+      .def("refresh_state", &Panda::refreshState, R"delim(
+          Reads the robot state once and updates the cached copy. The state
+          getters call this for you when no controller is running; while one is,
+          the control loop already refreshes the state at 1KHz and this is a
+          no-op.
+      )delim")
       .def("get_state", &Panda::getState, R"delim(
           Get a copy of the last :py:class:`libfranka.RobotState` received from the robot.
       )delim")
@@ -150,7 +174,7 @@ PYBIND11_MODULE(_core, m) {
                Args:
                  scalar_first: If True returns quaternion in scalar first
                    representation (default: False)
-               
+
                Returns:
                  Vector of shape (4,) holding quaternion coefficients.
            )delim")
@@ -407,4 +431,5 @@ PYBIND11_MODULE(_core, m) {
       .def("set_filter", &Force::setFilter,
            py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"))
       .def_property_readonly("name", &Force::name);
+  // clang-format on
 }

@@ -6,38 +6,38 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'panda-py'
-copyright = '2023, Jean Elsner'
-author = 'Jean Elsner'
-release = '0.8.1'
+project = "panda-py"
+copyright = "2023, Jean Elsner"
+author = "Jean Elsner"
+release = "1.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.autosummary',
-    'sphinx_reredirects',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.todo",
+    "sphinx.ext.coverage",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.autosummary",
+    "sphinx_reredirects",
 ]
 
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-autoclass_content = 'both'
+templates_path = ["_templates"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+autoclass_content = "both"
 autodoc_preserve_defaults = True
-autodoc_member_order = 'bysource'
+autodoc_member_order = "bysource"
 
 redirects = {
     # index.rst just contains the table of contents definition.
-    'index': 'panda_py.html',
+    "index": "panda_py.html",
 }
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'furo'
-html_static_path = ['_static']
+html_theme = "furo"
+# No static assets; sphinx warns if html_static_path points at a missing directory.

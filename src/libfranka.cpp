@@ -10,8 +10,21 @@
 
 #include <sstream>
 
-#ifdef VACUUM_GRIPPER
+#if LIBFRANKA_VER >= 0x000800
 #include <franka/vacuum_gripper.h>
+#endif
+
+// franka::RobotModel was introduced in libfranka 0.14.0. Its public header was
+// removed again in 0.20.5, which hid the Pinocchio dependency from the
+// interface, so the binding only exists for the versions in between.
+#if LIBFRANKA_VER >= 0x000e00 && LIBFRANKA_VER < 0x001405
+#define PANDA_PY_HAS_ROBOT_MODEL 1
+#else
+#define PANDA_PY_HAS_ROBOT_MODEL 0
+#endif
+
+#if PANDA_PY_HAS_ROBOT_MODEL
+#include <franka/robot_model.h>
 #endif
 
 #define PYBIND11_DETAILED_ERROR_MESSAGES 1
@@ -20,13 +33,14 @@
   def_readonly(#name, &franka::RobotState::name)
 #define def_property_readonly_errors(name) \
   def_property_readonly(                   \
-      #name, [](const franka::Errors &errors) { return errors.name; })
+      #name, [](const franka::Errors& errors) { return errors.name; })
 
 namespace py = pybind11;
 
 const std::array<double, 3> gravity_earth = {0., 0., -9.81};
 
 PYBIND11_MODULE(libfranka, m) {
+  // clang-format off
   py::options options;
   //   options.disable_function_signatures();
   //   options.disable_enum_members_docstring();
@@ -224,6 +238,18 @@ PYBIND11_MODULE(libfranka, m) {
            py::overload_cast<const franka::RobotState &>(
                &franka::Model::coriolis, py::const_),
            py::arg("robot_state"))
+// libfranka 0.18.0 added a gravity_earth parameter to Model::coriolis and
+// deprecated the five-argument overload.
+#if LIBFRANKA_VER >= 0x001200
+      .def("coriolis",
+           py::overload_cast<const std::array<double, 7> &,
+                             const std::array<double, 7> &,
+                             const std::array<double, 9> &, double,
+                             const std::array<double, 3> &, const std::array<double, 3> &>(
+               &franka::Model::coriolis, py::const_),
+           py::arg("q"), py::arg("dq"), py::arg("I_total"), py::arg("m_total"),
+           py::arg("F_x_Ctotal"), py::arg("gravity_earth") = gravity_earth)
+#else
       .def("coriolis",
            py::overload_cast<const std::array<double, 7> &,
                              const std::array<double, 7> &,
@@ -232,6 +258,7 @@ PYBIND11_MODULE(libfranka, m) {
                &franka::Model::coriolis, py::const_),
            py::arg("q"), py::arg("dq"), py::arg("I_total"), py::arg("m_total"),
            py::arg("F_x_Ctotal"))
+#endif
       .def("gravity",
            py::overload_cast<const std::array<double, 7> &, double,
                              const std::array<double, 3> &,
@@ -244,6 +271,41 @@ PYBIND11_MODULE(libfranka, m) {
                              const std::array<double, 3> &>(
                &franka::Model::gravity, py::const_),
            py::arg("robot_state"), py::arg("gravity_earth") = gravity_earth);
+
+  #if PANDA_PY_HAS_ROBOT_MODEL
+  py::class_<franka::RobotModel>(m, "RobotModel")
+      .def(py::init<const std::string &>(),
+           py::arg("urdf"))
+      // RobotModel::coriolis gained a g_earth overload in 0.16.0, so the
+      // member pointer has to be disambiguated from 0.16.0 onwards.
+#if LIBFRANKA_VER >= 0x001000
+      .def("coriolis",
+           py::overload_cast<const std::array<double, 7> &,
+                             const std::array<double, 7> &,
+                             const std::array<double, 9> &, double,
+                             const std::array<double, 3> &,
+                             std::array<double, 7> &>(
+               &franka::RobotModel::coriolis),
+        py::arg("q"), py::arg("dq"), py::arg("i_total"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("c_ne"))
+      .def("coriolis",
+           py::overload_cast<const std::array<double, 7> &,
+                             const std::array<double, 7> &,
+                             const std::array<double, 9> &, double,
+                             const std::array<double, 3> &,
+                             const std::array<double, 3> &,
+                             std::array<double, 7> &>(
+               &franka::RobotModel::coriolis),
+        py::arg("q"), py::arg("dq"), py::arg("i_total"), py::arg("m_total"),
+        py::arg("f_x_ctotal"), py::arg("g_earth"), py::arg("c_ne"))
+#else
+      .def("coriolis", &franka::RobotModel::coriolis,
+        py::arg("q"), py::arg("dq"), py::arg("i_total"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("c_ne"))
+#endif
+      .def("gravity", &franka::RobotModel::gravity,
+        py::arg("q"), py::arg("g_earth"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("g_ne"))
+      .def("mass", &franka::RobotModel::mass,
+        py::arg("q"), py::arg("i_total"), py::arg("m_total"), py::arg("f_x_ctotal"), py::arg("m_ne"));
+  #endif
 
   py::enum_<franka::RealtimeConfig>(m, "RealtimeConfig")
       .value("kEnforce", franka::RealtimeConfig::kEnforce)
@@ -307,7 +369,11 @@ PYBIND11_MODULE(libfranka, m) {
            py::arg("log_size") = 50)
       .def("read", &franka::Robot::read)
       .def("read_once", &franka::Robot::readOnce)
+      #if LIBFRANKA_VER >= 0x000e00
+      .def("load_model", py::overload_cast<>(&franka::Robot::loadModel))
+      #else
       .def("load_model", &franka::Robot::loadModel)
+      #endif
       .def("server_version", &franka::Robot::serverVersion)
       .def("control",
            py::overload_cast<std::function<franka::Torques(
@@ -315,80 +381,88 @@ PYBIND11_MODULE(libfranka, m) {
                              bool, double>(&franka::Robot::control),
            py::arg("control_callback"), py::arg("limit_rate") = true,
            py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_joint_position",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::JointPositions(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_joint_velocity",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::JointVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_cartesian_pose",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::CartesianPose(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::call_guard<py::gil_scoped_release>(),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_torque_cartesian_velocity",
-    //        py::overload_cast<std::function<franka::Torques(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          std::function<franka::CartesianVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          bool, double>(&franka::Robot::control),
-    //        py::arg("control_callback"), py::arg("motion_generator_callback"),
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_joint_position",
-    //        py::overload_cast<std::function<franka::JointPositions(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_joint_velocity",
-    //        py::overload_cast<std::function<franka::JointVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_cartesian_pose",
-    //        py::overload_cast<std::function<franka::CartesianPose(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-    //   .def("control_cartesian_velocity",
-    //        py::overload_cast<std::function<franka::CartesianVelocities(
-    //                              const franka::RobotState &, franka::Duration)>,
-    //                          franka::ControllerMode, bool, double>(
-    //            &franka::Robot::control),
-    //        py::arg("motion_generator_callback"),
-    //        py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
-    //        py::arg("limit_rate") = true,
-    //        py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
-      //.def("get_virtual_wall", &franka::Robot::getVirtualWall, py::arg("id"))
+      // The motion generator overloads of Robot::control. panda-py's own
+      // controllers do not use these; they run a torque loop in C++ and are the
+      // recommended way to control the robot. These are bound so that callbacks
+      // returning JointPositions, JointVelocities, CartesianPose or
+      // CartesianVelocities can be used directly, rather than being silently
+      // cast to Torques.
+      //
+      // Like the torque overload above, these deliberately keep the GIL for the
+      // duration of the call. Releasing it would mean a full GIL acquisition per
+      // callback, which on a 1 kHz loop can add latency spikes.
+      .def("control_torque_joint_position",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::JointPositions(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_torque_joint_velocity",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::JointVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_torque_cartesian_pose",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::CartesianPose(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_torque_cartesian_velocity",
+           py::overload_cast<std::function<franka::Torques(
+                                 const franka::RobotState &, franka::Duration)>,
+                             std::function<franka::CartesianVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             bool, double>(&franka::Robot::control),
+           py::arg("control_callback"), py::arg("motion_generator_callback"),
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_joint_position",
+           py::overload_cast<std::function<franka::JointPositions(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_joint_velocity",
+           py::overload_cast<std::function<franka::JointVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_cartesian_pose",
+           py::overload_cast<std::function<franka::CartesianPose(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
+      .def("control_cartesian_velocity",
+           py::overload_cast<std::function<franka::CartesianVelocities(
+                                 const franka::RobotState &, franka::Duration)>,
+                             franka::ControllerMode, bool, double>(
+               &franka::Robot::control),
+           py::arg("motion_generator_callback"),
+           py::arg("controller_mode") = franka::ControllerMode::kJointImpedance,
+           py::arg("limit_rate") = true,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency)
       .def("set_collision_behavior",
            py::overload_cast<
                const std::array<double, 7> &, const std::array<double, 7> &,
@@ -454,13 +528,13 @@ PYBIND11_MODULE(libfranka, m) {
            py::call_guard<py::gil_scoped_release>())
       .def("read_once", &franka::Gripper::readOnce);
 
-#ifdef VACUUM_GRIPPER
+  #if LIBFRANKA_VER >= 0x000800
   py::enum_<franka::VacuumGripperDeviceStatus>(m, "VacuumGripperDeviceStatus")
       .value("kGreen", franka::VacuumGripperDeviceStatus::kGreen)
       .value("kYellow", franka::VacuumGripperDeviceStatus::kYellow)
       .value("kOrange", franka::VacuumGripperDeviceStatus::kOrange)
       .value("kRed", franka::VacuumGripperDeviceStatus::kRed);
-  
+
   py::class_<franka::VacuumGripperState>(m, "VacuumGripperState")
       .def_readonly("in_control_range", &franka::VacuumGripperState::in_control_range)
       .def_readonly("part_detached", &franka::VacuumGripperState::part_detached)
@@ -469,25 +543,25 @@ PYBIND11_MODULE(libfranka, m) {
       .def_readonly("actual_power", &franka::VacuumGripperState::actual_power)
       .def_readonly("vacuum", &franka::VacuumGripperState::vacuum)
       .def_readonly("time", &franka::VacuumGripperState::time);
-  
+
   py::enum_<franka::VacuumGripper::ProductionSetupProfile>(m, "VacuumGripperProductionSetupProfile")
       .value("kP0", franka::VacuumGripper::ProductionSetupProfile::kP0)
       .value("kP1", franka::VacuumGripper::ProductionSetupProfile::kP1)
       .value("kP2", franka::VacuumGripper::ProductionSetupProfile::kP2)
       .value("kP3", franka::VacuumGripper::ProductionSetupProfile::kP3);
-  
+
   py::class_<franka::VacuumGripper>(m, "VacuumGripper")
       .def(py::init<std::string>(), py::arg("franka_address"))
       .def("server_version", &franka::VacuumGripper::serverVersion)
       .def("vacuum", &franka::VacuumGripper::vacuum,
            py::call_guard<py::gil_scoped_release>(), py::arg("vacuum"),
-         py::arg("timeout"), 
+         py::arg("timeout"),
            py::arg("profile") = franka::VacuumGripper::ProductionSetupProfile::kP0)
       .def("drop_off", &franka::VacuumGripper::dropOff,
            py::call_guard<py::gil_scoped_release>(), py::arg("timeout"))
       .def("stop", &franka::VacuumGripper::stop,
            py::call_guard<py::gil_scoped_release>())
-      .def("read_once", &franka::VacuumGripper::readOnce);       
+      .def("read_once", &franka::VacuumGripper::readOnce);
   #endif
 
   m.def("is_valid_elbow", &franka::isValidElbow, py::arg("elbow"));
@@ -497,7 +571,7 @@ PYBIND11_MODULE(libfranka, m) {
   m.def("set_current_thread_to_highest_scheduler_priority",
         &franka::setCurrentThreadToHighestSchedulerPriority,
         py::arg("error_message"));
-  
+
   m.def("motion_finished",
         py::overload_cast<franka::Torques>(&franka::MotionFinished),
         py::arg("command"));
@@ -523,4 +597,5 @@ PYBIND11_MODULE(libfranka, m) {
 
   // TODO: lowpass_filter.h
   // TODO: rate_limiting.h
+  // clang-format on
 }

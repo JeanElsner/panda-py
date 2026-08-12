@@ -3,6 +3,9 @@
 using namespace controllers;
 
 const double CartesianTrajectory::kDefaultDqThreshold = 1e-3;
+const double CartesianTrajectory::kSettlePositionTolerance = 2e-3;
+const double CartesianTrajectory::kSettleOrientationTolerance = 2e-3;
+const double CartesianTrajectory::kSettleTimeout = 1.0;
 const double CartesianTrajectory::kDefaultNullspaceStiffness = 15.0;
 // clang-format off
 double _data[36] = {800,   0,   0,  0,  0,  0,
@@ -15,38 +18,54 @@ double _data[36] = {800,   0,   0,  0,  0,  0,
 const Eigen::Matrix<double, 6, 6> CartesianTrajectory::kDefaultImpedance =
     Eigen::Matrix<double, 6, 6>(_data);
 
-CartesianTrajectory::CartesianTrajectory(std::shared_ptr<motion::CartesianTrajectory> trajectory,
-             const Vector7d &q_init,
-             const Eigen::Matrix<double, 6, 6> &impedance,
-             const double &damping_ratio,
-             const double &nullspace_stiffness,
-             const double dq_threshold,
-             const double filter_coeff)
-    : CartesianImpedance(impedance, damping_ratio, nullspace_stiffness, filter_coeff),
+CartesianTrajectory::CartesianTrajectory(
+    std::shared_ptr<motion::CartesianTrajectory> trajectory,
+    const Vector7d& q_init, const Eigen::Matrix<double, 6, 6>& impedance,
+    const double& damping_ratio, const double& nullspace_stiffness,
+    const double dq_threshold, const double filter_coeff)
+    : CartesianImpedance(impedance, damping_ratio, nullspace_stiffness,
+                         filter_coeff),
       traj_(trajectory),
       dq_threshold_(dq_threshold),
       q_init_(q_init) {}
 
-franka::Torques CartesianTrajectory::step(const franka::RobotState &robot_state,
-                                 franka::Duration &duration) {
+franka::Torques CartesianTrajectory::step(const franka::RobotState& robot_state,
+                                          franka::Duration& duration) {
   auto position = traj_->getPosition(getTime());
   auto orientation = traj_->getOrientation(getTime());
   setControl(position, orientation, q_init_);
   auto torques = CartesianImpedance::step(robot_state, duration);
-  if (getTime() > traj_->getDuration()) {
+  const double overrun = getTime() - traj_->getDuration();
+  if (overrun > 0.0) {
     bool at_rest = true;
     for (auto dq : robot_state.dq) {
       if (std::abs(dq) > dq_threshold_) {
         at_rest = false;
       }
     }
-    if (at_rest) {
+    // Being at rest is not enough on its own: without an integral term the
+    // controller comes to rest wherever the stiffness balances the residual
+    // error, which can be well short of the goal.
+    const Eigen::Affine3d transform(
+        Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
+    const double position_error =
+        (traj_->getPosition(traj_->getDuration()) - transform.translation())
+            .norm();
+    const Eigen::Quaterniond orientation(transform.rotation());
+    Eigen::Quaterniond orientation_goal(
+        traj_->getOrientation(traj_->getDuration()));
+    if (orientation_goal.coeffs().dot(orientation.coeffs()) < 0.0) {
+      orientation_goal.coeffs() << -orientation_goal.coeffs();
+    }
+    const double orientation_error =
+        orientation.angularDistance(orientation_goal);
+    const bool at_goal = position_error <= kSettlePositionTolerance &&
+                         orientation_error <= kSettleOrientationTolerance;
+    if ((at_rest && at_goal) || overrun >= kSettleTimeout) {
       torques.motion_finished = true;
     }
   }
   return torques;
 }
 
-const std::string CartesianTrajectory::name() {
-  return "CartesianTrajectory";
-}
+const std::string CartesianTrajectory::name() { return "CartesianTrajectory"; }

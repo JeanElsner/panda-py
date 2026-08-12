@@ -8,10 +8,10 @@ class VirtualWall {
   VirtualWall() = delete;
 
   VirtualWall(const double& soft_upper_joint_position_limit,
-            const double& soft_lower_joint_position_limit,
-            const double& PD_zone_width, const double& D_zone_width,
-            const double& PD_zone_stiffness, const double& PD_zone_damping,
-            const double& D_zone_damping);
+              const double& soft_lower_joint_position_limit,
+              const double& PD_zone_width, const double& D_zone_width,
+              const double& PD_zone_stiffness, const double& PD_zone_damping,
+              const double& D_zone_damping);
 
   double computeTorque(const double& q, const double& dq);
   void reset();

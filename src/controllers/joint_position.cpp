@@ -15,7 +15,7 @@ const double kDefaultDampingData[7] = {50, 50, 50, 20, 20, 20, 10};
 const Vector7d JointPosition::kDefaultDamping = Vector7d(kDefaultDampingData);
 const double JointPosition::kDefaultFilterCoeff = 1.0;
 
-JointPosition::JointPosition(const Vector7d &stiffness, const Vector7d &damping,
+JointPosition::JointPosition(const Vector7d& stiffness, const Vector7d& damping,
                              const double filter_coeff) {
   K_p_ = stiffness;
   K_p_target_ = stiffness;
@@ -24,8 +24,8 @@ JointPosition::JointPosition(const Vector7d &stiffness, const Vector7d &damping,
   filter_coeff_ = filter_coeff;
 };
 
-franka::Torques JointPosition::step(const franka::RobotState &robot_state,
-                                    franka::Duration &duration) {
+franka::Torques JointPosition::step(const franka::RobotState& robot_state,
+                                    franka::Duration& duration) {
   // Observed states
   Vector7d q, q_d, dq_d, dq, tau_d, K_p, K_d;
   q = Eigen::Map<const Vector7d>(robot_state.q.data());
@@ -52,19 +52,19 @@ void JointPosition::_updateFilter() {
   K_d_ = ema_filter(K_d_, K_d_target_, filter_coeff_, true);
 }
 
-void JointPosition::setControl(const Vector7d &position,
-                               const Vector7d &velocity) {
+void JointPosition::setControl(const Vector7d& position,
+                               const Vector7d& velocity) {
   std::lock_guard<std::mutex> lock(mux_);
   q_d_target_ = position;
   dq_d_target_ = velocity;
 }
 
-void JointPosition::setStiffness(const Vector7d &stiffness) {
+void JointPosition::setStiffness(const Vector7d& stiffness) {
   std::lock_guard<std::mutex> lock(mux_);
   K_p_target_ = stiffness;
 }
 
-void JointPosition::setDamping(const Vector7d &damping) {
+void JointPosition::setDamping(const Vector7d& damping) {
   std::lock_guard<std::mutex> lock(mux_);
   K_d_target_ = damping;
 }
@@ -74,7 +74,7 @@ void JointPosition::setFilter(const double filter_coeff) {
   filter_coeff_ = filter_coeff;
 }
 
-void JointPosition::start(const franka::RobotState &robot_state,
+void JointPosition::start(const franka::RobotState& robot_state,
                           std::shared_ptr<franka::Model> model) {
   motion_finished_ = false;
   q_d_ = Eigen::Map<const Vector7d>(robot_state.q.data());
@@ -83,7 +83,7 @@ void JointPosition::start(const franka::RobotState &robot_state,
   dq_d_target_.setZero();
 }
 
-void JointPosition::stop(const franka::RobotState &robot_state,
+void JointPosition::stop(const franka::RobotState& robot_state,
                          std::shared_ptr<franka::Model> model) {
   motion_finished_ = true;
 }

@@ -157,3 +157,10 @@ Thumbs.db
 # Common editor files
 *~
 *.swp
+
+# Editor directories
+.vscode/
+.idea/
+
+# Scratch space for out-of-tree dependency builds
+tmp/
