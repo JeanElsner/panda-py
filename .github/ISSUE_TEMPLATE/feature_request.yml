@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a capability panda-py does not have
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The problem you are solving, rather than the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like panda-py to do
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: |
+        Whether the robot's own interfaces already expose this, through libfranka
+        or the Desk, is useful to know.
+    validations:
+      required: false

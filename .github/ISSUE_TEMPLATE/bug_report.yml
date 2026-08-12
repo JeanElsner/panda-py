@@ -1,0 +1,91 @@
+name: Bug report
+description: Something does not work as documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most robot-side problems come down to a mismatch between the robot's
+        system version and the libfranka a wheel was built against, so please
+        fill in the versions below. The table in the README says which wheel
+        goes with which system version.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        Calling panda.move_to_start() ends about 2 cm short of the goal and
+        returns False.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Code to reproduce
+      description: The smallest script that shows the problem.
+      render: python
+    validations:
+      required: false
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: |
+        The full traceback or error. panda-py logs through the `logging` module,
+        so `logging.basicConfig(level=logging.INFO)` usually adds useful context.
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: robot
+    attributes:
+      label: Robot
+      options:
+        - Franka Research 3 (FR3)
+        - Franka Emika Robot (FER, formerly Panda)
+        - Not applicable, this is not a robot-side problem
+    validations:
+      required: true
+
+  - type: input
+    id: system-version
+    attributes:
+      label: Robot system version
+      description: Shown in Desk under Settings. For example 5.9.0 or 4.2.1.
+      placeholder: "5.9.0"
+    validations:
+      required: true
+
+  - type: input
+    id: libfranka-version
+    attributes:
+      label: libfranka version
+      description: |
+        Which wheel you installed. `pip show panda-python` reports it as a
+        suffix on the version, for example 1.0.0+libfranka.0.21.3. A plain
+        version with no suffix is the default from PyPI.
+      placeholder: "0.21.3"
+    validations:
+      required: true
+
+  - type: input
+    id: panda-py-version
+    attributes:
+      label: panda-py version
+      description: Output of `python -c "import panda_py; print(panda_py.__version__)"`.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Python version and operating system
+      placeholder: "Python 3.12, Ubuntu 22.04, real-time kernel"
+    validations:
+      required: true

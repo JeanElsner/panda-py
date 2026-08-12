@@ -1,0 +1,45 @@
+name: Compatibility question
+description: Which wheel do I need for my robot?
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The compatibility table in the
+        [README](https://github.com/JeanElsner/panda-py#libfranka-version)
+        maps each robot system version to the wheel you need. Please check it
+        first, it answers most of these.
+
+        panda-py ships one wheel per research interface protocol version, and
+        the protocol version, not the libfranka release, is what decides whether
+        a wheel can talk to a robot. So there is no wheel for every libfranka
+        release, and there does not need to be.
+
+  - type: input
+    id: system-version
+    attributes:
+      label: Robot system version
+      description: Shown in Desk under Settings.
+      placeholder: "5.9.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: robot
+    attributes:
+      label: Robot
+      options:
+        - Franka Research 3 (FR3)
+        - Franka Emika Robot (FER, formerly Panda)
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: |
+        What you tried and what went wrong. If installing a wheel failed, please
+        include the error.
+    validations:
+      required: true
