@@ -40,4 +40,4 @@ redirects = {
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "furo"
-html_static_path = ["_static"]
+# No static assets; sphinx warns if html_static_path points at a missing directory.
