@@ -49,6 +49,9 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
 ### Removed
 
 - Support for Python 3.7 and 3.8.
+- `bin/before_install_ubuntu.sh`. It only installed Poco and Eigen, so it could
+  not build libfranka 0.14.0 or later. Build against a system libfranka or use
+  the container images described in `CONTRIBUTING.md`.
 
 ### Fixed
 
@@ -83,6 +86,11 @@ software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
   answering 204 No Content, such as releasing a control token, appeared to fail.
 - The nullspace stiffness was read from the control thread without holding the
   mutex that guards it.
+- Both trajectory generators released the GIL and then threw from inside that
+  region, so a failed trajectory computation segfaulted the interpreter on
+  Python 3.9 through 3.11 instead of raising. They also accepted non-finite
+  waypoints, mismatched position and orientation lists, and single waypoints,
+  each of which crashed further down; these now raise `ValueError`.
 - `bin/build.sh` left `pyproject.toml` pinned to a nonexistent libfranka version
   after every run, because its reset path reused the package version as the
   libfranka version.
