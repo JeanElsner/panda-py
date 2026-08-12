@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Releases before 1.0.0 are documented in the
 [GitHub releases](https://github.com/JeanElsner/panda-py/releases).
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-08-12
 
 Adds support for the libfranka versions used by current Franka Research 3 system
 software, while keeping the Franka Emika Robot (Panda) line on libfranka 0.9.2.
