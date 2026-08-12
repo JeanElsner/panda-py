@@ -84,10 +84,31 @@ class Desk:
     forcefully (cf. :py:func:`Desk.take_control`) but needs to confirm
     physical access to the robot by pressing the circle button on the
     robot's Pilot interface.
+
+    The FER and the FR3 serve mutually exclusive endpoints for the brakes.
+    Which one to use is detected on the first call to :py:func:`Desk.lock`
+    or :py:func:`Desk.unlock`, so the ``platform`` argument is optional.
     """
 
+    #: The brake endpoints, which differ between the FER and the FR3. Both
+    #: robots serve only their own pair and answer 404 for the other's.
+    _BRAKE_ENDPOINTS = {
+        "panda": {
+            "lock": "/desk/api/robot/close-brakes",
+            "unlock": "/desk/api/robot/open-brakes",
+        },
+        "fr3": {
+            "lock": "/desk/api/joints/lock",
+            "unlock": "/desk/api/joints/unlock",
+        },
+    }
+
     def __init__(
-        self, hostname: str, username: str, password: str, platform: str = "panda"
+        self,
+        hostname: str,
+        username: str,
+        password: str,
+        platform: typing.Optional[str] = None,
     ) -> None:
         urllib3.disable_warnings()
         self._session = requests.Session()
@@ -102,7 +123,12 @@ class Desk:
         self.login()
         self._legacy = False
 
-        if platform.lower() in [
+        # Only ever a hint about which brake endpoint to try first. Passing it
+        # saves a wasted request, but getting it wrong is recovered from.
+        self._platform_given = platform is not None
+        if platform is None:
+            self._platform = "panda"
+        elif platform.lower() in [
             "panda",
             "fer",
             "franka_emika_robot",
@@ -127,28 +153,84 @@ class Desk:
         """
         Locks the brakes. API call blocks until the brakes are locked.
         """
-        if self._platform == "panda":
-            url = "/desk/api/robot/close-brakes"
-        elif self._platform == "fr3":
-            url = "/desk/api/joints/lock"
-
-        self._request("post", url, files={"force": force})
+        self._brakes("lock", force)
 
     def unlock(self, force: bool = True) -> None:
         """
         Unlocks the brakes. API call blocks until the brakes are unlocked.
         """
-        if self._platform == "panda":
-            url = "/desk/api/robot/open-brakes"
-        elif self._platform == "fr3":
-            url = "/desk/api/joints/unlock"
+        self._brakes("unlock", force, headers={"X-Control-Token": self._token.token})
 
-        self._request(
-            "post",
-            url,
-            files={"force": force},
-            headers={"X-Control-Token": self._token.token},
+    def _brakes(
+        self,
+        action: typing.Literal["lock", "unlock"],
+        force: bool,
+        headers: typing.Dict[str, str] = None,
+    ) -> None:
+        """
+        Operates the brakes, discovering which endpoint this robot serves.
+
+        The FER and the FR3 each serve only their own pair of brake endpoints
+        and answer 404 for the other's, without touching the brakes. So the
+        platform can be detected by trying and retrying, which costs nothing
+        when the hint is right and needs no separate probe request.
+        """
+        candidates = [self._platform] + [
+            platform for platform in self._BRAKE_ENDPOINTS if platform != self._platform
+        ]
+        for platform in candidates:
+            response = self._request(
+                "post",
+                self._BRAKE_ENDPOINTS[platform][action],
+                files={"force": force},
+                headers=headers,
+                check=False,
+            )
+            if self._is_missing_endpoint(response):
+                continue
+            if not 200 <= response.status_code < 300:
+                raise ConnectionError(response.text)
+            self._detected_platform(platform)
+            return
+
+        raise ConnectionError(
+            f"This Desk serves neither the FER nor the FR3 endpoint to {action} the "
+            "brakes. The Desk API is undocumented and may have changed; please report "
+            "this at https://github.com/JeanElsner/panda-py/issues."
         )
+
+    @staticmethod
+    def _is_missing_endpoint(response: requests.Response) -> bool:
+        """
+        Whether a response means the endpoint does not exist on this robot.
+
+        The FR3 answers an unknown path with ``No handler accepted "<path>"``
+        and the FER with ``File not found``. Both come back as 404, but the
+        body is matched as well so that a firmware using another status code
+        for the same condition is still recognised.
+        """
+        return (
+            response.status_code == 404
+            or "no handler accepted" in (response.text or "").lower()
+        )
+
+    def _detected_platform(self, platform: str) -> None:
+        """
+        Records the platform a brake call succeeded on.
+        """
+        if platform == self._platform:
+            return
+        if self._platform_given:
+            _logger.warning(
+                "The Desk was created with platform=%r, but the robot serves the %r "
+                "brake endpoints. Using %r; drop the argument to detect it.",
+                self._platform,
+                platform,
+                platform,
+            )
+        else:
+            _logger.info("Detected platform %r from the brake endpoints.", platform)
+        self._platform = platform
 
     def reboot(self) -> None:
         """
@@ -349,6 +431,7 @@ class Desk:
         json: typing.Dict[str, str] = None,
         headers: typing.Dict[str, str] = None,
         files: typing.Dict[str, str] = None,
+        check: bool = True,
     ) -> requests.Response:
         fun = getattr(self._session, method)
         response: requests.Response = fun(
@@ -358,8 +441,9 @@ class Desk:
             files=files,
         )
         # Any 2xx is a success. Some endpoints, in particular the DELETE used to
-        # release a control token, answer 204 No Content.
-        if not 200 <= response.status_code < 300:
+        # release a control token, answer 204 No Content. Callers that inspect
+        # the failure themselves pass check=False.
+        if check and not 200 <= response.status_code < 300:
             raise ConnectionError(response.text)
         return response
 

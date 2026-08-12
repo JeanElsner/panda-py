@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Releases before 1.0.0 are documented in the
 [GitHub releases](https://github.com/JeanElsner/panda-py/releases).
 
+## [Unreleased]
+
+### Changed
+
+- `Desk` now detects whether the robot serves the FER or the FR3 brake endpoints
+  instead of relying on the `platform` argument, which is now optional. The two
+  robots serve mutually exclusive endpoints and answer 404 for the other's
+  without touching the brakes, so `lock()` and `unlock()` retry on the other
+  endpoint and remember the result. Previously an FR3 user who did not pass
+  `platform="fr3"` got an HTML 404 page as an error message. The argument is
+  still honoured as a hint that avoids the extra request, and a mismatch between
+  it and the robot is logged as a warning.
+
 ## [1.0.0] - 2026-08-12
 
 Adds support for the libfranka versions used by current Franka Research 3 system
