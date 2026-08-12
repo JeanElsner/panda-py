@@ -19,6 +19,13 @@ on:
       - ".github/workflows/build_images.yml"
   workflow_dispatch:
 
+# Shared with the wheel workflows, which pull the tags pushed here. Without
+# this they start on the same push and a wheel job can pull a tag mid-push,
+# which GHCR answers with "denied" and which fails the row.
+concurrency:
+  group: build-environment-images
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
