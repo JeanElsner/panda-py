@@ -9,6 +9,14 @@ on:
   push:
     branches: ["main"]
 
+# Shared with build_images.yml, which pushes the image tags the wheel jobs
+# below pull. A push that changes the Dockerfile or the build scripts starts
+# both workflows at once, and pulling a tag while it is being pushed fails the
+# row with "denied". Queue instead of cancelling so the wheels still get built.
+concurrency:
+  group: build-environment-images
+  cancel-in-progress: false
+
 jobs:
   build_wheels:
     name: Build wheels for libfranka ${{ matrix.libfranka-version }}
