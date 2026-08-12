@@ -30,17 +30,21 @@ result can talk to. There are two ways to get one.
 
 ### Against a system libfranka
 
-Install libfranka and its dependencies, then build in place:
+If libfranka and its dependencies are already installed, an editable install
+works:
 
 ```
-LIBFRANKA_VER=0.9.2 ./bin/before_install_ubuntu.sh
 pip install -e .
 ```
 
-`LIBFRANKA_VER` is only read by the install script. The version guards in the
-C++ are derived by CMake from the libfranka that `find_package` actually finds,
-so the two cannot disagree. CMake warns if the version you asked for and the one
-it found differ in the minor version.
+The version guards in the C++ are derived by CMake from the libfranka that
+`find_package` actually finds, so nothing has to be configured by hand. CMake
+warns if the version found differs in the minor version from the `LIBFRANKA_VER`
+in the environment.
+
+Installing libfranka itself is left to you. From 0.14.0 on it pulls in
+Pinocchio, and with it Boost, urdfdom, Assimp, TinyXML2 and console_bridge, so
+the container images below are usually less work.
 
 ### Against a container image
 

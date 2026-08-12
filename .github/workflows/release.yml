@@ -66,17 +66,29 @@ jobs:
     name: "Upload wheels to pypi"
     needs: [build_wheels]
     runs-on: ubuntu-latest
-    env:
-      LIBFRANKA_VER: "0.9.2"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install requirements
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==4.2.0
+      # The wheels published to PyPI are the default row of the matrix, the
+      # newest libfranka that still supports the Franka Emika Robot. Read which
+      # one that is from pyproject.toml rather than repeating it here.
+      - name: Use the prebuilt build environment
         run: |
-          ./bin/before_install_ubuntu.sh
-          python -m pip install cibuildwheel
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          libfranka=$(python - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              environment = tomllib.load(f)["tool"]["cibuildwheel"]["environment"]
+          print(dict(item.split("=", 1) for item in environment.split())["LIBFRANKA_VER"])
+          PY
+          )
+          echo "Publishing the libfranka $libfranka wheels to PyPI"
+          echo "CIBW_MANYLINUX_X86_64_IMAGE=ghcr.io/$owner/panda-py-build:$libfranka" >> "$GITHUB_ENV"
+          echo "CIBW_BEFORE_ALL=" >> "$GITHUB_ENV"
       - name: Build using cibuildwheel
         run: python -m cibuildwheel --output-dir dist
       - uses: pypa/gh-action-pypi-publish@release/v1
