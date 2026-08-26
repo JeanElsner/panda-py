@@ -4,7 +4,7 @@ import numpy
 import numpy.typing
 import panda_py.libfranka
 import typing
-__all__: list[str] = ['AppliedForce', 'AppliedTorque', 'CartesianImpedance', 'CartesianTrajectory', 'Force', 'IntegratedVelocity', 'JointPosition', 'JointTrajectory', 'Panda', 'PandaContext', 'TorqueController', 'fk', 'ik', 'ik_full']
+__all__: list[str] = ['AppliedForce', 'AppliedTorque', 'CartesianImpedance', 'CartesianTrajectory', 'Force', 'IntegratedVelocity', 'JointPosition', 'JointTrajectory', 'Panda', 'PandaContext', 'TorqueController', 'fk', 'ik', 'ik_full', 'realtime_priority_available']
 class AppliedForce(TorqueController):
     def __init__(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., filter_coeff: typing.SupportsFloat | typing.SupportsIndex = 1.0) -> None:
         ...
@@ -295,6 +295,17 @@ def ik_full(O_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4,
 @typing.overload
 def ik_full(position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], q_init: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_7: typing.SupportsFloat | typing.SupportsIndex = 0.7853981633974483) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 7]"]:
     ...
+def realtime_priority_available() -> tuple[bool, str]:
+    """
+         Whether this process can obtain the realtime scheduling that the
+         control loop needs, and the reason it cannot as reported by libfranka.
+    
+         Returns a tuple of a bool and a message, where the message is empty
+         when the answer is True. :py:class:`Panda` logs a warning about this
+         on connect; call it directly to check without a robot. See also
+         :py:func:`panda_py.libfranka.has_realtime_kernel`, which reports the
+         other half of what realtime control needs.
+    """
 _DTAU_J_MAX: numpy.ndarray  # value = array([1000., 1000., 1000., 1000., 1000., 1000., 1000.])
 _JOINT_LIMITS_LOWER: numpy.ndarray  # value = array([-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973])
 _JOINT_LIMITS_LOWER_FR3: numpy.ndarray  # value = array([-2.7437, -1.7837, -2.9007, -3.0421, -2.8065,  0.5445, -3.0159])

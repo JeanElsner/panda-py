@@ -14,7 +14,15 @@ def test_version_is_exposed():
 
 
 def test_top_level_symbols():
-    for name in ["Panda", "PandaContext", "Desk", "fk", "ik", "ik_full"]:
+    for name in [
+        "Panda",
+        "PandaContext",
+        "Desk",
+        "fk",
+        "ik",
+        "ik_full",
+        "realtime_priority_available",
+    ]:
         assert hasattr(panda_py, name), name
 
 

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Releases before 1.0.0 are documented in the
 [GitHub releases](https://github.com/JeanElsner/panda-py/releases).
 
+## [Unreleased]
+
+### Added
+
+- `Panda` warns on connect when the process cannot obtain realtime scheduling,
+  or when the kernel is not a realtime kernel. libfranka always tries to put the
+  control thread on `SCHED_FIFO` but only raises about it when the
+  `RealtimeConfig` is `kEnforce`, and panda-py defaults to `kIgnore` so that
+  gentle motions work on a stock kernel. Both conditions therefore failed
+  silently, and the symptom the robot produces,
+  `communication_constraints_violation`, points at the network rather than the
+  scheduler.
+- `panda_py.realtime_priority_available()`, returning libfranka's verdict and
+  its message, to check without a robot attached. The kernel half of the same
+  check was already available as `libfranka.has_realtime_kernel()`.
+
 ## [1.0.0] - 2026-08-12
 
 Adds support for the libfranka versions used by current Franka Research 3 system

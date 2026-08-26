@@ -77,6 +77,17 @@ PYBIND11_MODULE(_core, m) {
      Computes end-effector pose in base frame from joint positions.
   )delim");
 
+  m.def("realtime_priority_available", &realtimePriorityAvailable, R"delim(
+     Whether this process can obtain the realtime scheduling that the
+     control loop needs, and the reason it cannot as reported by libfranka.
+
+     Returns a tuple of a bool and a message, where the message is empty
+     when the answer is True. :py:class:`Panda` logs a warning about this
+     on connect; call it directly to check without a robot. See also
+     :py:func:`panda_py.libfranka.has_realtime_kernel`, which reports the
+     other half of what realtime control needs.
+  )delim");
+
   py::class_<motion::JointTrajectory>(m, "JointTrajectory")
       .def(py::init<const std::vector<Vector7d> &, double, double, double>(),
            py::arg("waypoints"),

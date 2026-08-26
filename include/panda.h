@@ -8,7 +8,9 @@
 #include <pybind11/stl.h>
 
 #include <mutex>
+#include <string>
 #include <thread>
+#include <utility>
 
 #include "constants.h"
 #include "controllers/applied_torque.h"
@@ -19,6 +21,15 @@
 #include "utils.h"
 
 namespace py = pybind11;
+
+/**
+ * Whether this process can obtain the realtime scheduling that libfranka
+ * requests for the control loop, along with libfranka's message if it cannot.
+ *
+ * Answered by asking libfranka itself, on a thread of its own, so that a
+ * successful attempt does not raise the caller's priority as a side effect.
+ */
+std::pair<bool, std::string> realtimePriorityAvailable();
 
 class Panda;
 
@@ -150,6 +161,7 @@ class Panda {
   const std::string name_;
 
  private:
+  void _warnIfRealtimeUnavailable();
   void _startController(std::shared_ptr<TorqueController> controller);
   void _runController(TorqueCallback& control);
   void _setState(const franka::RobotState& state);

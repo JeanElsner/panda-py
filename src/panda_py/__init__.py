@@ -25,7 +25,14 @@ from requests.packages import urllib3
 from websockets.sync.client import connect
 
 # pylint: disable=no-name-in-module
-from ._core import Panda, PandaContext, fk, ik, ik_full
+from ._core import (
+    Panda,
+    PandaContext,
+    fk,
+    ik,
+    ik_full,
+    realtime_priority_available,
+)
 
 __all__ = [
     "Panda",
@@ -37,6 +44,7 @@ __all__ = [
     "fk",
     "ik",
     "ik_full",
+    "realtime_priority_available",
     "Desk",
     "TOKEN_PATH",
 ]

@@ -1,5 +1,6 @@
 #include "panda.h"
 
+#include <franka/control_tools.h>
 #include <franka/exception.h>
 
 #include <iostream>
@@ -17,6 +18,26 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, V>& vec) {
   return os;
 }
 }  // namespace std
+
+std::pair<bool, std::string> realtimePriorityAvailable() {
+  // Ask libfranka rather than reimplementing the check. It requests
+  // sched_get_priority_max(SCHED_FIFO), so a machine that permits some
+  // realtime priority but not the maximum is correctly reported as
+  // unavailable, and this cannot drift from what libfranka does.
+  //
+  // On success the call raises the priority of the thread it runs on, so it
+  // runs on a thread of its own: doing that to the caller, which is the
+  // interpreter's main thread, would be a side effect of a query. The probe
+  // thread inherits the same limits and capabilities, so the answer is the
+  // one the control thread would get.
+  bool available = false;
+  std::string message;
+  std::thread probe([&available, &message]() {
+    available = franka::setCurrentThreadToHighestSchedulerPriority(&message);
+  });
+  probe.join();
+  return {available, message};
+}
 
 bool PandaContext::ok() {
   panda_.raiseError();
@@ -97,6 +118,40 @@ Panda::Panda(std::string hostname, std::string name,
           new controllers::joint_limits::VirtualWallController(
               joint_limits_.upper, joint_limits_.lower, kPDZoneWidth,
               kDZoneWidth, kPDZoneStiffness, kPDZoneDamping, kDZoneDamping));
+  _warnIfRealtimeUnavailable();
+}
+
+void Panda::_warnIfRealtimeUnavailable() {
+  // libfranka always tries to put the control thread on SCHED_FIFO, but only
+  // raises RealtimeException about it when the RealtimeConfig is kEnforce.
+  // panda-py defaults to kIgnore so that gentle motions work on a stock
+  // kernel, which means both of the conditions kEnforce checks fail silently.
+  // Report them instead, because the symptom the robot produces,
+  // communication_constraints_violation, points at the network rather than at
+  // the scheduler.
+  //
+  // Once per process rather than per instance: the answer cannot differ
+  // between two robots in the same interpreter.
+  static std::once_flag warned;
+  std::call_once(warned, [this]() {
+    const std::pair<bool, std::string> priority = realtimePriorityAvailable();
+    if (!priority.first) {
+      _log("warning",
+           "Realtime scheduling is unavailable, so the 1 kHz control loop runs "
+           "at normal priority and can miss its deadline when the machine is "
+           "busy. The robot reports that as "
+           "communication_constraints_violation or a reflex abort. Cause: %s. "
+           "To grant the limit, run: echo \"$USER - rtprio 99\" | sudo tee "
+           "/etc/security/limits.d/99-realtime.conf, then log out and back in.",
+           priority.second);
+    }
+    if (!franka::hasRealtimeKernel()) {
+      _log("warning",
+           "The running kernel is not a realtime kernel "
+           "(/sys/kernel/realtime is not set). Control usually works, but "
+           "latency spikes can abort motions.");
+    }
+  });
 }
 
 Panda::~Panda() {
