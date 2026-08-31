@@ -34,8 +34,8 @@ def _create_argument_parser(needs_platform: bool = True) -> argparse.ArgumentPar
         parser.add_argument(
             "--platform",
             type=str,
-            default="panda",
-            help="Platform of robot, i.e. panda (default) or fr3.",
+            default=None,
+            help="Robot platform, i.e. panda or fr3. Detected if omitted.",
         )
     return parser
 
@@ -49,6 +49,7 @@ def unlock():
       user: Username used to log into the Desk.
       password: Password of the given username.
       platform: The targeted robot platform, i.e. panda or fr3.
+        Detected from the robot if omitted.
     """
     parser = _create_argument_parser()
     args = parser.parse_args()
@@ -67,6 +68,7 @@ def lock():
       user: Username used to log into the Desk.
       password: Password of the given username.
       platform: The targeted robot platform, i.e. panda or fr3.
+        Detected from the robot if omitted.
     """
     parser = _create_argument_parser()
     args = parser.parse_args()
