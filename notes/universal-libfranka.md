@@ -274,15 +274,42 @@ Nothing here needs hardware. The remaining hardware-only questions are whether
 a real robot accepts a `Connect` from a client whose other command IDs differ,
 and the gripper protocol.
 
+## The gripper protocol has never changed
+
+`research_interface/gripper` has its own `kVersion` and its own port, and needs
+no per-generation handling at all. Across every `libfranka-common` commit pinned
+by the eight robot generations:
+
+- `kVersion` is **3** throughout
+- `kCommandPort` is 1338 throughout
+- only two distinct `types.h` files exist, and the difference between them is a
+  copyright line and `&` placement from a reformat
+- `sizeof(GripperState)` is 23, `Connect::Request` and `Connect::Response` are 4
+  bytes each, in both
+
+There is no separate `service_types.h` on the gripper side; `types.h` holds
+everything. One gripper implementation serves all generations.
+
 ## Open questions
 
-- Gripper protocol: this spike only looked at `research_interface/robot`. There
-  is a separate `research_interface/gripper` with its own `kVersion`.
 - Licensing: libfranka is Apache-2.0, so a patched fork is fine, but the
   distribution story needs deciding — vendored patches like the existing
   `bin/patches`, or a real fork.
 
-## Validation constraint
+## What is left for hardware
 
-Cannot be merged on inspection. Cross-generation compatibility is the entire
-point, so it needs testing on at least one FER and one FR3.
+Inspection is exhausted. One question remains that a robot can answer, and it is
+answerable without moving anything:
+
+**Does a real control unit reject a `Connect` carrying an unknown version by
+replying with its own version, as the headers say it should?** The whole
+discovery mechanism rests on this. `notes/probe_protocol_version.py` tests it
+with a single TCP connection: it sends one 16 byte `Connect` request with version
+`0xFFFF`, reads the 15 byte reply, and prints the status and the robot's version.
+
+That probe is read-only by construction rather than by promise. `Connect` is the
+only message it can build, it opens no UDP socket, and `0xFFFF` is not a real
+version so the handshake cannot succeed and no control session is established.
+
+Beyond that, validating a working universal build still needs both an FER and an
+FR3, since cross-generation compatibility is the entire point.
