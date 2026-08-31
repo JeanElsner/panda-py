@@ -166,11 +166,41 @@ robot's protocol version, would let panda-py tell a user exactly which wheel
 they need instead of making them guess from the compatibility table. That is
 shippable now and does not depend on any of the above.
 
+## All eight generations do compile into one translation unit
+
+Verified, not assumed: `notes/protocol_coexistence_check.sh` fetches the headers
+from the pinned `libfranka-common` commits, wraps each generation in a
+namespace, compiles them together and prints the layouts. Zero errors, with
+correct distinct sizes and `kVersion` values for all eight, on both GCC 15.2
+locally and GCC 14.2.1 inside the manylinux build image that produces the
+wheels.
+
+Included naively, the two headers collide with 23 errors, so two things are
+needed.
+
+**Hoist the standard headers to global scope first.** The protocol headers
+include only standard library headers, so pulling them in beforehand makes the
+nested includes no-ops. Without that, `#include <array>` inside a wrapper
+namespace puts the standard library in the wrapper namespace.
+
+**Alias the generations whose headers are byte identical, do not duplicate
+them.** Only six of the eight ship a distinct `rbk_types.h`: v6 is identical to
+v5 and v9 to v8. GCC deduplicates `#pragma once` **by file content, not by
+path**, so wrapping an identical file in a second namespace silently skips the
+include and the namespace comes up empty. That surfaces as
+`'RobotState' is not a member of 'gen_v6::research_interface::robot'`, which is
+at least a hard error rather than a silent alias, but it is not an obvious one.
+
+This is not a workaround so much as the design asserting itself: there are fewer
+layouts than versions, so the namespaces should be per layout with a version to
+layout mapping, which is what the aliases express. All eight `service_types.h`
+are distinct, if only in `kVersion`, so those do get one namespace each.
+
+Empirically, `Connect::Request` is 4 bytes in every generation, which confirms
+the handshake compatibility argued above by inspection.
+
 ## Open questions
 
-- Can the eight `service_types.h` variants coexist in one translation unit, or
-  do the template specialisations collide? They share type names in one
-  namespace, so each generation probably needs its own inline namespace.
 - Gripper protocol: this spike only looked at `research_interface/robot`. There
   is a separate `research_interface/gripper` with its own `kVersion`.
 - Licensing: libfranka is Apache-2.0, so a patched fork is fine, but the
