@@ -296,20 +296,38 @@ everything. One gripper implementation serves all generations.
   distribution story needs deciding — vendored patches like the existing
   `bin/patches`, or a real fork.
 
-## What is left for hardware
+## Confirmed on hardware: an FR3 does reject with its own version
 
-Inspection is exhausted. One question remains that a robot can answer, and it is
-answerable without moving anything:
+The one question inspection could not settle was whether a real control unit
+rejects a `Connect` carrying an unknown version by replying with **its own**
+version. All version discovery in a universal build rests on it.
 
-**Does a real control unit reject a `Connect` carrying an unknown version by
-replying with its own version, as the headers say it should?** The whole
-discovery mechanism rests on this. `notes/probe_protocol_version.py` tests it
-with a single TCP connection: it sends one 16 byte `Connect` request with version
-`0xFFFF`, reads the 15 byte reply, and prints the status and the robot's version.
+Run against an FR3 at protocol 10 on 2026-08-31 with
+`notes/prepare_and_probe.py`:
 
-That probe is read-only by construction rather than by promise. `Connect` is the
-only message it can build, it opens no UDP socket, and `0xFFFF` is not a real
-version so the handshake cannot succeed and no control session is established.
+```
+robot:   sending  16 bytes 00 00 00 00 01 00 00 00 10 00 00 00 ff ff 00 00
+robot:   received 15 bytes 00 00 00 00 01 00 00 00 0f 00 00 00 01 0a 00
+         status=1 (kIncompatibleLibraryVersion)  version=10
 
-Beyond that, validating a working universal build still needs both an FER and an
-FR3, since cross-generation compatibility is the entire point.
+gripper: sending  14 bytes 00 00 01 00 00 00 0e 00 00 00 ff ff 00 00
+gripper: received 14 bytes 00 00 01 00 00 00 0e 00 00 00 01 00 03 00
+         status=1 (kIncompatibleLibraryVersion)  version=3
+```
+
+Decoding the reply by hand: command `0`, id `1`, size `0x0f` = 15, status `0x01`
+= `kIncompatibleLibraryVersion`, version `0x000a` = 10. The gripper reply
+decodes the same way against its different 10 byte header and `uint16` status,
+giving version 3.
+
+So the mechanism works exactly as the headers describe, on a real robot, and the
+gripper's version 3 is confirmed rather than merely inferred from the sources.
+The Desk preparation also exercised the FR3 brake endpoint, `joints/unlock`.
+
+**Still wanted: the same run against an FER.** One robot confirms the mechanism;
+two confirm it across firmware generations, which is the property a universal
+build actually depends on. The FER should report robot version 3, 4 or 5, and
+gripper version 3.
+
+Beyond that, validating a working universal build still needs both robots, since
+cross-generation compatibility is the entire point.

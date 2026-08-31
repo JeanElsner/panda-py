@@ -48,12 +48,17 @@ inline instead, append it as a third argument.
 > is no `Move`, no torque and no motion generator in either file. The only
 > motion is the brake release itself.
 
+Afterwards it **puts the robot back as it found it**: FCI off, brakes locked,
+control token released. That happens even if the probe fails or you interrupt it.
+Releasing the token matters most, because one left held locks out the next user
+until someone forces it from the Pilot.
+
 Useful flags:
 
 | flag | effect |
 |---|---|
 | `--yes` | skip the confirmation prompt |
-| `--lock-when-done` | deactivate the FCI and re-lock the brakes afterwards |
+| `--leave-prepared` | leave it unlocked, FCI on and control held |
 | `--platform panda\|fr3` | skip brake endpoint detection |
 
 ### If the robot is already unlocked with the FCI on
@@ -64,12 +69,15 @@ Then no Desk interaction is needed at all, and this touches nothing:
 python3 notes/probe_protocol_version.py <robot-ip>
 ```
 
-## Please run it on both robots
+## Done: FR3. Still wanted: FER
 
-One robot proves half the claim. The interesting result is the **same 16 bytes
-against an FER and an FR3**: if both reject with their own version, discovery is
-confirmed to work across firmware generations, which is what the universal build
-needs.
+An FR3 at protocol 10 was probed on 2026-08-31 and behaved exactly as predicted,
+rejecting with `kIncompatibleLibraryVersion` and reporting version 10, gripper 3.
+
+What is still missing is the **same 16 bytes against an FER**. One robot confirms
+the mechanism; two confirm it across firmware generations, which is the property
+a universal build depends on. An FER should report robot version 3, 4 or 5, and
+gripper version 3.
 
 ## What to send back
 

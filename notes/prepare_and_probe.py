@@ -17,12 +17,17 @@ keep the emergency stop within reach, and confirm the prompt. Nothing here
 commands a trajectory: there is no Move, no torque and no motion generator
 anywhere in these two files. The motion is the brake release itself.
 
+Afterwards it puts the robot back as it was found: FCI off, brakes locked and
+the control token released. That happens even if the probe fails or is
+interrupted. Releasing the token matters most, because one left held locks out
+the next user until someone forces it from the Pilot.
+
 Usage:
     python3 prepare_and_probe.py <hostname> <desk-user> <desk-password>
 
-    --yes           skip the confirmation prompt
-    --lock-when-done  re-lock the brakes and deactivate the FCI afterwards
-    --platform       panda or fr3, otherwise both are tried
+    --yes             skip the confirmation prompt
+    --leave-prepared  leave it unlocked, FCI on and control held
+    --platform        panda or fr3, otherwise both are tried
 """
 
 import argparse
@@ -202,6 +207,47 @@ class Desk:
         )
         print("  desk: FCI deactivated")
 
+    def release_control(self):
+        """Hand the control token back, so the next user is not locked out.
+
+        Worth doing even more than re-locking the brakes: a token left held
+        blocks everyone else until it is forced, which needs someone to press
+        the circle button on the Pilot.
+        """
+        if self.legacy or not self.token:
+            return
+        status, body = self.request(
+            "delete",
+            "/admin/api/control-token",
+            payload={"token": self.token},
+            check=False,
+        )
+        if 200 <= status < 300:
+            print("  desk: control released")
+        elif "ControlTokenUnknown" in body:
+            print("  desk: control was not held, nothing to release")
+        else:
+            print(f"  desk: WARNING could not release control, {status}: {body[:120]}")
+        self.token = None
+
+    def restore(self, unlocked_by_us):
+        """Put the robot back the way it was found, best effort.
+
+        Each step is independent so that one failure does not strand the rest,
+        and the control token goes last because locking the brakes needs it.
+        """
+        print()
+        print("  restoring the previous state")
+        for label, action in (
+            ("deactivate FCI", self.deactivate_fci),
+            *((("lock brakes", self.lock),) if unlocked_by_us else ()),
+            ("release control", self.release_control),
+        ):
+            try:
+                action()
+            except Exception as error:  # noqa: BLE001 - keep going regardless
+                print(f"  desk: WARNING {label} failed: {error}")
+
 
 def confirm(assume_yes):
     if assume_yes:
@@ -230,7 +276,11 @@ def main():
     parser.add_argument(
         "--yes", action="store_true", help="skip the confirmation prompt"
     )
-    parser.add_argument("--lock-when-done", action="store_true")
+    parser.add_argument(
+        "--leave-prepared",
+        action="store_true",
+        help="leave the brakes unlocked, the FCI on and the control token held",
+    )
     parser.add_argument("--timeout", type=float, default=5.0)
     args = parser.parse_args()
 
@@ -240,31 +290,39 @@ def main():
     desk = Desk(args.hostname, args.username, password)
     desk.login()
     desk.take_control()
-    confirm(args.yes)
-    desk.unlock(args.platform)
-    desk.activate_fci()
 
-    # The Desk may answer before the research interface port is actually
-    # listening, so give it a few tries rather than reporting a false negative.
-    host = args.hostname.split(":")[0]
-    print()
-    print(f"Probing {host}. Read-only: this sends only Connect requests.")
-    robot_version = None
-    for attempt in range(1, 7):
-        print()
-        robot_version = probe(ROBOT, host, args.timeout)
-        if robot_version is not None:
-            break
-        if attempt < 6:
-            print(f"  robot: not answering yet, retrying ({attempt}/5)")
-            time.sleep(2.0)
-    print()
-    gripper_version = probe(GRIPPER, host, args.timeout)
+    robot_version = gripper_version = None
+    unlocked = False
+    try:
+        confirm(args.yes)
+        desk.unlock(args.platform)
+        unlocked = True
+        desk.activate_fci()
 
-    if args.lock_when_done:
+        # The Desk may answer before the research interface port is actually
+        # listening, so retry rather than reporting a false negative.
+        host = args.hostname.split(":")[0]
         print()
-        desk.deactivate_fci()
-        desk.lock()
+        print(f"Probing {host}. Read-only: this sends only Connect requests.")
+        for attempt in range(1, 7):
+            print()
+            robot_version = probe(ROBOT, host, args.timeout)
+            if robot_version is not None:
+                break
+            if attempt < 6:
+                print(f"  robot: not answering yet, retrying ({attempt}/5)")
+                time.sleep(2.0)
+        print()
+        gripper_version = probe(GRIPPER, host, args.timeout)
+    finally:
+        # Restore even if the probe threw or was interrupted. Leaving the
+        # control token held locks out the next user until someone forces it
+        # from the Pilot, so this is not something to skip on the error path.
+        if args.leave_prepared:
+            print()
+            print("  --leave-prepared: brakes stay unlocked, FCI on, control held")
+        else:
+            desk.restore(unlocked_by_us=unlocked)
 
     print()
     print("Summary")
@@ -279,9 +337,9 @@ def main():
         if wheel:
             print(f"  panda-py wheel to use    the libfranka {wheel} build")
     print(f"  gripper protocol version {gripper_version}   (expected 3)")
-    if not args.lock_when_done:
+    if args.leave_prepared:
         print()
-        print("  The brakes are still unlocked and the FCI is active.")
+        print("  The brakes are still unlocked, the FCI is active and control is held.")
     return 0
 
 
