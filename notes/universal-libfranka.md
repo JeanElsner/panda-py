@@ -199,6 +199,81 @@ are distinct, if only in `kVersion`, so those do get one namespace each.
 Empirically, `Connect::Request` is 4 bytes in every generation, which confirms
 the handshake compatibility argued above by inspection.
 
+## The command dispatch is already generic; the polymorphic base is the problem
+
+`Robot::Impl::executeCommand` is fully templated on the command type, so the
+dispatch machinery itself is protocol-agnostic:
+
+```cpp
+template <typename T, typename ReturnType = uint32_t, typename... TArgs>
+ReturnType Robot::Impl::executeCommand(TArgs... args) {
+  uint32_t command_id = network_->tcpSendRequest<T>(args...);
+  typename T::Response response = network_->tcpBlockingReceiveResponse<T>(command_id);
+  handleCommandResponse<T>(response);
+}
+```
+
+The obstacle is that `Robot::Impl` is not templated, and derives from
+`RobotControl`, which is not templated either but whose virtuals **name wire
+types**:
+
+```cpp
+virtual uint32_t startMotion(
+    research_interface::robot::Move::ControllerMode controller_mode,
+    research_interface::robot::Move::MotionGeneratorMode motion_generator_mode,
+    const research_interface::robot::Move::Deviation& maximum_path_deviation, ...);
+virtual RobotState updateMotion(
+    const std::optional<research_interface::robot::MotionGeneratorCommand>&,
+    const std::optional<research_interface::robot::ControllerCommand>&) = 0;
+```
+
+So the abstract interface is generation-specific, which rules out the tidiest
+design of having `Robot` hold a `unique_ptr<RobotControl>` and instantiating
+`Impl<Gen>` behind it.
+
+**It rules it out less than it looks, because the leaked types barely change.**
+`updateMotion` already returns the *public* `franka::RobotState`, so the v10
+float change is fully contained behind `convertRobotState`. Of the types that do
+leak:
+
+| leaked type | v3 → v10 |
+|---|---|
+| `MotionGeneratorCommand` | byte for byte identical, still `double` throughout |
+| `ControllerCommand` | one `bool torque_command_finished` added at v7 |
+| `Move::ControllerMode` | identical |
+| `Move::MotionGeneratorMode` | identical, `kNone` appended at v10 |
+| `Move::Deviation` | identical |
+| `Move::Status` | names only ever added, but values renumber |
+
+`Move::Status` renumbers because v10 inserts two safety-function values at
+positions 3 and 4, shifting everything after. That is harmless here: every
+`switch` in `handleCommandResponse` selects by **name**, with no numeric
+literals, so a body parameterised on `T` resolves each name to that
+generation's value. No v3 name was ever removed.
+
+The one real catch is the reverse direction. The safety-function statuses appear
+at v6, so a single shared body that mentions them fails to compile for v3, v4
+and v5. Those cases need `if constexpr` behind a detection trait, or two body
+variants.
+
+### Estimated shape of the work
+
+- Four `handleCommandResponse` explicit specialisations name a concrete command:
+  `Move`, `StopMove`, `AutomaticErrorRecovery`, `GetRobotModel`. Each becomes a
+  generation-parameterised template, so 4 bodies rather than 4 × 8 copies, with
+  `if constexpr` guards for the v6-and-later statuses and the v8-and-later
+  `GetRobotModel`.
+- Only three distinct commands are dispatched from `robot_impl.cpp` via a
+  hardcoded type, so the call sites are few.
+- Keep `RobotControl` **non-templated** by adopting one canonical command type
+  set for the interface, the newest, and converting per generation on the way
+  out. For `ControllerCommand` that is dropping a single `bool` for pre-v7
+  robots. That preserves `Robot` holding one `unique_ptr` and avoids a variant.
+
+Nothing here needs hardware. The remaining hardware-only questions are whether
+a real robot accepts a `Connect` from a client whose other command IDs differ,
+and the gripper protocol.
+
 ## Open questions
 
 - Gripper protocol: this spike only looked at `research_interface/robot`. There
