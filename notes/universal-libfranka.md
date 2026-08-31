@@ -97,15 +97,80 @@ wrapper, which is how libfranka 0.14 and later fetch the robot model instead of
 computing it locally. That is the same boundary where panda-py switched to
 Pinocchio.
 
+## The handshake is version-agnostic, and already tells you the answer
+
+There is no negotiation: the client offers exactly one version. `Connect`'s
+request hardcodes it at compile time.
+
+```cpp
+struct Connect : CommandBase<Connect, Command::kConnect> {
+  enum class Status : uint8_t { kSuccess, kIncompatibleLibraryVersion };
+  struct Request : public RequestBase<Connect> {
+    Request(uint16_t udp_port) : version(kVersion), udp_port(udp_port) {}
+    const Version version;
+    const uint16_t udp_port;
+  };
+  struct Response : public ResponseBase<Connect> {
+    Response(Status status) : ResponseBase(status), version(kVersion) {}
+    const Version version;
+  };
+};
+```
+
+But the **response carries the robot's version**, and no brute-force retry loop
+is needed, because every piece of the handshake is byte-identical across all
+eight generations:
+
+- the `Connect` struct itself — identical (same md5 of the declaration, v3 to v10)
+- `CommandHeader` and `ResponseBase` — identical
+- `Command` is an `enum class : uint32_t` with `kConnect` first, so it is `0`
+  everywhere
+
+So a client speaking *any* generation can send `Connect`, parse the response,
+and learn what the robot speaks. Note this holds for the handshake only: v6
+removed `kGetCartesianLimit`, which shifted the numeric value of every command
+after it, so nothing else about the command set is version-stable.
+
+libfranka already does exactly this, in `src/network.h`:
+
+```cpp
+switch (connect_response.status) {
+  case (T::Status::kIncompatibleLibraryVersion):
+    throw IncompatibleVersionException(connect_response.version, kLibraryVersion);
+  case (T::Status::kSuccess):
+    *ri_version = connect_response.version;
+```
+
+and `franka::IncompatibleVersionException` exposes it as a **public
+`server_version` member**. Both the exception member and this `connect()`
+implementation are present and identical in every version panda-py supports,
+0.7.1 through 0.21.3.
+
+### Consequence for a universal build
+
+Version discovery is one connect attempt, not a retry loop, and needs no
+protocol changes at all. A universal client would connect with any generation's
+`Connect`, read the robot's version from the response, then select the right
+`RobotState` parser and command set before proceeding. This removes the open
+question about observable retry behaviour, so it needs no robot to establish.
+
+### Consequence for panda-py today, independent of this spike
+
+panda-py registers no exception translators, and `franka::Exception` derives
+from `std::runtime_error`, so pybind11 maps an `IncompatibleVersionException` to
+a plain Python `RuntimeError` and the structured `server_version` is thrown
+away. The user is left parsing a message string.
+
+Binding the exception, or just a helper that attempts a connect and reports the
+robot's protocol version, would let panda-py tell a user exactly which wheel
+they need instead of making them guess from the compatibility table. That is
+shippable now and does not depend on any of the above.
+
 ## Open questions
 
 - Can the eight `service_types.h` variants coexist in one translation unit, or
   do the template specialisations collide? They share type names in one
   namespace, so each generation probably needs its own inline namespace.
-- Does the connect handshake let a client offer a version range, or does it
-  offer exactly one? If exactly one, a universal client has to retry the
-  connect per version, which is observable behaviour worth checking against a
-  real robot.
 - Gripper protocol: this spike only looked at `research_interface/robot`. There
   is a separate `research_interface/gripper` with its own `kVersion`.
 - Licensing: libfranka is Apache-2.0, so a patched fork is fine, but the
