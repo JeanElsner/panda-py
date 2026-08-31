@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Generates state_layouts.py from the real libfranka-common headers.
+
+The 1 kHz RobotState struct is packed with no padding, so its wire layout is
+just the concatenation of its fields. This reads the field declarations out of
+each generation's rbk_types.h, works out the layout, and checks every single
+field offset against what a C++ compiler reports for the same header before
+writing anything. If the two ever disagree the generator fails rather than
+emitting a parser that would silently misread a robot.
+
+Needs network access, curl and g++. Run it from anywhere:
+
+    python3 gen_state_layouts.py > state_layouts.py
+"""
+
+import re
+import struct
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+# Protocol version -> the libfranka-common commit libfranka pins for it. Only
+# the generations with a distinct rbk_types.h are listed; v6 is byte identical
+# to v5 and v9 to v8, so they share a layout.
+COMMONS = {
+    3: "277a0fc6ce3d",
+    4: "af64d3e64087",
+    5: "e6aa0fc210d9",
+    7: "dd768c882855",
+    8: "22b083750c45",
+    10: "2e090a65e51c",
+}
+ALIASES = {6: 5, 9: 8}
+BASE = "https://raw.githubusercontent.com/frankaemika/libfranka-common"
+
+SCALARS = {
+    "double": "d",
+    "float": "f",
+    "uint64_t": "Q",
+    "uint32_t": "I",
+    "uint16_t": "H",
+    "uint8_t": "B",
+    "bool": "?",
+    "MotionGeneratorMode": "B",
+    "ControllerMode": "B",
+    "RobotMode": "B",
+}
+
+
+def fetch(sha, work):
+    path = work / f"{sha}_rbk_types.h"
+    url = f"{BASE}/{sha}/include/research_interface/robot/rbk_types.h"
+    path.write_bytes(urllib.request.urlopen(url).read())
+    return path
+
+
+def declarations(header_text):
+    body = re.search(r"^struct RobotState \{(.*?)^\};", header_text, re.S | re.M).group(
+        1
+    )
+    # v10 nests a floatarray helper class inside the struct; its members are not
+    # wire fields.
+    if "class floatarray" in body:
+        start = body.index("class floatarray")
+        body = body[:start] + body[body.index("\n  };", start) + 5 :]
+
+    spec = []
+    for line in body.splitlines():
+        match = re.match(r"^\s+(.+?)\s+([A-Za-z_][A-Za-z_0-9]*);\s*$", line)
+        if not match:
+            continue
+        typ, name = match.group(1).strip(), match.group(2)
+        if nested := re.fullmatch(r"std::array<std::array<(\w+), (\d+)>, (\d+)>", typ):
+            spec.append(
+                (
+                    name,
+                    SCALARS[nested.group(1)],
+                    int(nested.group(2)) * int(nested.group(3)),
+                )
+            )
+        elif array := re.fullmatch(r"std::array<(\w+), (\d+)>", typ):
+            spec.append((name, SCALARS[array.group(1)], int(array.group(2))))
+        elif floats := re.fullmatch(r"floatarray<(\d+)>", typ):
+            spec.append((name, "f", int(floats.group(1))))
+        elif typ in SCALARS:
+            spec.append((name, SCALARS[typ], 1))
+    return spec
+
+
+def cxx_offsets(header, spec, work):
+    """Ask a compiler where each field really is, as the reference to check against."""
+    prints = "\n".join(
+        f'  printf("%s %zu\\n", "{n}", __builtin_offsetof(RobotState, {n}));'
+        for n, _, _ in spec
+    )
+    source = work / "dump.cpp"
+    source.write_text(
+        "#include <algorithm>\n#include <array>\n#include <cstdint>\n"
+        "#include <cstddef>\n#include <cstdio>\n"
+        f'#include "{header.name}"\n'
+        "using namespace research_interface::robot;\n"
+        f"int main() {{\n{prints}\n"
+        '  printf("TOTAL %zu\\n", sizeof(RobotState));\n  return 0;\n}\n'
+    )
+    binary = work / "dump"
+    subprocess.run(
+        ["g++", "-std=c++17", "-I", str(work), "-o", str(binary), str(source)],
+        check=True,
+    )
+    out = subprocess.run(
+        [str(binary)], capture_output=True, text=True, check=True
+    ).stdout
+    return {n: int(o) for n, o in (line.split() for line in out.splitlines())}
+
+
+def main():
+    work = Path(tempfile.mkdtemp())
+    layouts = {}
+    for version, sha in sorted(COMMONS.items()):
+        header = fetch(sha, work)
+        spec = declarations(header.read_text())
+        truth = cxx_offsets(header, spec, work)
+
+        offset = 0
+        for name, code, count in spec:
+            if truth[name] != offset:
+                sys.exit(
+                    f"v{version} {name}: computed {offset}, compiler says {truth[name]}"
+                )
+            offset += struct.calcsize("<" + code) * count
+        if offset != truth["TOTAL"]:
+            sys.exit(
+                f"v{version} total: computed {offset}, compiler says {truth['TOTAL']}"
+            )
+        print(
+            f"v{version}: {len(spec)} fields, {offset} bytes, all offsets verified",
+            file=sys.stderr,
+        )
+        layouts[version] = spec
+
+    print('"""Wire layouts of RobotState, generated by gen_state_layouts.py.')
+    print()
+    print("Do not edit. Every offset here was checked against a C++ compiler")
+    print('reading the same libfranka-common header."""')
+    print()
+    print("# version -> [(field, struct code, count)], packed, little endian")
+    print("LAYOUTS = {")
+    for version, spec in sorted(layouts.items()):
+        print(f"    {version}: {spec!r},")
+    print("}")
+    print()
+    print("# Generations that share a layout byte for byte.")
+    print(f"ALIASES = {ALIASES!r}")
+    print()
+    print("for _alias, _target in ALIASES.items():")
+    print("    LAYOUTS[_alias] = LAYOUTS[_target]")
+
+
+if __name__ == "__main__":
+    main()

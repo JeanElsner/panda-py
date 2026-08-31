@@ -61,12 +61,33 @@ Useful flags:
 | `--leave-prepared` | leave it unlocked, FCI on and control held |
 | `--platform panda\|fr3` | skip brake endpoint detection |
 
+### Decoding the live state stream
+
+The stronger test. Add `--read-state N` and it will also decode `N` seconds of
+the 1 kHz stream, choosing the `RobotState` layout from the version the robot
+just reported:
+
+```bash
+python3 notes/prepare_and_probe.py <robot-ip> <desk-user> --read-state 3
+```
+
+This still does not move the robot. It receives state and sends nothing back;
+there is no `Move`, no `MotionGeneratorCommand` and no torque in any of these
+files, and a robot only moves in response to a `Move` that is never sent. It is
+what libfranka's `readOnce` does. Restoration afterwards is unchanged.
+
+It prints joint positions, velocities, the end effector translation and torques,
+then checks them: joints within range, `O_T_EE` a valid homogeneous transform,
+success rate in [0, 1]. A wrong layout gives plausible-looking garbage, so those
+checks are the point.
+
 ### If the robot is already unlocked with the FCI on
 
 Then no Desk interaction is needed at all, and this touches nothing:
 
 ```bash
-python3 notes/probe_protocol_version.py <robot-ip>
+python3 notes/probe_protocol_version.py <robot-ip>   # versions only
+python3 notes/read_state.py <robot-ip> --seconds 3   # and decode the stream
 ```
 
 ## Done: FR3. Still wanted: FER

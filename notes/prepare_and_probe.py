@@ -26,6 +26,7 @@ Usage:
     python3 prepare_and_probe.py <hostname> <desk-user> <desk-password>
 
     --yes             skip the confirmation prompt
+    --read-state N    also decode N seconds of the live state stream
     --leave-prepared  leave it unlocked, FCI on and control held
     --platform        panda or fr3, otherwise both are tried
 """
@@ -281,6 +282,13 @@ def main():
         action="store_true",
         help="leave the brakes unlocked, the FCI on and the control token held",
     )
+    parser.add_argument(
+        "--read-state",
+        type=float,
+        metavar="SECONDS",
+        default=0.0,
+        help="also decode the live state stream for this long, read-only",
+    )
     parser.add_argument("--timeout", type=float, default=5.0)
     args = parser.parse_args()
 
@@ -314,6 +322,15 @@ def main():
                 time.sleep(2.0)
         print()
         gripper_version = probe(GRIPPER, host, args.timeout)
+
+        if args.read_state and robot_version is not None:
+            # Decode the live 1 kHz stream with the layout for whichever version
+            # the robot just reported. Read-only: nothing is sent back.
+            import read_state
+
+            print()
+            print(f"Reading the state stream for {args.read_state:g}s")
+            read_state.run(host, robot_version, args.read_state, args.timeout)
     finally:
         # Restore even if the probe threw or was interrupted. Leaving the
         # control token held locks out the next user until someone forces it

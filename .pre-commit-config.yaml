@@ -14,7 +14,9 @@ exclude: |
     # Byte for byte patches: stripping whitespace stops them applying.
     bin/patches/.*\.patch|
     # Written by bin/gen_stubs.sh; reformatting them fights the generator.
-    src/panda_py/.*\.pyi
+    src/panda_py/.*\.pyi|
+    # Written by notes/gen_state_layouts.py, for the same reason.
+    notes/state_layouts\.py
   )$
 
 repos:
