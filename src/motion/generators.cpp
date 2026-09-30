@@ -1,8 +1,10 @@
 #include "motion/generators.h"
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <numeric>
+#include <sstream>
 
 #include "constants.h"
 
@@ -16,6 +18,19 @@ void PandaTrajectory::_validateWaypointCount(size_t count) {
   if (count < 2) {
     throw std::invalid_argument(
         "At least two waypoints are required to build a trajectory.");
+  }
+}
+
+void PandaTrajectory::_validateSpeedFactor(double speed_factor) {
+  // A zero factor scales the acceleration limit to zero, so the forward
+  // integration never advances and appends trajectory steps until memory runs
+  // out. Tiny factors do the same for as many steps as the trajectory has
+  // milliseconds. Negative factors already fail, but with a vaguer message.
+  if (!std::isfinite(speed_factor) || speed_factor < kMinSpeedFactor) {
+    std::ostringstream message;
+    message << "speed_factor must be at least " << kMinSpeedFactor << ", got "
+            << speed_factor << ".";
+    throw std::invalid_argument(message.str());
   }
 }
 
@@ -55,6 +70,7 @@ JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
   // then has to turn it into a Python exception without the GIL, which
   // segfaults on Python 3.9 through 3.11 rather than raising.
   _validateWaypointCount(waypoints.size());
+  _validateSpeedFactor(speed_factor);
   for (const auto& waypoint : waypoints) {
     if (!waypoint.allFinite()) {
       throw std::invalid_argument("Waypoints must be finite.");
@@ -138,6 +154,7 @@ void CartesianTrajectory::_init(
   // See the note in the JointTrajectory constructor: validation has to happen
   // before the GIL is released, or throwing takes the interpreter down.
   _validateWaypointCount(orientations.size());
+  _validateSpeedFactor(speed_factor);
   if (positions.size() != orientations.size()) {
     throw std::invalid_argument(
         "The number of positions and orientations must match.");

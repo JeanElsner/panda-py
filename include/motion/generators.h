@@ -18,6 +18,10 @@ namespace motion {
 const double kDefaultTimeout = 30.0;
 const double kDefaultJointSpeedFactor = 0.2;
 const double kDefaultCartesianSpeedFactor = 0.2;
+// Generation time and memory grow as 1 / speed_factor, and a factor of zero
+// never terminates. At this minimum a move across the full joint range still
+// computes in well under a second.
+const double kMinSpeedFactor = 1e-3;
 
 class PandaTrajectory {
  public:
@@ -25,6 +29,7 @@ class PandaTrajectory {
 
  protected:
   static void _validateWaypointCount(size_t count);
+  static void _validateSpeedFactor(double speed_factor);
 
   bool _computeTrajectory(const time_optimal::Path& path,
                           const Eigen::VectorXd& max_velocity,
