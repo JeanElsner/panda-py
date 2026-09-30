@@ -1,4 +1,5 @@
 #include <franka/control_tools.h>
+#include <franka/exception.h>
 #include <franka/gripper.h>
 #include <franka/model.h>
 #include <franka/rate_limiting.h>
@@ -44,6 +45,22 @@ PYBIND11_MODULE(libfranka, m) {
   py::options options;
   //   options.disable_function_signatures();
   //   options.disable_enum_members_docstring();
+
+  // Without a translator pybind11 flattens IncompatibleVersionException into a
+  // plain RuntimeError and the robot's protocol version is lost, although it
+  // is exactly what tells the user which panda-py build to install. The
+  // translator is global, so it also covers _core, which imports this module
+  // first.
+  py::register_exception_translator([](std::exception_ptr p) {
+    try {
+      if (p) std::rethrow_exception(p);
+    } catch (const franka::IncompatibleVersionException &e) {
+      py::object error_type = py::module_::import("panda_py.exceptions")
+                                  .attr("IncompatibleVersionError");
+      py::object error = error_type(e.server_version, e.library_version);
+      PyErr_SetObject(error_type.ptr(), error.ptr());
+    }
+  });
 
   py::class_<franka::Errors>(m, "Errors")
       .def(py::init())

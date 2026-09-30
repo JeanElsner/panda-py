@@ -33,6 +33,7 @@ from ._core import (
     ik_full,
     realtime_priority_available,
 )
+from .exceptions import IncompatibleVersionError
 
 __all__ = [
     "Panda",
@@ -45,6 +46,7 @@ __all__ = [
     "ik",
     "ik_full",
     "realtime_priority_available",
+    "IncompatibleVersionError",
     "Desk",
     "TOKEN_PATH",
 ]
