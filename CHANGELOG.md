@@ -54,6 +54,13 @@ Releases before 1.0.0 are documented in the
   one from Python no longer blocks other threads and the tests exercise the same
   path the robot does. Trajectories built directly from Python were unaffected,
   which is why the test suite passed.
+- A `speed_factor` of zero made trajectory generation, and with it every
+  `move_to_*` call, loop forever while allocating memory until the process was
+  killed; `timeout` did not stop it and neither did Ctrl-C. Very small factors
+  did the same in effect. `JointTrajectory`, `CartesianTrajectory` and the
+  `move_to_*` methods now raise `ValueError` for a `speed_factor` below 0.001 or
+  not finite. At 0.001 a move across the full joint range takes 43 minutes and
+  computes in under half a second.
 
 ## [1.0.0] - 2026-08-12
 

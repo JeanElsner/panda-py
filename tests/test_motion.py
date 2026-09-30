@@ -164,31 +164,33 @@ def test_trajectories_can_be_built_without_the_gil():
     assert result.returncode == 0, f"exit {result.returncode}: {result.stderr[-2000:]}"
 
 
-@pytest.mark.parametrize(
-    "build",
-    [
-        pytest.param(
-            lambda: motion.JointTrajectory(
-                [START, START + 0.3], speed_factor=-0.2, timeout=0
-            ),
-            id="joint",
-        ),
-        pytest.param(
-            lambda: motion.CartesianTrajectory(
-                [np.zeros(3), np.full(3, 0.1)],
-                [np.array([1.0, 0, 0, 0])] * 2,
-                speed_factor=-0.2,
-                timeout=0,
-            ),
-            id="cartesian",
-        ),
-    ],
-)
-def test_failed_generation_raises_instead_of_crashing(build):
-    """A computation that fails throws after the GIL has been given back.
+POSITIONS = [np.zeros(3), np.full(3, 0.1)]
+ORIENTATIONS = [np.array([1.0, 0.0, 0.0, 0.0])] * 2
 
-    The constructors run with the GIL released, and throwing while it is
-    released segfaults on Python 3.9 through 3.11 rather than raising.
+
+@pytest.mark.parametrize("speed_factor", [0.0, 1e-4, -0.2, np.nan, np.inf])
+@pytest.mark.parametrize("kind", ["joint", "cartesian"])
+def test_unusable_speed_factor_raises(kind, speed_factor):
+    """A zero speed factor never finished and ate memory until killed.
+
+    Tiny ones did the same for as many steps as the trajectory has
+    milliseconds. The error is raised under the constructors' GIL release,
+    which segfaults on Python 3.9 through 3.11 unless the GIL is back by the
+    time the exception unwinds, so this also guards that path.
     """
-    with pytest.raises(RuntimeError, match="Trajectory generation failed"):
-        build()
+    with pytest.raises(ValueError, match="speed_factor must be at least"):
+        if kind == "joint":
+            motion.JointTrajectory([START, START + 0.3], speed_factor=speed_factor)
+        else:
+            motion.CartesianTrajectory(
+                POSITIONS, ORIENTATIONS, speed_factor=speed_factor
+            )
+
+
+def test_the_minimum_speed_factor_computes_quickly():
+    """At the minimum, even a move across the full joint range stays cheap."""
+    lower = np.asarray(constants.JOINT_LIMITS_LOWER) + 0.1
+    upper = np.asarray(constants.JOINT_LIMITS_UPPER) - 0.1
+    trajectory = motion.JointTrajectory([lower, upper], speed_factor=1e-3)
+    assert trajectory.get_duration() > 1000
+    motion.CartesianTrajectory(POSITIONS, ORIENTATIONS, speed_factor=1e-3)
