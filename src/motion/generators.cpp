@@ -61,16 +61,16 @@ JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
     }
   }
 
+  // The computation itself needs no GIL, but the release has to end before
+  // anything can throw. It also has to be nested inside the acquire: the
+  // move_to_* methods construct trajectories with the GIL already released,
+  // and releasing a GIL this thread does not hold segfaults. Nested, the pair
+  // is balanced whether or not the caller holds the GIL.
+  bool computed;
   {
     py::gil_scoped_acquire acquire;
     py::object logging = py::module_::import("logging");
     logger_ = logging.attr("getLogger")("motion");
-  }
-
-  // The computation itself needs no GIL, but the release has to end before
-  // anything can throw.
-  bool computed;
-  {
     py::gil_scoped_release release;
     computed = _computeTrajectory(_convertList(waypoints, maxDeviation),
                                   speed_factor * kQMaxVelocity,
@@ -154,14 +154,13 @@ void CartesianTrajectory::_init(
     }
   }
 
+  // The release is nested inside the acquire for the same reason as in the
+  // JointTrajectory constructor: move_to_pose gets here without the GIL.
+  bool computed;
   {
     py::gil_scoped_acquire acquire;
     py::object logging = py::module_::import("logging");
     logger_ = logging.attr("getLogger")("motion");
-  }
-
-  bool computed;
-  {
     py::gil_scoped_release release;
     angles_.push_back(0);
 

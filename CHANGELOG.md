@@ -42,6 +42,19 @@ Releases before 1.0.0 are documented in the
   still honoured as a hint that avoids the extra request, and a mismatch between
   it and the robot is logged as a warning.
 
+### Fixed
+
+- `move_to_start`, `move_to_joint_position` and `move_to_pose` segfaulted in
+  1.0.0, on every Python version and libfranka build. They build their
+  trajectory with the GIL released, and the trajectory constructors then
+  released it a second time, which crashes on a thread that does not hold it.
+  The release is now nested inside the constructors' own acquire, so it is
+  balanced whether or not the caller holds the GIL. `JointTrajectory` and
+  `CartesianTrajectory` are also bound with the GIL released, so constructing
+  one from Python no longer blocks other threads and the tests exercise the same
+  path the robot does. Trajectories built directly from Python were unaffected,
+  which is why the test suite passed.
+
 ## [1.0.0] - 2026-08-12
 
 Adds support for the libfranka versions used by current Franka Research 3 system

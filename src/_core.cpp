@@ -89,8 +89,10 @@ PYBIND11_MODULE(_core, m) {
   )delim");
 
   py::class_<motion::JointTrajectory>(m, "JointTrajectory")
+      // Released like the move_to_* methods release it, which construct these
+      // internally. This also keeps the Python-side tests on that same path.
       .def(py::init<const std::vector<Vector7d> &, double, double, double>(),
-           py::arg("waypoints"),
+           py::call_guard<py::gil_scoped_release>(), py::arg("waypoints"),
            py::arg("speed_factor") = motion::kDefaultJointSpeedFactor,
            py::arg("max_deviation") = 0,
            py::arg("timeout") = motion::kDefaultTimeout)
@@ -106,13 +108,14 @@ PYBIND11_MODULE(_core, m) {
       .def(py::init<const std::vector<Eigen::Matrix<double, 3, 1>> &,
                     const std::vector<Eigen::Matrix<double, 4, 1>> &, double,
                     double, double>(),
+           py::call_guard<py::gil_scoped_release>(),
            py::arg("positions"), py::arg("orientations"),
            py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
            py::arg("max_deviation") = 0,
            py::arg("timeout") = motion::kDefaultTimeout)
       .def(py::init<const std::vector<Eigen::Matrix<double, 4, 4>> &, double,
                     double, double>(),
-           py::arg("poses"),
+           py::call_guard<py::gil_scoped_release>(), py::arg("poses"),
            py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
            py::arg("max_deviation") = 0,
            py::arg("timeout") = motion::kDefaultTimeout)
