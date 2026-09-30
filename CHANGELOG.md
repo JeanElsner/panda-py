@@ -33,6 +33,18 @@ Releases before 1.0.0 are documented in the
 
 ### Changed
 
+- `move_to_pose` judges success by absolute tolerances: `success_threshold` is
+  now a distance in metres, 0.02 by default, and the new `orientation_threshold`
+  a rotation angle in radians, 0.1 by default. It used Eigen's relative
+  `isApprox`, so the position tolerance was 1% of the goal's distance from the
+  robot base, the orientation was compared as raw quaternion coefficients,
+  about 1.1 degrees and sensitive to their sign, and the warning reported only
+  the position although the orientation usually decided it. The Cartesian
+  controller is an impedance controller without integral action and settles a
+  few millimetres and degrees short wherever friction balances its spring; on an
+  FER at the default impedance that was up to 7.7 mm and 3 degrees, which
+  returned `False` on most moves. The warning now reports both errors and both
+  thresholds. `move_to_joint_position` is unchanged.
 - `Desk` now detects whether the robot serves the FER or the FR3 brake endpoints
   instead of relying on the `platform` argument, which is now optional. The two
   robots serve mutually exclusive endpoints and answer 404 for the other's

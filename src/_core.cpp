@@ -26,6 +26,8 @@ PYBIND11_MODULE(_core, m) {
   //  options.disable_enum_members_docstring();
 
   m.attr("_JOINT_POSITION_START") = kJointPositionStart;
+  m.attr("_MOVE_TO_POSE_POSITION_THRESHOLD") = Panda::kMoveToPosePositionThreshold;
+  m.attr("_MOVE_TO_POSE_ORIENTATION_THRESHOLD") = Panda::kMoveToPoseOrientationThreshold;
   m.attr("_JOINT_LIMITS_LOWER") = kLowerJointLimits;
   m.attr("_JOINT_LIMITS_UPPER") = kUpperJointLimits;
   m.attr("_JOINT_LIMITS_LOWER_FR3") = kLowerJointLimitsFR3;
@@ -75,6 +77,14 @@ PYBIND11_MODULE(_core, m) {
           )delim");
   m.def("fk", &kinematics::fk, py::arg("q"), R"delim(
      Computes end-effector pose in base frame from joint positions.
+  )delim");
+
+  m.def("_pose_error", &Panda::poseError, py::arg("goal_position"),
+        py::arg("goal_orientation"), py::arg("position"),
+        py::arg("orientation"), R"delim(
+     Distance in metres and rotation angle in radians between a pose and the
+     goal of a move_to_pose, as its success check computes them. Quaternions
+     are scalar last. Exposed for the tests.
   )delim");
 
   m.def("realtime_priority_available", &realtimePriorityAvailable, R"delim(
@@ -227,7 +237,7 @@ PYBIND11_MODULE(_core, m) {
                             std::vector<Eigen::Matrix<double, 4, 1>> &, double,
                             const Eigen::Matrix<double, 6, 6> &,
                             const double &,
-                            const double &, double, double>(
+                            const double &, double, double, double>(
               &Panda::moveToPose),
           py::call_guard<py::gil_scoped_release>(), py::arg("positions"),
           py::arg("orientations"),
@@ -237,13 +247,21 @@ PYBIND11_MODULE(_core, m) {
           py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
               controllers::JointTrajectory::kDefaultDqThreshold,
-          py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
+          py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
+          py::arg("orientation_threshold") = Panda::kMoveToPoseOrientationThreshold,
           R"delim(
                Moves the end-effector from the current pose through the provided waypoints
                in piece-wise linear segments. The waypoints are given as lists of positions
                :math:`\in \mathbb{R}^3` and orientations
                :math:`\mathbf q = (\vec{v},\ r),~~ \mathbf q \in \mathbb{H},~~ \vec{v}\in \mathbb{R}^3,~~ r \in \mathbb{R}`,
                i.e. quaternions with scalar last. The computed trajectory is time-optimal.
+
+               Returns whether the motion finished within ``success_threshold``
+               metres and ``orientation_threshold`` radians of the goal. The
+               controller is an impedance controller without integral action, so it
+               settles a few millimetres and degrees short of the goal wherever
+               friction balances its spring; the defaults allow for that at the
+               default impedance. Tighten them together with a higher impedance.
                )delim")
       .def(
           "move_to_pose",
@@ -251,7 +269,7 @@ PYBIND11_MODULE(_core, m) {
                             const Eigen::Matrix<double, 4, 1> &, double,
                             const Eigen::Matrix<double, 6, 6> &,
                             const double &,
-                            const double &, double, double>(
+                            const double &, double, double, double>(
               &Panda::moveToPose),
           py::call_guard<py::gil_scoped_release>(), py::arg("position"),
           py::arg("orientation"),
@@ -261,7 +279,8 @@ PYBIND11_MODULE(_core, m) {
           py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
               controllers::JointTrajectory::kDefaultDqThreshold,
-          py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
+          py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
+          py::arg("orientation_threshold") = Panda::kMoveToPoseOrientationThreshold,
           R"delim(
                Same as :py:func:`move_to_pose` above, but only one target pose given as
                position and orientation directly.
@@ -271,7 +290,7 @@ PYBIND11_MODULE(_core, m) {
                              double,
                              const Eigen::Matrix<double, 6, 6> &,
                              const double &,
-                             const double &, double, double>(&Panda::moveToPose),
+                             const double &, double, double, double>(&Panda::moveToPose),
            py::call_guard<py::gil_scoped_release>(), py::arg("pose"),
            py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
            py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
@@ -279,7 +298,8 @@ PYBIND11_MODULE(_core, m) {
            py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
            py::arg("dq_threshold") =
                controllers::JointTrajectory::kDefaultDqThreshold,
-           py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
+           py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
+           py::arg("orientation_threshold") = Panda::kMoveToPoseOrientationThreshold,
            R"delim(
                Same as :py:func:`move_to_pose` above, but waypoints are given as a list of
                homogeneous transforms :math:`\in \mathbb{R}^{4\times 4}`.
@@ -289,7 +309,7 @@ PYBIND11_MODULE(_core, m) {
           py::overload_cast<const Eigen::Matrix<double, 4, 4> &, double,
                             const Eigen::Matrix<double, 6, 6> &,
                             const double &,
-                            const double &, double, double>(
+                            const double &, double, double, double>(
               &Panda::moveToPose),
           py::call_guard<py::gil_scoped_release>(), py::arg("pose"),
           py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
@@ -298,7 +318,8 @@ PYBIND11_MODULE(_core, m) {
           py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
               controllers::JointTrajectory::kDefaultDqThreshold,
-          py::arg("success_threshold") = Panda::kMoveToJointPositionThreshold,
+          py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
+          py::arg("orientation_threshold") = Panda::kMoveToPoseOrientationThreshold,
           R"delim(
                Same as :py:func:`move_to_pose` above, but only one target pose given as
                homogeneous transform :math:`\in \mathbb{R}^{4\times 4}`.

@@ -177,7 +177,7 @@ class Panda:
     def move_to_joint_position(self, positions: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.01) -> bool:
         ...
     @typing.overload
-    def move_to_pose(self, positions: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]], orientations: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.01) -> bool:
+    def move_to_pose(self, positions: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]], orientations: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.02, orientation_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> bool:
         """
                        Moves the end-effector from the current pose through the provided waypoints
                        in piece-wise linear segments. The waypoints are given as lists of positions
@@ -186,19 +186,19 @@ class Panda:
                        i.e. quaternions with scalar last. The computed trajectory is time-optimal.
         """
     @typing.overload
-    def move_to_pose(self, position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.01) -> bool:
+    def move_to_pose(self, position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.02, orientation_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> bool:
         """
                        Same as :py:func:`move_to_pose` above, but only one target pose given as
                        position and orientation directly.
         """
     @typing.overload
-    def move_to_pose(self, pose: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.01) -> bool:
+    def move_to_pose(self, pose: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.02, orientation_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> bool:
         """
                        Same as :py:func:`move_to_pose` above, but waypoints are given as a list of
                        homogeneous transforms :math:`\\in \\mathbb{R}^{4\\times 4}`.
         """
     @typing.overload
-    def move_to_pose(self, pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.01) -> bool:
+    def move_to_pose(self, pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.02, orientation_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> bool:
         """
                        Same as :py:func:`move_to_pose` above, but only one target pose given as
                        homogeneous transform :math:`\\in \\mathbb{R}^{4\\times 4}`.
@@ -295,6 +295,12 @@ def ik_full(O_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4,
 @typing.overload
 def ik_full(position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], q_init: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_7: typing.SupportsFloat | typing.SupportsIndex = 0.7853981633974483) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 7]"]:
     ...
+def _pose_error(goal_position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], goal_orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]) -> tuple[float, float]:
+    """
+         Distance in metres and rotation angle in radians between a pose and the
+         goal of a move_to_pose, as its success check computes them. Quaternions
+         are scalar last. Exposed for the tests.
+    """
 def realtime_priority_available() -> tuple[bool, str]:
     """
          Whether this process can obtain the realtime scheduling that the
@@ -314,4 +320,6 @@ _JOINT_LIMITS_UPPER: numpy.ndarray  # value = array([ 2.8973,  1.7628,  2.8973, 
 _JOINT_LIMITS_UPPER_FR3: numpy.ndarray  # value = array([ 2.7437,  1.7837,  2.9007, -0.1518,  2.8065,  4.5169,  3.0159])
 _JOINT_LIMITS_UPPER_FR3_5_9: numpy.ndarray  # value = array([ 2.9007,  1.8361,  2.9007, -0.1169,  2.8763,  4.6216,  3.0508])
 _JOINT_POSITION_START: numpy.ndarray  # value = array([ 0.        , -0.78539816,  0.        , -2.35619449,  0.        ,...
+_MOVE_TO_POSE_ORIENTATION_THRESHOLD: float  # value = 0.1
+_MOVE_TO_POSE_POSITION_THRESHOLD: float  # value = 0.02
 _TAU_J_MAX: numpy.ndarray  # value = array([87., 87., 87., 87., 12., 12., 12.])
