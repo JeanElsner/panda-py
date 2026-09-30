@@ -162,3 +162,33 @@ def test_trajectories_can_be_built_without_the_gil():
         text=True,
     )
     assert result.returncode == 0, f"exit {result.returncode}: {result.stderr[-2000:]}"
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(
+            lambda: motion.JointTrajectory(
+                [START, START + 0.3], speed_factor=-0.2, timeout=0
+            ),
+            id="joint",
+        ),
+        pytest.param(
+            lambda: motion.CartesianTrajectory(
+                [np.zeros(3), np.full(3, 0.1)],
+                [np.array([1.0, 0, 0, 0])] * 2,
+                speed_factor=-0.2,
+                timeout=0,
+            ),
+            id="cartesian",
+        ),
+    ],
+)
+def test_failed_generation_raises_instead_of_crashing(build):
+    """A computation that fails throws after the GIL has been given back.
+
+    The constructors run with the GIL released, and throwing while it is
+    released segfaults on Python 3.9 through 3.11 rather than raising.
+    """
+    with pytest.raises(RuntimeError, match="Trajectory generation failed"):
+        build()
