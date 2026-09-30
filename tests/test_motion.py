@@ -3,6 +3,9 @@
 Also pure computation, so it runs without a robot.
 """
 
+import subprocess
+import sys
+
 import numpy as np
 import pytest
 
@@ -125,3 +128,37 @@ def test_non_finite_input_raises_instead_of_crashing():
             orientations=[nan_quaternion, nan_quaternion],
             speed_factor=0.2,
         )
+
+
+CONSTRUCT_WITHOUT_THE_GIL = """
+import numpy as np
+from panda_py import constants, motion
+
+start = np.asarray(constants.JOINT_POSITION_START)
+motion.JointTrajectory([start, start + 0.1], speed_factor=0.2)
+positions = [np.array([0.3, 0.0, 0.5]), np.array([0.35, 0.0, 0.5])]
+orientation = np.array([1.0, 0.0, 0.0, 0.0])
+motion.CartesianTrajectory(positions, [orientation, orientation], speed_factor=0.2)
+pose = np.eye(4)
+pose[:3, 3] = positions[0]
+end = pose.copy()
+end[:3, 3] = positions[1]
+motion.CartesianTrajectory([pose, end], speed_factor=0.2)
+"""
+
+
+def test_trajectories_can_be_built_without_the_gil():
+    """The move_to_* methods build their trajectory with the GIL released.
+
+    In 1.0.0 the constructors released it once more on their own, which
+    segfaults on a thread that no longer holds it, so every move_to_* call
+    crashed on a real robot. The constructors are bound with the GIL released
+    too, so constructing one here takes the same path. It runs in a subprocess
+    so that a regression fails this test instead of killing the session.
+    """
+    result = subprocess.run(
+        [sys.executable, "-c", CONSTRUCT_WITHOUT_THE_GIL],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"exit {result.returncode}: {result.stderr[-2000:]}"
