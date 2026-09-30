@@ -43,14 +43,14 @@ would not add compatibility, only bugs already fixed.
 
 | Robot System Version | Robot | Server | libfranka Version of panda-py |
 | ---- | ---- | ---- | ---- |
-| >= 5.9.0 | FR3 | 10 | [panda_py_1.0.0_libfranka_0.21.3.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.21.3.zip) |
-| >= 5.7.2 | FR3 | 9 | [panda_py_1.0.0_libfranka_0.17.0.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.17.0.zip) |
-| >= 5.7.0 | FR3 | 8 | [panda_py_1.0.0_libfranka_0.14.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.14.2.zip) |
-| >= 5.5.0 | FR3 | 7 | [panda_py_1.0.0_libfranka_0.13.6.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.13.6.zip) |
-| >= 5.2.0 | FR3 | 6 | [panda_py_1.0.0_libfranka_0.13.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.13.2.zip) |
-| >= 4.2.1 | FER | 5 | [panda_py_1.0.0_libfranka_0.9.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.9.2.zip) |
-| >= 4.0.0 | FER | 4 | [panda_py_1.0.0_libfranka_0.8.0.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.8.0.zip) |
-| >= 3.0.0 | FER | 3 | [panda_py_1.0.0_libfranka_0.7.1.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.0.0/panda_py_1.0.0_libfranka_0.7.1.zip) |
+| >= 5.9.0 | FR3 | 10 | [panda_py_1.1.0_libfranka_0.21.3.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.21.3.zip) |
+| >= 5.7.2 | FR3 | 9 | [panda_py_1.1.0_libfranka_0.17.0.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.17.0.zip) |
+| >= 5.7.0 | FR3 | 8 | [panda_py_1.1.0_libfranka_0.14.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.14.2.zip) |
+| >= 5.5.0 | FR3 | 7 | [panda_py_1.1.0_libfranka_0.13.6.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.13.6.zip) |
+| >= 5.2.0 | FR3 | 6 | [panda_py_1.1.0_libfranka_0.13.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.13.2.zip) |
+| >= 4.2.1 | FER | 5 | [panda_py_1.1.0_libfranka_0.9.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.9.2.zip) |
+| >= 4.0.0 | FER | 4 | [panda_py_1.1.0_libfranka_0.8.0.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.8.0.zip) |
+| >= 3.0.0 | FER | 3 | [panda_py_1.1.0_libfranka_0.7.1.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.0/panda_py_1.1.0_libfranka_0.7.1.zip) |
 
 # Citation
 

@@ -51,7 +51,7 @@ __all__ = [
     "TOKEN_PATH",
 ]
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 _logger = logging.getLogger("desk")
 

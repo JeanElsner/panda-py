@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Releases before 1.0.0 are documented in the
 [GitHub releases](https://github.com/JeanElsner/panda-py/releases).
 
-## [Unreleased]
+## [1.1.0] - 2026-09-30
+
+Fixes the segfault in every `move_to_start`, `move_to_joint_position` and
+`move_to_pose` call in 1.0.0 (#59), so anyone using motion on 1.0.0 should
+upgrade. Also names the panda-py build to install when the robot speaks another
+protocol version, and warns when realtime scheduling is unavailable.
 
 ### Added
 
