@@ -15,5 +15,6 @@ Submodules
    panda_py.cli
    panda_py.constants
    panda_py.controllers
+   panda_py.exceptions
    panda_py.libfranka
    panda_py.motion

@@ -22,6 +22,7 @@ def test_top_level_symbols():
         "ik",
         "ik_full",
         "realtime_priority_available",
+        "IncompatibleVersionError",
     ]:
         assert hasattr(panda_py, name), name
 

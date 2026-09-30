@@ -11,6 +11,14 @@ Releases before 1.0.0 are documented in the
 
 ### Added
 
+- `panda_py.IncompatibleVersionError`, raised when the robot speaks a different
+  research interface protocol version than the libfranka panda-py was built
+  with. libfranka's `IncompatibleVersionException` used to reach Python as a
+  plain `RuntimeError`, losing the robot's version. The new error carries
+  `server_version` and `library_version`, and its message names the panda-py
+  build to install. It derives from `RuntimeError`, so existing handlers still
+  catch it. `panda_py.exceptions.LIBFRANKA_FOR_SERVER_VERSION` maps each protocol
+  version to the libfranka version of its build.
 - `Panda` warns on connect when the process cannot obtain realtime scheduling,
   or when the kernel is not a realtime kernel. libfranka always tries to put the
   control thread on `SCHED_FIFO` but only raises about it when the

@@ -22,6 +22,7 @@ from panda_py._core import fk
 from panda_py._core import ik
 from panda_py._core import ik_full
 from panda_py._core import realtime_priority_available
+from panda_py.exceptions import IncompatibleVersionError
 import requests as requests
 import ssl as ssl
 import threading as threading
@@ -34,7 +35,8 @@ from . import libfranka
 
 __all__: list = [
     'Panda', 'PandaContext', 'constants', 'controllers', 'libfranka', 'motion',
-    'fk', 'ik', 'ik_full', 'realtime_priority_available', 'Desk', 'TOKEN_PATH'
+    'fk', 'ik', 'ik_full', 'realtime_priority_available', 'IncompatibleVersionError', 'Desk',
+    'TOKEN_PATH'
 ]
 
 
