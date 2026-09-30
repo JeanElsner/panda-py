@@ -54,6 +54,19 @@ class PandaContext {
 class Panda {
  public:
   static const double kMoveToJointPositionThreshold;
+  // Absolute tolerances for move_to_pose, in metres and radians. The Cartesian
+  // controller is an impedance controller with no integral action, so it
+  // settles where its spring balances friction: a few millimetres and a few
+  // degrees off at the default impedance are expected, not a failure.
+  static const double kMoveToPosePositionThreshold;
+  static const double kMoveToPoseOrientationThreshold;
+  // Distance in metres and rotation angle in radians between a pose and a
+  // goal, independent of the sign of either quaternion.
+  static std::pair<double, double> poseError(
+      const Eigen::Vector3d& goal_position,
+      const Eigen::Matrix<double, 4, 1>& goal_orientation,
+      const Eigen::Vector3d& position,
+      const Eigen::Matrix<double, 4, 1>& orientation);
   static const Vector7d kDefaultTeachingDamping;
   Panda(
       std::string hostname, std::string name = "panda",
@@ -97,7 +110,8 @@ class Panda {
           controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
           controllers::CartesianTrajectory::kDefaultDqThreshold,
-      double success_threshold = kMoveToJointPositionThreshold);
+      double success_threshold = kMoveToPosePositionThreshold,
+      double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToPose(
       const Eigen::Vector3d& position,
       const Eigen::Matrix<double, 4, 1>& orientation,
@@ -110,7 +124,8 @@ class Panda {
           controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
           controllers::CartesianTrajectory::kDefaultDqThreshold,
-      double success_threshold = kMoveToJointPositionThreshold);
+      double success_threshold = kMoveToPosePositionThreshold,
+      double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToPose(
       const std::vector<Eigen::Matrix<double, 4, 4>>& poses,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
@@ -122,7 +137,8 @@ class Panda {
           controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
           controllers::CartesianTrajectory::kDefaultDqThreshold,
-      double success_threshold = kMoveToJointPositionThreshold);
+      double success_threshold = kMoveToPosePositionThreshold,
+      double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToPose(
       const Eigen::Matrix<double, 4, 4>& pose,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
@@ -134,7 +150,8 @@ class Panda {
           controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
           controllers::CartesianTrajectory::kDefaultDqThreshold,
-      double success_threshold = kMoveToJointPositionThreshold);
+      double success_threshold = kMoveToPosePositionThreshold,
+      double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToStart(
       double speed_factor = motion::kDefaultJointSpeedFactor,
       const Vector7d& stiffness =

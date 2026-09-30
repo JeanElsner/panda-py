@@ -3,6 +3,7 @@
 #include <franka/control_tools.h>
 #include <franka/exception.h>
 
+#include <cmath>
 #include <iostream>
 #include <typeinfo>
 
@@ -393,6 +394,21 @@ void Panda::raiseError() {
 }
 
 const double Panda::kMoveToJointPositionThreshold = 1e-2;
+const double Panda::kMoveToPosePositionThreshold = 0.02;
+const double Panda::kMoveToPoseOrientationThreshold = 0.1;
+
+std::pair<double, double> Panda::poseError(
+    const Eigen::Vector3d& goal_position,
+    const Eigen::Matrix<double, 4, 1>& goal_orientation,
+    const Eigen::Vector3d& position,
+    const Eigen::Matrix<double, 4, 1>& orientation) {
+  // Quaternions are given scalar last, which is Eigen's coefficient order.
+  // angularDistance is the rotation angle between the two, so q and -q, the
+  // same orientation, compare equal.
+  const Eigen::Quaterniond goal(goal_orientation.normalized());
+  const Eigen::Quaterniond actual(orientation.normalized());
+  return {(goal_position - position).norm(), goal.angularDistance(actual)};
+}
 
 bool Panda::moveToJointPosition(const Vector7d& position, double speed_factor,
                                 const Vector7d& stiffness,
@@ -456,14 +472,14 @@ bool Panda::moveToPose(const Eigen::Vector3d& position,
                        const Eigen::Matrix<double, 6, 6>& impedance,
                        const double& damping_ratio,
                        const double& nullspace_stiffness, double dq_threshold,
-                       double success_threshold) {
+                       double success_threshold, double orientation_threshold) {
   std::vector<Eigen::Vector3d> positions;
   positions.push_back(position);
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
   orientations.push_back(orientation);
   return moveToPose(positions, orientations, speed_factor, impedance,
                     damping_ratio, nullspace_stiffness, dq_threshold,
-                    success_threshold);
+                    success_threshold, orientation_threshold);
 }
 
 bool Panda::moveToPose(std::vector<Eigen::Vector3d>& positions,
@@ -472,7 +488,7 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d>& positions,
                        const Eigen::Matrix<double, 6, 6>& impedance,
                        const double& damping_ratio,
                        const double& nullspace_stiffness, double dq_threshold,
-                       double success_threshold) {
+                       double success_threshold, double orientation_threshold) {
   stopController();
   recover();
   _setState(robot_->readOnce());
@@ -498,14 +514,17 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d>& positions,
       Eigen::Matrix4d::Map(robot_->readOnce().O_T_EE.data()));
   Eigen::Vector3d position(transform.translation());
   Eigen::Quaterniond orientation(transform.rotation());
+  const auto error = poseError(positions.back(), orientations.back(), position,
+                               orientation.coeffs());
   const bool success =
-      positions.back().isApprox(position, success_threshold) &&
-      orientations.back().isApprox(orientation.coeffs(), success_threshold);
+      error.first <= success_threshold && error.second <= orientation_threshold;
   if (!success) {
     _log("warning",
-         "Motion finished %.4f m from the goal, above the success threshold. "
-         "Consider a higher impedance or a slower speed_factor.",
-         (positions.back() - position).norm());
+         "Motion finished %.4f m and %.2f deg from the goal, above the success "
+         "threshold of %.4f m and %.2f deg. Consider a higher impedance or a "
+         "slower speed_factor.",
+         error.first, error.second * 180.0 / M_PI, success_threshold,
+         orientation_threshold * 180.0 / M_PI);
   }
   return success;
 }
@@ -515,7 +534,7 @@ bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>>& poses,
                        const Eigen::Matrix<double, 6, 6>& impedance,
                        const double& damping_ratio,
                        const double& nullspace_stiffness, double dq_threshold,
-                       double success_threshold) {
+                       double success_threshold, double orientation_threshold) {
   std::vector<Eigen::Vector3d> positions;
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
   for (auto p : poses) {
@@ -524,7 +543,7 @@ bool Panda::moveToPose(const std::vector<Eigen::Matrix<double, 4, 4>>& poses,
   }
   return moveToPose(positions, orientations, speed_factor, impedance,
                     damping_ratio, nullspace_stiffness, dq_threshold,
-                    success_threshold);
+                    success_threshold, orientation_threshold);
 }
 
 bool Panda::moveToPose(const Eigen::Matrix<double, 4, 4>& pose,
@@ -532,11 +551,12 @@ bool Panda::moveToPose(const Eigen::Matrix<double, 4, 4>& pose,
                        const Eigen::Matrix<double, 6, 6>& impedance,
                        const double& damping_ratio,
                        const double& nullspace_stiffness, double dq_threshold,
-                       double success_threshold) {
+                       double success_threshold, double orientation_threshold) {
   std::vector<Eigen::Matrix<double, 4, 4>> poses;
   poses.push_back(pose);
   return moveToPose(poses, speed_factor, impedance, damping_ratio,
-                    nullspace_stiffness, dq_threshold, success_threshold);
+                    nullspace_stiffness, dq_threshold, success_threshold,
+                    orientation_threshold);
 }
 
 bool Panda::moveToStart(double speed_factor, const Vector7d& stiffness,
