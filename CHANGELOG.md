@@ -66,6 +66,17 @@ Releases before 1.0.0 are documented in the
   gaps (buffer overruns and robot cycles without a command) and npz
   `save()`/`load()`.
 - `TorqueController.commanded()`, called with the torque actually sent.
+- Guards in TaskImpedance's 1 kHz loop, `set_guard()`: external force above
+  a threshold for a time, a joint torque at its limit for a time, control
+  frame speed, joint speed, and a workspace of up to eight oriented boxes.
+  When one trips, the loop drops the active (spring) wrench on that same
+  tick and keeps the damping and posture terms until `rearm()`, which
+  resumes from the pose of the next tick. `trip()` raises it from outside
+  the loop; `guard_state` says why it tripped, and telemetry logs it per
+  tick.
+- `panda_py.safety`: `set_collision_thresholds()` for the robot's own
+  collision reflex, and `box_along_axis()` for workspace boxes around an
+  axis such as a bore.
 
 ## [1.1.1] - 2026-10-01
 

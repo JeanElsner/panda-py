@@ -18,4 +18,5 @@ Submodules
    panda_py.exceptions
    panda_py.libfranka
    panda_py.motion
+   panda_py.safety
    panda_py.telemetry

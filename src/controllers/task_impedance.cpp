@@ -77,6 +77,25 @@ Eigen::Quaterniond axisAngleToQuaternion(const Eigen::Vector3d& rotation) {
              : Eigen::Quaterniond::Identity();
 }
 
+const char* tripName(Trip trip) {
+  switch (trip) {
+    case Trip::kNone: return "none";
+    case Trip::kForce: return "force";
+    case Trip::kSaturation: return "saturation";
+    case Trip::kSpeed: return "speed";
+    case Trip::kJointVelocity: return "joint_velocity";
+    case Trip::kWorkspace: return "workspace";
+    case Trip::kManual: return "manual";
+  }
+  return "unknown";
+}
+
+bool Box::contains(const Eigen::Vector3d& point) const {
+  const Eigen::Vector3d local =
+      pose.topLeftCorner<3, 3>().transpose() * (point - pose.topRightCorner<3, 1>());
+  return (local.cwiseAbs() - half_extents).maxCoeff() <= 0.0;
+}
+
 namespace {
 
 Eigen::Matrix<double, 6, 6> regularised(const Eigen::Matrix<double, 6, 6>& a,
@@ -199,7 +218,19 @@ void TaskImpedance::controlFrame(const franka::RobotState& robot_state,
 }
 
 void TaskImpedance::applyCommand(const Command& command,
-                                 const Eigen::Matrix4d& pose) {
+                                 const Eigen::Matrix4d& pose, double time) {
+  if (command.rearm) {
+    guard_state_ = task_impedance::GuardState();
+    force_time_ = saturation_time_ = 0.0;
+    // Resume from zero active wrench, unless a reference came with it.
+    const Eigen::Affine3d transform(pose);
+    position_ref_ = transform.translation();
+    orientation_ref_ = Eigen::Quaterniond(transform.rotation());
+  }
+  if (command.trip && guard_state_.trip == task_impedance::Trip::kNone) {
+    guard_state_.trip = task_impedance::Trip::kManual;
+    guard_state_.time = time;
+  }
   if (command.stiffness) {
     loop_.stiffness = command.stiffness_value;
     loop_.damping =
@@ -244,11 +275,12 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
   if (lock.owns_lock()) {
     const Vector6d stiffness = loop_.stiffness, damping = loop_.damping;
     loop_ = shared_;
+    guard_ = guard_shared_;
     // A stiffness set by a command lives in loop_ until the setters see it.
     loop_.stiffness = stiffness;
     loop_.damping = damping;
     if (command_.pending()) {
-      applyCommand(command_, in.pose);
+      applyCommand(command_, in.pose, time);
       command_ = Command();
       updated = true;
       snapshot_.applied_time = time;
@@ -256,6 +288,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     }
     shared_.stiffness = loop_.stiffness;
     shared_.damping = loop_.damping;
+    guard_state_shared_ = guard_state_;
     snapshot_.time = time;
     snapshot_.pose = in.pose;
     snapshot_.position_ref = position_ref_;
@@ -263,6 +296,12 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     snapshot_.stiffness = loop_.stiffness;
     snapshot_.applied = applied_;
     lock.unlock();
+  }
+
+  evaluateGuard(robot_state, in, duration.toSec());
+  if (guard_state_.trip != task_impedance::Trip::kNone) {
+    // Tripped: no spring, damping and posture only, from this very tick.
+    in.alpha = 0.0;
   }
 
   in.position_ref = position_ref_;
@@ -311,6 +350,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     put(s.F_T_EE, robot_state.F_T_EE);
     put(s.O_F_ext_hat_K, robot_state.O_F_ext_hat_K);
     put(s.K_F_ext_hat_K, robot_state.K_F_ext_hat_K);
+    s.guard[0] = static_cast<double>(guard_state_.trip);
     put(s.jacobian, in.jacobian);
     if (nullspace_ == Nullspace::kDynamic) {
       put(s.mass, in.mass);
@@ -331,6 +371,12 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
 
 void TaskImpedance::commanded(const franka::RobotState& robot_state,
                               const franka::Torques& torques) {
+  saturated_ = false;
+  for (size_t i = 0; i < 7; i++) {
+    if (std::abs(torques.tau_J[i]) >= kTauJMax[i] - 1e-9) {
+      saturated_ = true;
+    }
+  }
   if (sample_) {
     std::copy(torques.tau_J.begin(), torques.tau_J.end(), sample_->tau_cmd);
     telemetry_.publish();
@@ -355,6 +401,10 @@ void TaskImpedance::start(const franka::RobotState& robot_state,
   command_ = Command();
   tick_ = 0;
   applied_ = 0;
+  guard_ = guard_shared_;
+  guard_state_ = guard_state_shared_ = task_impedance::GuardState();
+  force_time_ = saturation_time_ = 0.0;
+  saturated_ = false;
   sample_ = nullptr;
   snapshot_ = task_impedance::Snapshot();
   snapshot_.time = robot_state.time.toSec();
@@ -477,3 +527,85 @@ size_t TaskImpedance::readTelemetry(std::vector<task_impedance::Sample>& out) {
 uint64_t TaskImpedance::telemetryDropped() const { return telemetry_.dropped(); }
 
 size_t TaskImpedance::telemetryCapacity() const { return telemetry_.capacity(); }
+
+void TaskImpedance::evaluateGuard(const franka::RobotState& robot_state,
+                                  const task_impedance::Inputs& in, double dt) {
+  using task_impedance::Trip;
+  if (guard_state_.trip != Trip::kNone) {
+    return;
+  }
+  const double time = robot_state.time.toSec();
+  auto trip = [&](Trip reason, double value, int joint = -1) {
+    guard_state_.trip = reason;
+    guard_state_.time = time;
+    guard_state_.value = value;
+    guard_state_.joint = joint;
+  };
+  const double force =
+      Eigen::Map<const Eigen::Vector3d>(robot_state.O_F_ext_hat_K.data()).norm();
+  force_time_ = force > guard_.force ? force_time_ + dt : 0.0;
+  if (force > guard_.force && force_time_ >= guard_.force_time) {
+    return trip(Trip::kForce, force);
+  }
+  // Whether last tick's torque was clipped: commanded() runs after step().
+  saturation_time_ = saturated_ ? saturation_time_ + dt : 0.0;
+  if (saturated_ && saturation_time_ >= guard_.saturation_time) {
+    return trip(Trip::kSaturation, saturation_time_);
+  }
+  const double speed = (in.jacobian.topRows<3>() * in.dq).norm();
+  if (speed > guard_.speed) {
+    return trip(Trip::kSpeed, speed);
+  }
+  for (int i = 0; i < 7; i++) {
+    if (std::abs(in.dq[i]) > guard_.joint_velocity[i]) {
+      return trip(Trip::kJointVelocity, std::abs(in.dq[i]), i);
+    }
+  }
+  if (guard_.workspace_size > 0) {
+    const Eigen::Vector3d point =
+        guard_.workspace_end_effector
+            ? Eigen::Vector3d(robot_state.O_T_EE[12], robot_state.O_T_EE[13],
+                              robot_state.O_T_EE[14])
+            : Eigen::Vector3d(in.pose.topRightCorner<3, 1>());
+    double outside = std::numeric_limits<double>::infinity();
+    for (size_t b = 0; b < guard_.workspace_size; b++) {
+      const auto& box = guard_.workspace[b];
+      const Eigen::Vector3d local = box.pose.topLeftCorner<3, 3>().transpose() *
+                                    (point - box.pose.topRightCorner<3, 1>());
+      outside = std::min(
+          outside, (local.cwiseAbs() - box.half_extents).cwiseMax(0.0).norm());
+    }
+    if (outside > 0.0) {
+      return trip(Trip::kWorkspace, outside);
+    }
+  }
+}
+
+void TaskImpedance::setGuard(const task_impedance::GuardConfig& config) {
+  if (config.workspace_size > task_impedance::GuardConfig::kMaxBoxes) {
+    throw std::invalid_argument("Too many workspace boxes.");
+  }
+  std::lock_guard<std::mutex> lock(mux_);
+  guard_shared_ = config;
+}
+
+task_impedance::GuardConfig TaskImpedance::getGuard() {
+  std::lock_guard<std::mutex> lock(mux_);
+  return guard_shared_;
+}
+
+task_impedance::GuardState TaskImpedance::getGuardState() {
+  std::lock_guard<std::mutex> lock(mux_);
+  return guard_state_shared_;
+}
+
+void TaskImpedance::trip() {
+  std::lock_guard<std::mutex> lock(mux_);
+  command_.trip = true;
+}
+
+void TaskImpedance::rearm() {
+  std::lock_guard<std::mutex> lock(mux_);
+  command_.rearm = true;
+  command_.trip = false;
+}

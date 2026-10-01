@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <atomic>
 #include <limits>
 #include <mutex>
@@ -98,6 +99,50 @@ void stepReference(Eigen::Vector3d& position_ref,
 /// The rotation of an axis-angle vector.
 Eigen::Quaterniond axisAngleToQuaternion(const Eigen::Vector3d& rotation);
 
+/// Why a guard tripped.
+enum class Trip {
+  kNone = 0,
+  kForce,           // external force norm above the threshold for long enough
+  kSaturation,      // a joint torque at its limit for long enough
+  kSpeed,           // control frame speed
+  kJointVelocity,   // a joint above its velocity limit
+  kWorkspace,       // the guarded point outside every workspace box
+  kManual,          // trip() from outside the loop
+};
+
+const char* tripName(Trip trip);
+
+/// An oriented box: the point p is inside when |R^T (p - t)| <= half_extents
+/// on every axis, with pose = [R t; 0 1] in the base frame.
+struct Box {
+  Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();
+  Eigen::Vector3d half_extents = Eigen::Vector3d::Zero();
+  bool contains(const Eigen::Vector3d& point) const;
+};
+
+/// Guard thresholds; infinity disables a guard. All evaluated at 1 kHz.
+struct GuardConfig {
+  static constexpr size_t kMaxBoxes = 8;
+  double force = std::numeric_limits<double>::infinity();  // N, |O_F_ext_hat_K[0:3]|
+  double force_time = 0.05;                                 // s above it to trip
+  double saturation_time = std::numeric_limits<double>::infinity();  // s
+  double speed = std::numeric_limits<double>::infinity();   // m/s, control frame
+  Vector7d joint_velocity =
+      Vector7d::Constant(std::numeric_limits<double>::infinity());  // rad/s
+  /// The point must stay inside at least one box; none disables the guard.
+  std::array<Box, kMaxBoxes> workspace;
+  size_t workspace_size = 0;
+  /// Guard the end effector (O_T_EE) rather than the control frame.
+  bool workspace_end_effector = true;
+};
+
+struct GuardState {
+  Trip trip = Trip::kNone;
+  double time = 0.0;   // robot time of the trip
+  double value = 0.0;  // what tripped it: N, s, m/s, rad/s or m outside
+  int joint = -1;      // the joint, for kSaturation and kJointVelocity
+};
+
 /// One telemetry sample per control tick. Every field is a block of doubles,
 /// so a table of fields is all the Python side needs to unpack it.
 #define TASK_IMPEDANCE_SAMPLE_FIELDS(X) \
@@ -129,6 +174,7 @@ Eigen::Quaterniond axisAngleToQuaternion(const Eigen::Vector3d& rotation);
   X(F_T_EE, 16)                         \
   X(O_F_ext_hat_K, 6)                   \
   X(K_F_ext_hat_K, 6)                   \
+  X(guard, 1)                           \
   X(jacobian, 42)                       \
   X(mass, 49)
 
@@ -205,6 +251,17 @@ class TaskImpedance : public TorqueController {
   void stepReference(const Eigen::Vector3d& translation,
                      const Eigen::Vector3d& rotation,
                      const Vector6d& stiffness);
+  /// Sets the guards. When one trips, the loop drops the active (spring)
+  /// wrench on that tick and keeps the damping and the nullspace term, until
+  /// rearm(). Replaces the previous configuration.
+  void setGuard(const task_impedance::GuardConfig& config);
+  task_impedance::GuardConfig getGuard();
+  task_impedance::GuardState getGuardState();
+  /// Trips the guard from outside the loop, e.g. on missed policy deadlines.
+  void trip();
+  /// Clears a trip on the loop's next tick, with the reference reset to the
+  /// pose of that tick, so the active wrench resumes from zero.
+  void rearm();
   /// Infinite disables the leash, which is the default.
   void setLeash(double position, double rotation);
   std::pair<double, double> getLeash();
@@ -246,13 +303,16 @@ class TaskImpedance : public TorqueController {
     double leash_rotation = std::numeric_limits<double>::infinity();
   };
   struct Command {
-    bool absolute = false, step = false, stiffness = false;
+    bool absolute = false, step = false, stiffness = false, rearm = false,
+         trip = false;
     Eigen::Vector3d position = Eigen::Vector3d::Zero();
     Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
     Eigen::Vector3d translation = Eigen::Vector3d::Zero();
     Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
     Vector6d stiffness_value = Vector6d::Zero();
-    bool pending() const { return absolute || step || stiffness; }
+    bool pending() const {
+      return absolute || step || stiffness || rearm || trip;
+    }
   };
 
   std::mutex mux_;
@@ -261,8 +321,17 @@ class TaskImpedance : public TorqueController {
   task_impedance::Snapshot snapshot_;
   double damping_ratio_;
 
+  task_impedance::GuardConfig guard_shared_;
+  task_impedance::GuardState guard_state_shared_;
+
   // Loop thread only.
   Parameters loop_;
+  task_impedance::GuardConfig guard_;
+  task_impedance::GuardState guard_state_;
+  double force_time_ = 0.0, saturation_time_ = 0.0;
+  bool saturated_ = false;
+  void evaluateGuard(const franka::RobotState& robot_state,
+                     const task_impedance::Inputs& in, double dt);
   Eigen::Vector3d position_ref_;
   Eigen::Quaterniond orientation_ref_;
   uint64_t tick_ = 0;
@@ -273,5 +342,6 @@ class TaskImpedance : public TorqueController {
   TelemetryRing<task_impedance::Sample> telemetry_;
   task_impedance::Sample* sample_ = nullptr;
 
-  void applyCommand(const Command& command, const Eigen::Matrix4d& pose);
+  void applyCommand(const Command& command, const Eigen::Matrix4d& pose,
+                    double time);
 };

@@ -348,3 +348,65 @@ def test_telemetry_check():
     assert telemetry.check(log) == {"samples": 5, "missing": 1, "lost_cycles": 2, "ok": False}
     log = {"tick": np.arange(5), "duration": np.array([0] + [1e-3] * 4)}
     assert telemetry.check(log)["ok"]
+
+
+# -- guards ------------------------------------------------------------------
+
+
+def test_guard_configuration():
+    from panda_py import safety  # pylint: disable=import-outside-toplevel
+
+    ctrl = TaskImpedance()
+    guard = ctrl.get_guard()
+    assert guard["force"] == float("inf") and guard["workspace"] == []
+    assert ctrl.guard_state == {"tripped": False, "reason": "none", "time": 0.0,
+                                "value": 0.0, "joint": -1}
+    box = safety.box_along_axis([0.45, 0.0, 0.067], [0, 0, 1], 0.06, 0.07, 0.1)
+    ctrl.set_guard(force=80, force_time=0.05, saturation_time=0.1, speed=0.5,
+                   joint_velocity=np.full(7, 2.0), workspace=[box])
+    guard = ctrl.get_guard()
+    assert (guard["force"], guard["force_time"], guard["saturation_time"], guard["speed"]) == (
+        80, 0.05, 0.1, 0.5)
+    np.testing.assert_allclose(guard["joint_velocity"], 2.0)
+    np.testing.assert_allclose(guard["workspace"][0][0], box[0])
+    assert guard["workspace_point"] == "end_effector"
+    with pytest.raises(ValueError):
+        ctrl.set_guard(workspace=[box] * 9)
+    with pytest.raises(ValueError):
+        ctrl.set_guard(workspace_point="tip")
+    ctrl.set_guard()
+    assert ctrl.get_guard()["speed"] == float("inf")
+
+
+def test_box_along_axis():
+    from panda_py import safety  # pylint: disable=import-outside-toplevel
+
+    axis = np.array([0.003, 0.0043, 1.0])
+    pose, half = safety.box_along_axis([0.45, -0.007, 0.067], axis, 0.06, 0.07, 0.1)
+    z = axis / np.linalg.norm(axis)
+    np.testing.assert_allclose(pose[:3, 2], z)
+    np.testing.assert_allclose(pose[:3, :3].T @ pose[:3, :3], np.eye(3), atol=1e-12)
+    np.testing.assert_allclose(half, [0.06, 0.06, 0.085])
+    # The box spans from 70 mm below the origin to 100 mm above, along the axis.
+    bottom = pose[:3, 3] - z * half[2]
+    top = pose[:3, 3] + z * half[2]
+    np.testing.assert_allclose(bottom, np.array([0.45, -0.007, 0.067]) - 0.07 * z)
+    np.testing.assert_allclose(top, np.array([0.45, -0.007, 0.067]) + 0.1 * z)
+
+
+def test_set_collision_thresholds():
+    from panda_py import safety  # pylint: disable=import-outside-toplevel
+
+    class Robot:  # pylint: disable=too-few-public-methods
+        def set_collision_behavior(self, *args):
+            self.args = args  # pylint: disable=attribute-defined-outside-init
+
+    robot = Robot()
+    safety.set_collision_thresholds(robot, 100, 30, contact=0.5)
+    lower_joint, upper_joint, _, _, lower_wrench, upper_wrench, _, _ = robot.args
+    np.testing.assert_allclose(upper_joint, 0.9 * safety.TAU_J_MAX)
+    np.testing.assert_allclose(lower_joint, 0.45 * safety.TAU_J_MAX)
+    assert upper_wrench == [100, 100, 100, 30, 30, 30]
+    assert lower_wrench == [50, 50, 50, 15, 15, 15]
+    with pytest.raises(ValueError):
+        safety.set_collision_thresholds(robot, 100, 30, contact=0)

@@ -48,6 +48,8 @@ PYBIND11_MODULE(_core, m) {
   //  options.disable_enum_members_docstring();
 
   m.attr("_JOINT_POSITION_START") = kJointPositionStart;
+  m.attr("_TAU_J_MAX") = kTauJMax;
+  m.attr("_Q_MAX_VELOCITY") = kQMaxVelocity;
   m.attr("_MOVE_TO_POSE_POSITION_THRESHOLD") = Panda::kMoveToPosePositionThreshold;
   m.attr("_MOVE_TO_POSE_ORIENTATION_THRESHOLD") = Panda::kMoveToPoseOrientationThreshold;
   m.attr("_JOINT_LIMITS_LOWER") = kLowerJointLimits;
@@ -580,6 +582,118 @@ PYBIND11_MODULE(_core, m) {
                and ``mass`` (7x7, NaN unless the nullspace is dynamic), both
                column-major, so that every tick can be replayed through
                :py:func:`compute`. Quaternions are scalar-last.
+           )delim")
+      .def("set_guard",
+           [](TaskImpedance &c, double force, double force_time,
+              double saturation_time, double speed,
+              std::optional<Vector7d> joint_velocity,
+              const std::vector<std::pair<Eigen::Matrix4d, Eigen::Vector3d>> &workspace,
+              const std::string &workspace_point) {
+             task_impedance::GuardConfig config;
+             config.force = force;
+             config.force_time = force_time;
+             config.saturation_time = saturation_time;
+             config.speed = speed;
+             if (joint_velocity) {
+               config.joint_velocity = *joint_velocity;
+             }
+             if (workspace.size() > task_impedance::GuardConfig::kMaxBoxes) {
+               throw std::invalid_argument("At most 8 workspace boxes.");
+             }
+             for (size_t i = 0; i < workspace.size(); i++) {
+               config.workspace[i].pose = workspace[i].first;
+               config.workspace[i].half_extents = workspace[i].second;
+             }
+             config.workspace_size = workspace.size();
+             if (workspace_point != "end_effector" && workspace_point != "control") {
+               throw std::invalid_argument(
+                   "workspace_point must be 'end_effector' or 'control'.");
+             }
+             config.workspace_end_effector = workspace_point == "end_effector";
+             py::gil_scoped_release release;
+             c.setGuard(config);
+           },
+           py::arg("force") = std::numeric_limits<double>::infinity(),
+           py::arg("force_time") = 0.05,
+           py::arg("saturation_time") = std::numeric_limits<double>::infinity(),
+           py::arg("speed") = std::numeric_limits<double>::infinity(),
+           py::arg("joint_velocity") = py::none(),
+           py::arg("workspace") =
+               std::vector<std::pair<Eigen::Matrix4d, Eigen::Vector3d>>(),
+           py::arg("workspace_point") = "end_effector",
+           R"delim(
+               Guards evaluated in the 1 kHz loop. When one trips, the loop drops
+               the active (spring) wrench on that same tick and keeps the
+               damping and the posture term, until :py:func:`rearm`. Infinite
+               values disable a guard; calling this replaces every setting.
+
+               Args:
+                 force: External force norm, N, from ``O_F_ext_hat_K``.
+                 force_time: Seconds the force must stay above ``force``.
+                 saturation_time: Seconds any sent joint torque may stay at its
+                   limit.
+                 speed: Control frame speed, m/s.
+                 joint_velocity: Per-joint speed limits, rad/s.
+                 workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
+                   a 4x4 transform in the base frame; the guarded point must stay
+                   inside at least one. :py:func:`panda_py.safety.box_along_axis`
+                   builds one around an axis.
+                 workspace_point: ``"end_effector"`` (``O_T_EE``) or
+                   ``"control"``, the control frame.
+           )delim")
+      .def("get_guard",
+           [](TaskImpedance &c) {
+             task_impedance::GuardConfig g;
+             {
+               py::gil_scoped_release release;
+               g = c.getGuard();
+             }
+             py::dict d;
+             d["force"] = g.force;
+             d["force_time"] = g.force_time;
+             d["saturation_time"] = g.saturation_time;
+             d["speed"] = g.speed;
+             d["joint_velocity"] = g.joint_velocity;
+             py::list boxes;
+             for (size_t i = 0; i < g.workspace_size; i++) {
+               boxes.append(py::make_tuple(g.workspace[i].pose,
+                                           g.workspace[i].half_extents));
+             }
+             d["workspace"] = boxes;
+             d["workspace_point"] =
+                 g.workspace_end_effector ? "end_effector" : "control";
+             return d;
+           })
+      .def_property_readonly("guard_state",
+           [](TaskImpedance &c) {
+             task_impedance::GuardState g;
+             {
+               py::gil_scoped_release release;
+               g = c.getGuardState();
+             }
+             py::dict d;
+             d["tripped"] = g.trip != task_impedance::Trip::kNone;
+             d["reason"] = std::string(task_impedance::tripName(g.trip));
+             d["time"] = g.time;
+             d["value"] = g.value;
+             d["joint"] = g.joint;
+             return d;
+           },
+           R"delim(
+               ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
+               ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
+               or ``"none"``), the robot ``time`` of the trip, the ``value`` that
+               tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
+               ``joint``, where one is at fault. Telemetry's ``guard`` column
+               holds the reason as a number, 0 while armed, in this order.
+           )delim")
+      .def("trip", &TaskImpedance::trip, py::call_guard<py::gil_scoped_release>(),
+           "Trips the guard from outside the loop, on its next tick.")
+      .def("rearm", &TaskImpedance::rearm, py::call_guard<py::gil_scoped_release>(),
+           R"delim(
+               Clears a trip on the loop's next tick and resets the reference to
+               the pose of that tick, so the active wrench resumes from zero. A
+               reference set before that tick replaces the reset.
            )delim")
       .def_property_readonly("telemetry_dropped", &TaskImpedance::telemetryDropped,
            "Samples lost because the telemetry buffer was full.")
