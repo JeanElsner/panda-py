@@ -12,7 +12,7 @@ released.
         [--only name,name] [--extra path/to/checks.py]
 
 --extra adds the checks a Python file lists in a CHECKS variable, in the
-format below, after these.
+format below, after these, or in the order its ORDER variable names.
 """
 
 import argparse
@@ -68,21 +68,27 @@ CHECKS = [
 
 
 def load_extra(path):
+    """A file's CHECKS, and its ORDER of all checks by name, if it has one."""
     spec = importlib.util.spec_from_file_location("extra_checks", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return list(module.CHECKS)
+    return list(module.CHECKS), getattr(module, "ORDER", None)
 
 
 def run_check(command, log_path):
     """Runs a check, showing and logging its output; returns its exit status."""
-    with open(log_path, "w", encoding="utf-8") as log, subprocess.Popen(
+    # Forwarded as it arrives, not by line, so that a check's input() prompt
+    # shows before you answer it; stdin is the terminal's.
+    with open(log_path, "wb") as log, subprocess.Popen(
         [sys.executable, "-u", *command], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1,
     ) as process:
-        for line in process.stdout:
-            print(line, end="", flush=True)
-            log.write(line)
+        while True:
+            chunk = process.stdout.read1(4096)
+            if not chunk:
+                break
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.flush()
+            log.write(chunk)
         return process.wait()
 
 
@@ -107,9 +113,14 @@ def main():
                         help="a Python file with more CHECKS")
     args = parser.parse_args()
 
-    checks = list(CHECKS)
+    checks, order = list(CHECKS), None
     for path in args.extra:
-        checks += load_extra(path)
+        extra, extra_order = load_extra(path)
+        checks += extra
+        order = extra_order or order
+    if order:
+        rank = {name: i for i, name in enumerate(order)}
+        checks.sort(key=lambda c: rank.get(c[0], len(rank)))
     if args.only:
         wanted = args.only.split(",")
         unknown = set(wanted) - {c[0] for c in checks}
