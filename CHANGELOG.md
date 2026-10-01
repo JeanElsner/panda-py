@@ -40,11 +40,32 @@ Releases before 1.0.0 are documented in the
   rotational stiffness is 20 instead of 40, which keeps the same stiffness under
   the new orientation error. The `impedance` argument must be diagonal.
 
+  - Reference commands are applied by the control loop rather than by the
+    caller: `set_reference()` and the new `step_reference()` take effect on
+    the loop's next tick, against the pose of that tick, and the loop never
+    waits for a setter.
+  - The pose of the control frame comes from the robot state (`O_T_EE`, and
+    `O_T_EE F_T_EE^-1` for the flange); only the Jacobian and mass matrix
+    come from the model.
+
 ### Added
 
 - `TaskImpedance.compute()`, the control law alone for a given state, and
-  `panda_py.reference`, an independent NumPy transcription of the simulator's
-  controller to compare it with on logged states.
+  `TaskImpedance.step_reference_update()`, the loop's reference update.
+- `TaskImpedance.step_reference(translation, rotation, stiffness=None)`: one
+  policy step's reference change, base frame, rotation applied on the left,
+  optionally with a new stiffness on the same tick. `set_leash()` keeps the
+  reference within a distance and angle of the pose at the tick it is applied,
+  as the insertion simulator does. `get_snapshot()` returns what the loop last
+  applied, with the pose and robot time of that tick.
+- 1 kHz telemetry: `TaskImpedance(telemetry=<capacity>)` records one sample
+  per control tick into a lock-free buffer, with the controller's reference,
+  gains, wrenches and torques (the law's and the one sent after the joint
+  walls, rate limit and clipping) next to the robot state. `read_telemetry()`
+  drains it; `panda_py.telemetry` has a background `Recorder`, `check()` for
+  gaps (buffer overruns and robot cycles without a command) and npz
+  `save()`/`load()`.
+- `TorqueController.commanded()`, called with the torque actually sent.
 
 ## [1.1.1] - 2026-10-01
 

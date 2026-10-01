@@ -349,6 +349,9 @@ TorqueCallback Panda::_createTorqueCallback() {
     tau_saturated = saturateTorqueRate(tau.tau_J, robot_state.tau_J_d);
     tau_clipped = clipTorques(tau_saturated);
     tau.tau_J = tau_clipped;
+    if (current_controller_) {
+      current_controller_->commanded(robot_state, tau);
+    }
     return tau;
   });
 }

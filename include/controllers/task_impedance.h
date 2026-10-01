@@ -1,9 +1,11 @@
 #pragma once
 #include <atomic>
+#include <limits>
 #include <mutex>
 
 #include "constants.h"
 #include "controllers/controller.h"
+#include "telemetry.h"
 #include "utils.h"
 
 /// The task impedance law as a pure function, so that it can be evaluated
@@ -75,6 +77,79 @@ Eigen::Matrix<double, 6, 7> shiftJacobian(
 /// D = 2 zeta sqrt(K), elementwise.
 Vector6d criticalDamping(const Vector6d& stiffness, double damping_ratio);
 
+/// Limits a reference to within `leash_position` (m) and `leash_rotation`
+/// (rad) of the current pose, as the simulator does after every policy step:
+/// x_ref = x + d min(1, l / |d|), and the orientation error clipped to l.
+void leash(Eigen::Vector3d& position_ref, Eigen::Quaterniond& orientation_ref,
+           const Eigen::Vector3d& position,
+           const Eigen::Quaterniond& orientation, double leash_position,
+           double leash_rotation);
+
+/// One policy step's reference update: x_ref += translation,
+/// q_ref = rotation q_ref, then the leash against the current pose.
+void stepReference(Eigen::Vector3d& position_ref,
+                   Eigen::Quaterniond& orientation_ref,
+                   const Eigen::Vector3d& translation,
+                   const Eigen::Quaterniond& rotation,
+                   const Eigen::Vector3d& position,
+                   const Eigen::Quaterniond& orientation, double leash_position,
+                   double leash_rotation);
+
+/// The rotation of an axis-angle vector.
+Eigen::Quaterniond axisAngleToQuaternion(const Eigen::Vector3d& rotation);
+
+/// One telemetry sample per control tick. Every field is a block of doubles,
+/// so a table of fields is all the Python side needs to unpack it.
+#define TASK_IMPEDANCE_SAMPLE_FIELDS(X) \
+  X(tick, 1)                            \
+  X(time, 1)                            \
+  X(duration, 1)                        \
+  X(reference_update, 1)                \
+  X(control_command_success_rate, 1)    \
+  X(position, 3)                        \
+  X(orientation, 4)                     \
+  X(position_ref, 3)                    \
+  X(orientation_ref, 4)                 \
+  X(stiffness, 6)                       \
+  X(damping, 6)                         \
+  X(wrench_active, 6)                   \
+  X(wrench_passive, 6)                  \
+  X(alpha, 1)                           \
+  X(tank, 1)                            \
+  X(tau_task, 7)                        \
+  X(tau_nullspace, 7)                   \
+  X(tau_law, 7)                         \
+  X(tau_cmd, 7)                         \
+  X(q, 7)                               \
+  X(dq, 7)                              \
+  X(tau_J, 7)                           \
+  X(tau_J_d, 7)                         \
+  X(tau_ext_hat_filtered, 7)            \
+  X(O_T_EE, 16)                         \
+  X(F_T_EE, 16)                         \
+  X(O_F_ext_hat_K, 6)                   \
+  X(K_F_ext_hat_K, 6)                   \
+  X(jacobian, 42)                       \
+  X(mass, 49)
+
+struct Sample {
+#define TASK_IMPEDANCE_DECLARE(name, size) double name[size];
+  TASK_IMPEDANCE_SAMPLE_FIELDS(TASK_IMPEDANCE_DECLARE)
+#undef TASK_IMPEDANCE_DECLARE
+};
+
+/// What the loop last applied, for the 50 Hz side to read.
+struct Snapshot {
+  double time = 0.0;         // robot time of the latest tick, s
+  double applied_time = 0.0; // robot time the latest reference was applied
+  Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();  // control frame, latest tick
+  Eigen::Matrix4d applied_pose = Eigen::Matrix4d::Identity();  // ... at applied_time
+  Eigen::Vector3d position_ref = Eigen::Vector3d::Zero();
+  Eigen::Quaterniond orientation_ref = Eigen::Quaterniond::Identity();
+  Vector6d stiffness = Vector6d::Zero();
+  uint64_t applied = 0;  // reference commands applied since start
+};
+
 }  // namespace task_impedance
 
 /// Impedance in task space at a selectable control frame:
@@ -102,7 +177,8 @@ class TaskImpedance : public TorqueController {
       double nullspace_stiffness = kDefaultNullspaceStiffness,
       Frame frame = kDefaultFrame,
       const Eigen::Matrix4d& frame_transform = Eigen::Matrix4d::Identity(),
-      bool coriolis = false, double nullspace_damping = 0.0);
+      bool coriolis = false, double nullspace_damping = 0.0,
+      size_t telemetry_capacity = 0);
 
   franka::Torques step(const franka::RobotState& robot_state,
                        franka::Duration& duration) override;
@@ -112,10 +188,27 @@ class TaskImpedance : public TorqueController {
             std::shared_ptr<franka::Model> model) override;
   bool isRunning() override;
   const std::string name() override;
+  void commanded(const franka::RobotState& robot_state,
+                 const franka::Torques& torques) override;
 
   /// Position and scalar-last quaternion of the control frame, base frame.
+  /// Applied, and leashed, by the control loop on its next tick, against
+  /// the pose of that tick. Replaces any command not yet applied.
   void setReference(const Eigen::Vector3d& position,
                     const Eigen::Vector4d& orientation);
+  /// Moves the reference by a translation and a rotation (axis-angle,
+  /// applied on the left), both in the base frame, as one policy step does;
+  /// with a stiffness, sets it on the same tick. Applied and leashed by the
+  /// loop on its next tick; steps not yet applied add up.
+  void stepReference(const Eigen::Vector3d& translation,
+                     const Eigen::Vector3d& rotation);
+  void stepReference(const Eigen::Vector3d& translation,
+                     const Eigen::Vector3d& rotation,
+                     const Vector6d& stiffness);
+  /// Infinite disables the leash, which is the default.
+  void setLeash(double position, double rotation);
+  std::pair<double, double> getLeash();
+  task_impedance::Snapshot getSnapshot();
   /// Also sets the damping, critical for the current damping ratio.
   void setStiffness(const Vector6d& stiffness);
   void setDampingRatio(double damping_ratio);
@@ -126,14 +219,15 @@ class TaskImpedance : public TorqueController {
   Eigen::Matrix4d getFrameTransform() const;
   Frame getFrame() const;
 
+  /// Appends the telemetry recorded since the last call.
+  size_t readTelemetry(std::vector<task_impedance::Sample>& out);
+  uint64_t telemetryDropped() const;
+  size_t telemetryCapacity() const;
+
   /// The control frame's pose and Jacobian for a robot state.
   void controlFrame(const franka::RobotState& robot_state,
                     franka::Model& model, Eigen::Matrix4d& pose,
                     Eigen::Matrix<double, 6, 7>& jacobian) const;
-
- protected:
-  /// The law's inputs for this state, the reference and gains included.
-  task_impedance::Inputs inputs(const franka::RobotState& robot_state);
 
  private:
   const Frame frame_;
@@ -142,12 +236,42 @@ class TaskImpedance : public TorqueController {
   const task_impedance::Nullspace nullspace_;
   const double nullspace_damping_;
 
+  // Shared with the setters, under mux_. The loop only ever try-locks it and
+  // keeps its own copy, loop_, for the ticks the lock is taken.
+  struct Parameters {
+    Vector6d stiffness, damping;
+    double nullspace_stiffness;
+    Vector7d q_nullspace;
+    double leash_position = std::numeric_limits<double>::infinity();
+    double leash_rotation = std::numeric_limits<double>::infinity();
+  };
+  struct Command {
+    bool absolute = false, step = false, stiffness = false;
+    Eigen::Vector3d position = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d translation = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
+    Vector6d stiffness_value = Vector6d::Zero();
+    bool pending() const { return absolute || step || stiffness; }
+  };
+
   std::mutex mux_;
-  Vector6d stiffness_, damping_;
-  double damping_ratio_, nullspace_stiffness_;
+  Parameters shared_;
+  Command command_;
+  task_impedance::Snapshot snapshot_;
+  double damping_ratio_;
+
+  // Loop thread only.
+  Parameters loop_;
   Eigen::Vector3d position_ref_;
   Eigen::Quaterniond orientation_ref_;
-  Vector7d q_nullspace_;
+  uint64_t tick_ = 0;
+  uint64_t applied_ = 0;
+
   std::atomic<bool> motion_finished_;
   std::shared_ptr<franka::Model> model_;
+  TelemetryRing<task_impedance::Sample> telemetry_;
+  task_impedance::Sample* sample_ = nullptr;
+
+  void applyCommand(const Command& command, const Eigen::Matrix4d& pose);
 };

@@ -1,19 +1,20 @@
 """The TaskImpedance law, without a robot.
 
-The controller's law is compared with panda_py.reference, an independent
-transcription of the simulator's controller, on random states, and checked for
-the properties the law is meant to have.
+The controller's law and its reference update are compared with
+vic_reference.py, the NumPy port of the insertion simulator's controller that
+the deployment request specifies for parity checks (vendored from the phd
+repository, contact/hardware, at fd83ea0), and checked for the properties the
+law is meant to have.
 """
 
 import numpy as np
 import pytest
+import vic_reference as vic
 
-from panda_py import reference
 from panda_py.controllers import TaskImpedance
 
 STIFFNESS = np.array([400.0, 400.0, 400.0, 30.0, 30.0, 30.0])
-# The above-hole posture of the insertion task.
-Q0 = np.array([0.0, 0.2987, 0.0, -2.5492, 0.0, 2.8479, -0.7853])
+Q0 = vic.POSTURE_ABOVE_HOLE
 
 
 def random_rotation(rng):
@@ -31,19 +32,35 @@ def axis_angle_matrix(v):
     return np.eye(3) + np.sin(angle) * skew + (1 - np.cos(angle)) * skew @ skew
 
 
-def xyzw(r):
-    """Scalar-last quaternion of a rotation matrix."""
-    w, x, y, z = reference._matrix_to_quat(r)  # pylint: disable=protected-access
-    return np.array([x, y, z, w])
+def wxyz(r):
+    """Scalar-first unit quaternion of a rotation matrix, vic_reference's order."""
+    trace = np.trace(r)
+    if trace > 0:
+        s = 2.0 * np.sqrt(trace + 1.0)
+        q = [0.25 * s, (r[2, 1] - r[1, 2]) / s, (r[0, 2] - r[2, 0]) / s, (r[1, 0] - r[0, 1]) / s]
+    else:
+        i = int(np.argmax(np.diag(r)))
+        j, k = (i + 1) % 3, (i + 2) % 3
+        s = 2.0 * np.sqrt(1.0 + r[i, i] - r[j, j] - r[k, k])
+        q = np.empty(4)
+        q[0] = (r[k, j] - r[j, k]) / s
+        q[1 + i] = 0.25 * s
+        q[1 + j] = (r[j, i] + r[i, j]) / s
+        q[1 + k] = (r[k, i] + r[i, k]) / s
+    q = np.asarray(q, dtype=float)
+    return q / np.linalg.norm(q)
 
 
-def random_state(rng, rotation=0.4, translation=0.025):
-    """A state and a reference near it, within the simulator's leashes."""
+def xyzw(q):
+    """panda-py's scalar-last order, from a scalar-first quaternion or a matrix."""
+    q = wxyz(q) if np.shape(q) == (3, 3) else np.asarray(q)
+    return np.array([q[1], q[2], q[3], q[0]])
+
+
+def random_state(rng):
     pose = np.eye(4)
     pose[:3, :3] = random_rotation(rng)
     pose[:3, 3] = rng.uniform(-0.6, 0.6, 3)
-    axis = rng.normal(size=3)
-    turn = axis / np.linalg.norm(axis) * rng.uniform(0, rotation)
     a = rng.normal(size=(7, 7))
     return {
         "q": rng.uniform(-2, 2, 7),
@@ -51,18 +68,17 @@ def random_state(rng, rotation=0.4, translation=0.025):
         "pose": pose,
         "jacobian": rng.normal(scale=0.4, size=(6, 7)),
         "mass": a @ a.T * 0.1 + np.eye(7) * 0.05,
-        "position_ref": pose[:3, 3] + rng.uniform(-translation, translation, 3),
-        "orientation_ref": xyzw(axis_angle_matrix(turn) @ pose[:3, :3]),
-        "rotation": turn,
     }
 
 
-def law(state, stiffness=STIFFNESS, nullspace="dynamic", k_ns=10.0, alpha=1.0, zeta=1.0, **kw):
-    args = {k: v for k, v in state.items() if k != "rotation"}
+def law(state, position_ref, orientation_ref, stiffness=STIFFNESS, nullspace="dynamic",
+        k_ns=10.0, alpha=1.0, **kw):
     return TaskImpedance.compute(
-        **args,
+        **state,
+        position_ref=position_ref,
+        orientation_ref=orientation_ref,
         stiffness=stiffness,
-        damping=TaskImpedance.critical_damping(stiffness, zeta),
+        damping=TaskImpedance.critical_damping(stiffness),
         q_nullspace=Q0,
         nullspace_stiffness=k_ns,
         nullspace=nullspace,
@@ -71,40 +87,146 @@ def law(state, stiffness=STIFFNESS, nullspace="dynamic", k_ns=10.0, alpha=1.0, z
     )
 
 
-def ref(state, stiffness=STIFFNESS, nullspace="dynamic", k_ns=10.0, alpha=1.0, zeta=1.0, **kw):
-    args = {k: v for k, v in state.items() if k != "rotation"}
-    return reference.task_impedance(
-        **args,
-        stiffness=stiffness,
-        q_nullspace=Q0,
-        nullspace_stiffness=k_ns,
-        nullspace=nullspace,
-        alpha=alpha,
-        zeta=zeta,
-        **kw,
+def near_reference(rng, state, rotation=0.4, translation=0.025):
+    """A reference within the simulator's leashes of the state's pose."""
+    pose = state["pose"]
+    axis = rng.normal(size=3)
+    turn = axis / np.linalg.norm(axis) * rng.uniform(0, rotation)
+    return (
+        pose[:3, 3] + rng.uniform(-translation, translation, 3),
+        xyzw(axis_angle_matrix(turn) @ pose[:3, :3]),
     )
 
 
-@pytest.mark.parametrize("nullspace", ["dynamic", "kinematic", "none"])
+def reference_torque(ref_, state):
+    """vic_reference's torque for a state; v and omega are J dq."""
+    pose = state["pose"]
+    v6 = state["jacobian"] @ state["dq"]
+    return ref_.torque(
+        pose[:3, 3], wxyz(pose[:3, :3]), v6[:3], v6[3:], state["q"], state["dq"],
+        state["jacobian"], state["mass"], 1e-3,
+    )
+
+
+# -- parity with vic_reference -------------------------------------------------
+
+VARIANTS = {
+    "fixed": {},
+    "fixed-kinematic": {"nullspace_projection": "kinematic"},
+    "variable": {"variable_stiffness": True},
+    "power-tank": {"tank_E0": 0.05, "tank_mode": "power"},
+    "impulse-tank": {"tank_E0": 0.05, "tank_mode": "impulse"},
+}
+
+
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_matches_vic_reference_over_a_trial(variant):
+    """Policy steps at 50 Hz, torques at 1 kHz, as on the arm.
+
+    The reference integrates and leashes the reference pose, maps the
+    stiffness and runs the tank. The controller's reference update is fed the
+    same action and pose, and its law what it then holds, plus the
+    reference's K and alpha; both must agree with the reference. Its torque
+    clip is off: panda-py saturates torques after the law, in the Panda class.
+    """
+    rng = np.random.default_rng(10)
+    ref_ = vic.VicReference(clip_torque=False, **VARIANTS[variant])
+    action_size = 12 if ref_.variable_stiffness else 6
+    state = random_state(rng)
+    pose = state["pose"]
+    ref_.reset(pose[:3, 3], wxyz(pose[:3, :3]))
+    position_ref, orientation_ref = pose[:3, 3].copy(), xyzw(pose[:3, :3])
+    worst = 0.0
+    for step in range(20):
+        # A new state each step stands in for the arm having moved.
+        state = random_state(rng)
+        pose = state["pose"]
+        if step:
+            a = rng.uniform(-1.2, 1.2, action_size)
+            ref_.process_action(a, pose[:3, 3], wxyz(pose[:3, :3]))
+            clipped = np.clip(a, -1, 1)
+            position_ref, orientation_ref = TaskImpedance.step_reference_update(
+                position_ref, orientation_ref, clipped[:3] * vic.POS_STEP,
+                clipped[3:6] * vic.ROT_STEP, pose[:3, 3], xyzw(pose[:3, :3]),
+                vic.LEASH_POS, vic.LEASH_ROT,
+            )
+            np.testing.assert_allclose(position_ref, ref_.x_ref, atol=1e-12)
+            # q and -q are the same orientation.
+            assert abs(np.dot(orientation_ref, xyzw(ref_.q_ref))) == pytest.approx(1, abs=1e-12)
+        for _ in range(20):
+            state["dq"] = rng.normal(scale=0.3, size=7)
+            tau, tel = reference_torque(ref_, state)
+            ours = law(
+                state, position_ref, orientation_ref, stiffness=tel["K"],
+                nullspace=ref_.nullspace_projection, k_ns=ref_.nullspace_kp, alpha=tel["alpha"],
+            )
+            np.testing.assert_allclose(ours["wrench_active"], tel["w_active"], atol=1e-9)
+            np.testing.assert_allclose(ours["wrench_passive"], tel["w_passive"], atol=1e-9)
+            np.testing.assert_allclose(ours["tau_nullspace"], tel["tau_ns"], atol=1e-9)
+            worst = max(worst, np.linalg.norm(ours["tau"] - tau) / np.linalg.norm(tau))
+    # The request's acceptance is 1 % of the torque norm.
+    assert worst < 1e-9
+
+
+@pytest.mark.parametrize("nullspace", ["dynamic", "kinematic"])
 @pytest.mark.parametrize("alpha", [1.0, 0.3, 0.0])
-def test_matches_the_reference(nullspace, alpha):
+def test_law_matches_vic_reference_on_random_states(nullspace, alpha):
     rng = np.random.default_rng(0)
+    ref_ = vic.VicReference(clip_torque=False, nullspace_projection=nullspace)
     for _ in range(200):
         state = random_state(rng)
-        stiffness = np.exp(rng.uniform(np.log([50] * 3 + [5] * 3), np.log([800] * 3 + [150] * 3)))
-        ours = law(state, stiffness, nullspace, alpha=alpha)
-        theirs = ref(state, stiffness, nullspace, alpha=alpha)
-        for key in ("wrench_active", "wrench_passive", "tau_task", "tau_nullspace", "tau"):
-            np.testing.assert_allclose(ours[key], theirs[key], rtol=1e-9, atol=1e-9, err_msg=key)
+        position_ref, orientation_ref = near_reference(rng, state)
+        ref_.K = np.exp(rng.uniform(np.log([50] * 3 + [5] * 3), np.log([800] * 3 + [150] * 3)))
+        ref_.x_ref, ref_.q_ref = position_ref, np.roll(orientation_ref, 1)
+        tau, tel = reference_torque(ref_, state)
+        ours = law(state, position_ref, orientation_ref, stiffness=ref_.K, nullspace=nullspace,
+                   alpha=alpha)
+        wrench = alpha * tel["w_active"] + tel["w_passive"]
+        np.testing.assert_allclose(ours["tau"], state["jacobian"].T @ wrench + tel["tau_ns"],
+                                   rtol=1e-9, atol=1e-9)
+        if alpha == 1.0:
+            np.testing.assert_allclose(ours["tau"], tau, rtol=1e-9, atol=1e-9)
 
 
-def test_matches_the_reference_with_nullspace_damping():
+def test_leash_matches_vic_reference():
     rng = np.random.default_rng(1)
-    for nullspace in ("dynamic", "kinematic"):
+    for _ in range(200):
         state = random_state(rng)
-        ours = law(state, nullspace=nullspace, nullspace_damping=1e-3)
-        theirs = ref(state, nullspace=nullspace, nullspace_damping=1e-3)
-        np.testing.assert_allclose(ours["tau"], theirs["tau"], rtol=1e-9, atol=1e-9)
+        pose = state["pose"]
+        ref_ = vic.VicReference()
+        start_x, start_q = near_reference(rng, state, rotation=1.5, translation=0.1)
+        ref_.reset(start_x, np.roll(start_q, 1))
+        a = rng.uniform(-1, 1, 6)
+        ref_.process_action(a, pose[:3, 3], wxyz(pose[:3, :3]))
+        position_ref, orientation_ref = TaskImpedance.step_reference_update(
+            start_x, start_q, a[:3] * vic.POS_STEP, a[3:6] * vic.ROT_STEP,
+            pose[:3, 3], xyzw(pose[:3, :3]), vic.LEASH_POS, vic.LEASH_ROT,
+        )
+        np.testing.assert_allclose(position_ref, ref_.x_ref, atol=1e-12)
+        assert abs(np.dot(orientation_ref, xyzw(ref_.q_ref))) == pytest.approx(1, abs=1e-12)
+
+
+def test_reference_update_without_a_leash_is_the_plain_step():
+    position, orientation = np.zeros(3), xyzw(np.eye(3))
+    position_ref, orientation_ref = TaskImpedance.step_reference_update(
+        position, orientation, [0.5, 0, 0], [0, 0, np.pi / 2], position, orientation
+    )
+    np.testing.assert_allclose(position_ref, [0.5, 0, 0])
+    np.testing.assert_allclose(orientation_ref, [0, 0, np.sqrt(0.5), np.sqrt(0.5)], atol=1e-12)
+
+
+# -- properties of the law ------------------------------------------------------
+
+
+def test_matches_with_nullspace_damping_in_the_limit():
+    rng = np.random.default_rng(1)
+    state = random_state(rng)
+    position_ref, orientation_ref = near_reference(rng, state)
+    for nullspace in ("dynamic", "kinematic"):
+        exact = law(state, position_ref, orientation_ref, nullspace=nullspace)["tau"]
+        damped = law(state, position_ref, orientation_ref, nullspace=nullspace,
+                     nullspace_damping=1e-9)["tau"]
+        assert np.linalg.norm(damped - exact) < 1e-5 * np.linalg.norm(exact)
 
 
 def test_dynamic_nullspace_does_not_leak_into_the_task():
@@ -112,7 +234,7 @@ def test_dynamic_nullspace_does_not_leak_into_the_task():
     rng = np.random.default_rng(2)
     for _ in range(100):
         state = random_state(rng)
-        tau_ns = law(state, nullspace="dynamic")["tau_nullspace"]
+        tau_ns = law(state, *near_reference(rng, state))["tau_nullspace"]
         leak = state["jacobian"] @ np.linalg.solve(state["mass"], tau_ns)
         assert np.linalg.norm(leak) < 1e-9 * np.linalg.norm(tau_ns)
 
@@ -121,19 +243,23 @@ def test_kinematic_nullspace_does_not_move_the_task_kinematically():
     """The kinematic projection gives no task velocity: J tau_ns = 0."""
     rng = np.random.default_rng(3)
     state = random_state(rng)
-    tau_ns = law(state, nullspace="kinematic")["tau_nullspace"]
+    tau_ns = law(state, *near_reference(rng, state), nullspace="kinematic")["tau_nullspace"]
     assert np.linalg.norm(state["jacobian"] @ tau_ns) < 1e-9 * np.linalg.norm(tau_ns)
 
 
 def test_zero_nullspace_stiffness_drops_the_posture_term():
-    state = random_state(np.random.default_rng(4))
-    for nullspace in ("dynamic", "kinematic"):
-        np.testing.assert_array_equal(law(state, nullspace=nullspace, k_ns=0.0)["tau_nullspace"], 0)
+    rng = np.random.default_rng(4)
+    state = random_state(rng)
+    for nullspace in ("dynamic", "kinematic", "none"):
+        out = law(state, *near_reference(rng, state), nullspace=nullspace, k_ns=0.0)
+        np.testing.assert_array_equal(out["tau_nullspace"], 0)
 
 
 def test_alpha_scales_the_spring_but_never_the_damping():
-    state = random_state(np.random.default_rng(5))
-    full, gated = law(state, nullspace="none"), law(state, nullspace="none", alpha=0.0)
+    rng = np.random.default_rng(5)
+    state = random_state(rng)
+    ref = near_reference(rng, state)
+    full, gated = law(state, *ref, nullspace="none"), law(state, *ref, nullspace="none", alpha=0.0)
     np.testing.assert_allclose(gated["wrench_active"], full["wrench_active"])
     np.testing.assert_allclose(
         gated["tau_task"], state["jacobian"].T @ full["wrench_passive"], atol=1e-12
@@ -141,12 +267,8 @@ def test_alpha_scales_the_spring_but_never_the_damping():
 
 
 def test_damping_is_critical():
-    np.testing.assert_allclose(
-        TaskImpedance.critical_damping(STIFFNESS), 2 * np.sqrt(STIFFNESS)
-    )
-    np.testing.assert_allclose(
-        TaskImpedance.critical_damping(STIFFNESS, 0.5), np.sqrt(STIFFNESS)
-    )
+    np.testing.assert_allclose(TaskImpedance.critical_damping(STIFFNESS), 2 * np.sqrt(STIFFNESS))
+    np.testing.assert_allclose(TaskImpedance.critical_damping(STIFFNESS, 0.5), np.sqrt(STIFFNESS))
 
 
 def test_the_orientation_error_is_the_full_rotation():
@@ -178,24 +300,39 @@ def test_shift_jacobian_gives_the_velocity_of_the_offset_point():
 
 def test_holds_with_zero_active_wrench_at_the_reference():
     state = random_state(np.random.default_rng(8))
-    state["position_ref"] = state["pose"][:3, 3]
-    state["orientation_ref"] = xyzw(state["pose"][:3, :3])
-    np.testing.assert_allclose(law(state)["wrench_active"], 0, atol=1e-9)
+    pose = state["pose"]
+    out = law(state, pose[:3, 3], xyzw(pose[:3, :3]))
+    np.testing.assert_allclose(out["wrench_active"], 0, atol=1e-9)
+
+
+# -- the controller object -----------------------------------------------------
 
 
 def test_constructor():
     ctrl = TaskImpedance()
     assert ctrl.frame == "end_effector"
+    assert ctrl.telemetry_capacity == 0
+    assert ctrl.get_leash() == (float("inf"), float("inf"))
     np.testing.assert_allclose(ctrl.get_damping(), 2 * np.sqrt(ctrl.get_stiffness()))
     offset = np.eye(4)
     offset[2, 3] = 0.088
-    ctrl = TaskImpedance(STIFFNESS, frame="flange", frame_transform=offset, nullspace="kinematic")
+    ctrl = TaskImpedance(STIFFNESS, frame="flange", frame_transform=offset, nullspace="kinematic",
+                         telemetry=1000)
     assert ctrl.frame == "flange"
+    assert ctrl.telemetry_capacity == 1000
     np.testing.assert_allclose(ctrl.frame_transform, offset)
     ctrl.set_stiffness(STIFFNESS * 2)
+    np.testing.assert_allclose(ctrl.get_stiffness(), STIFFNESS * 2)
     np.testing.assert_allclose(ctrl.get_damping(), 2 * np.sqrt(STIFFNESS * 2))
     ctrl.set_damping_ratio(0.5)
     np.testing.assert_allclose(ctrl.get_damping(), np.sqrt(STIFFNESS * 2))
+    ctrl.step_reference([0.01, 0, 0], [0, 0, 0], STIFFNESS)
+    np.testing.assert_allclose(ctrl.get_stiffness(), STIFFNESS)
+    ctrl.set_leash(0.025, 0.5)
+    assert ctrl.get_leash() == (0.025, 0.5)
+    assert len(ctrl.read_telemetry()["tick"]) == 0
+    with pytest.raises(ValueError):
+        ctrl.set_leash(0.0, 0.5)
     with pytest.raises(ValueError):
         TaskImpedance(nullspace="pseudo")
     with pytest.raises(ValueError):
@@ -204,122 +341,10 @@ def test_constructor():
         TaskImpedance(frame_transform=np.ones((4, 4)))
 
 
-# -- parity with the simulator's reference implementation --------------------
-#
-# vic_reference.py (contact/hardware in the phd repository) is the NumPy port
-# of the simulator's controller that the deployment request specifies for the
-# parity checks. It is not part of panda-py: these tests load it from a phd
-# checkout, $VIC_REFERENCE or ~/dev/phd/contact/hardware/vic_reference.py, and
-# are skipped without one.
+def test_telemetry_check():
+    from panda_py import telemetry  # pylint: disable=import-outside-toplevel
 
-
-def _load_vic_reference():
-    import importlib.util  # pylint: disable=import-outside-toplevel
-    import os  # pylint: disable=import-outside-toplevel
-    import pathlib  # pylint: disable=import-outside-toplevel
-    import sys  # pylint: disable=import-outside-toplevel
-
-    path = pathlib.Path(
-        os.environ.get(
-            "VIC_REFERENCE",
-            pathlib.Path.home() / "dev" / "phd" / "contact" / "hardware" / "vic_reference.py",
-        )
-    )
-    if not path.is_file():
-        pytest.skip(f"no vic_reference.py at {path}")
-    spec = importlib.util.spec_from_file_location("vic_reference", path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["vic_reference"] = module  # its dataclass looks itself up there
-    spec.loader.exec_module(module)
-    return module
-
-
-@pytest.fixture(name="vic", scope="module")
-def fixture_vic():
-    return _load_vic_reference()
-
-
-def wxyz(r):
-    return reference._matrix_to_quat(r)  # pylint: disable=protected-access
-
-
-VARIANTS = {
-    "fixed": {},
-    "fixed-kinematic": {"nullspace_projection": "kinematic"},
-    "variable": {"variable_stiffness": True},
-    "power-tank": {"tank_E0": 0.05, "tank_mode": "power"},
-    "impulse-tank": {"tank_E0": 0.05, "tank_mode": "impulse"},
-}
-
-
-@pytest.mark.parametrize("variant", VARIANTS)
-def test_matches_vic_reference_over_a_trial(vic, variant):
-    """Policy steps at 50 Hz, torques at 1 kHz, as on the arm.
-
-    The reference integrates and leashes the reference pose, maps the
-    stiffness and runs the tank; the controller law is fed what the reference
-    holds at each tick (x_ref, q_ref, K and alpha), which is what the 50 Hz
-    side and the tank will hand it, and must give the same torques. Its torque
-    clip is off: panda-py saturates torques after the law, in the Panda class.
-    """
-    rng = np.random.default_rng(10)
-    ref_ = vic.VicReference(clip_torque=False, **VARIANTS[variant])
-    action_size = 12 if ref_.variable_stiffness else 6
-    state = random_state(rng)
-    pose = state["pose"]
-    ref_.reset(pose[:3, 3], wxyz(pose[:3, :3]))
-    worst = 0.0
-    for step in range(20):
-        # A new state each step stands in for the arm having moved.
-        state = random_state(rng)
-        pose = state["pose"]
-        x, quat = pose[:3, 3], wxyz(pose[:3, :3])
-        if step:
-            ref_.process_action(rng.uniform(-1.2, 1.2, action_size), x, quat)
-        for _ in range(20):
-            state["dq"] = rng.normal(scale=0.3, size=7)
-            v6 = state["jacobian"] @ state["dq"]
-            tau, tel = ref_.torque(
-                x, quat, v6[:3], v6[3:], state["q"], state["dq"],
-                state["jacobian"], state["mass"], 1e-3,
-            )
-            w, *xyz = tel["q_ref"]
-            ours = TaskImpedance.compute(
-                q=state["q"], dq=state["dq"], pose=pose, jacobian=state["jacobian"],
-                mass=state["mass"], position_ref=tel["x_ref"], orientation_ref=[*xyz, w],
-                stiffness=tel["K"], damping=TaskImpedance.critical_damping(tel["K"]),
-                q_nullspace=ref_.q0, nullspace_stiffness=ref_.nullspace_kp,
-                nullspace=ref_.nullspace_projection, alpha=tel["alpha"],
-            )
-            np.testing.assert_allclose(ours["wrench_active"], tel["w_active"], atol=1e-9)
-            np.testing.assert_allclose(ours["wrench_passive"], tel["w_passive"], atol=1e-9)
-            np.testing.assert_allclose(ours["tau_nullspace"], tel["tau_ns"], atol=1e-9)
-            worst = max(worst, np.linalg.norm(ours["tau"] - tau) / np.linalg.norm(tau))
-    # The request's acceptance is 1 % of the torque norm.
-    assert worst < 1e-9
-
-
-def test_reference_transcription_matches_vic_reference(vic):
-    """panda_py.reference, which CI runs without the phd repository, agrees."""
-    rng = np.random.default_rng(11)
-    for projection in ("dynamic", "kinematic"):
-        ref_ = vic.VicReference(clip_torque=False, nullspace_projection=projection)
-        for _ in range(50):
-            state = random_state(rng)
-            pose = state["pose"]
-            x, quat = pose[:3, 3], wxyz(pose[:3, :3])
-            ref_.reset(x, quat)
-            ref_.process_action(rng.uniform(-1, 1, 6), x, quat)
-            v6 = state["jacobian"] @ state["dq"]
-            tau, tel = ref_.torque(
-                x, quat, v6[:3], v6[3:], state["q"], state["dq"],
-                state["jacobian"], state["mass"], 1e-3,
-            )
-            w, *xyz = tel["q_ref"]
-            ours = reference.task_impedance(
-                q=state["q"], dq=state["dq"], pose=pose, jacobian=state["jacobian"],
-                mass=state["mass"], position_ref=tel["x_ref"], orientation_ref=[*xyz, w],
-                stiffness=tel["K"], q_nullspace=ref_.q0,
-                nullspace_stiffness=ref_.nullspace_kp, nullspace=projection,
-            )
-            np.testing.assert_allclose(ours["tau"], tau, rtol=1e-9, atol=1e-9)
+    log = {"tick": np.array([0, 1, 2, 4, 5]), "duration": np.array([0, 1e-3, 1e-3, 3e-3, 1e-3])}
+    assert telemetry.check(log) == {"samples": 5, "missing": 1, "lost_cycles": 2, "ok": False}
+    log = {"tick": np.arange(5), "duration": np.array([0] + [1e-3] * 4)}
+    assert telemetry.check(log)["ok"]

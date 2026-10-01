@@ -251,7 +251,14 @@ class TaskImpedance(TorqueController):
         """
         Moves a geometric Jacobian to a point offset from its origin, base frame.
         """
-    def __init__(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace: str = 'dynamic', nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 10.0, frame: str = 'end_effector', frame_transform: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"] = ..., coriolis: bool = False, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0) -> None:
+    @staticmethod
+    def step_reference_update(position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], translation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], rotation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], leash_position: typing.SupportsFloat | typing.SupportsIndex = ..., leash_rotation: typing.SupportsFloat | typing.SupportsIndex = ...) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[3, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 1]"]]:
+        """
+                       The update :py:func:`step_reference` makes in the loop, for a
+                       given reference and pose: returns the new position and
+                       scalar-last orientation reference.
+        """
+    def __init__(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace: str = 'dynamic', nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 10.0, frame: str = 'end_effector', frame_transform: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"] = ..., coriolis: bool = False, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, telemetry: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
         """
                        Impedance in task space at a selectable control frame:
         
@@ -286,24 +293,76 @@ class TaskImpedance(TorqueController):
                          coriolis: Add the Coriolis torque.
                          nullspace_damping: Regularises the projector's 6x6 inverse,
                            relative to the mean of its diagonal. 0 is exact.
+                         telemetry: Capacity of the telemetry buffer in samples, one per
+                           1 kHz tick; 0 records none. Drain it with
+                           :py:func:`read_telemetry` faster than it fills.
+        
+                       Reference commands, :py:func:`set_reference` and
+                       :py:func:`step_reference`, are applied by the control loop on its
+                       next tick, leashed against the pose of that tick; the loop never
+                       waits for them.
         """
     def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
         ...
+    def get_leash(self) -> tuple[float, float]:
+        ...
+    def get_snapshot(self) -> dict:
+        """
+                       What the loop last did: ``time`` and ``pose`` (control frame) of
+                       the latest tick, ``applied_time`` and ``applied_pose`` of the
+                       tick the latest reference command was applied at, the reference
+                       and stiffness in effect, and ``applied``, the number of commands
+                       applied since start. Times are the robot's, in seconds.
+        """
     def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
         ...
+    def read_telemetry(self) -> dict:
+        """
+                       The telemetry recorded since the last call, a dict of arrays with
+                       one row per 1 kHz tick: ``tick`` (counts every tick since start,
+                       so a gap is a sample the buffer had no room for), ``time``,
+                       ``duration`` (s since the previous tick; above 1 ms the robot
+                       ticked without a command), ``reference_update`` (1 where a
+                       reference command was applied), the control frame's ``position``
+                       and ``orientation``, ``position_ref``, ``orientation_ref``,
+                       ``stiffness``, ``damping``, ``wrench_active`` (before alpha),
+                       ``wrench_passive``, ``alpha``, ``tank``, ``tau_task``,
+                       ``tau_nullspace``, ``tau_law`` (the law's torque), ``tau_cmd``
+                       (sent, after the joint walls, rate limit and clipping), and the
+                       robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``,
+                       ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major),
+                       ``O_F_ext_hat_K``, ``K_F_ext_hat_K`` and
+                       ``control_command_success_rate``. Quaternions are scalar-last.
+        """
     def set_damping_ratio(self, damping_ratio: typing.SupportsFloat | typing.SupportsIndex) -> None:
         ...
+    def set_leash(self, position: typing.SupportsFloat | typing.SupportsIndex, rotation: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        """
+                       Keeps every reference command within ``position`` (m) and
+                       ``rotation`` (rad) of the pose at the tick it is applied.
+                       ``float("inf")``, the default, disables it.
+        """
     def set_nullspace_stiffness(self, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex) -> None:
         ...
     def set_nullspace_target(self, q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
         ...
     def set_reference(self, position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]) -> None:
         """
-        Position and scalar-last quaternion of the control frame, base frame.
+                       Position and scalar-last quaternion of the control frame, base
+                       frame. Applied, and leashed, by the loop on its next tick; replaces
+                       any command not yet applied.
         """
     def set_stiffness(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"]) -> None:
         """
         Also sets the damping, for the current damping ratio.
+        """
+    def step_reference(self, translation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], rotation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"] | None = None) -> None:
+        """
+                       Moves the reference as one policy step does: by ``translation``
+                       and by ``rotation``, an axis-angle vector applied on the left,
+                       both in the base frame. With ``stiffness``, sets it on the same
+                       tick. Applied, and leashed, by the loop on its next tick; steps
+                       not yet applied add up.
         """
     @property
     def frame(self) -> str:
@@ -311,9 +370,16 @@ class TaskImpedance(TorqueController):
     @property
     def frame_transform(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 4]"]:
         ...
+    @property
+    def telemetry_capacity(self) -> int:
+        ...
+    @property
+    def telemetry_dropped(self) -> int:
+        """
+        Samples lost because the telemetry buffer was full.
+        """
 class TorqueController:
     """
-    
               Base class for all torque controllers. Torque controllers
               provide the robot with torques at 1KHz and the user with
               an asynchronous interface to provide control signals.

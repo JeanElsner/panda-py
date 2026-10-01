@@ -1,7 +1,7 @@
-panda\_py.reference module
+panda\_py.telemetry module
 ============================
 
-.. automodule:: panda_py.reference
+.. automodule:: panda_py.telemetry
    :members:
    :undoc-members:
    :show-inheritance:

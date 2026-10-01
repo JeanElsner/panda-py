@@ -2,8 +2,11 @@
 #include <pybind11/chrono.h>
 #include <pybind11/eigen.h>
 #include <pybind11/functional.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include <optional>
 
 #include "controllers/applied_force.h"
 #include "controllers/applied_torque.h"
@@ -411,11 +414,11 @@ PYBIND11_MODULE(_core, m) {
                        const std::string &nullspace, double nullspace_stiffness,
                        const std::string &frame,
                        const Eigen::Matrix4d &frame_transform, bool coriolis,
-                       double nullspace_damping) {
+                       double nullspace_damping, size_t telemetry) {
              return std::make_shared<TaskImpedance>(
                  stiffness, damping_ratio, parseNullspace(nullspace),
                  nullspace_stiffness, parseFrame(frame), frame_transform,
-                 coriolis, nullspace_damping);
+                 coriolis, nullspace_damping, telemetry);
            }),
            py::arg("stiffness") = TaskImpedance::kDefaultStiffness,
            py::arg("damping_ratio") = TaskImpedance::kDefaultDampingRatio,
@@ -426,6 +429,7 @@ PYBIND11_MODULE(_core, m) {
            py::arg("frame_transform") = Eigen::Matrix4d::Identity(),
            py::arg("coriolis") = false,
            py::arg("nullspace_damping") = 0.0,
+           py::arg("telemetry") = 0,
            R"delim(
                Impedance in task space at a selectable control frame:
 
@@ -460,11 +464,126 @@ PYBIND11_MODULE(_core, m) {
                  coriolis: Add the Coriolis torque.
                  nullspace_damping: Regularises the projector's 6x6 inverse,
                    relative to the mean of its diagonal. 0 is exact.
+                 telemetry: Capacity of the telemetry buffer in samples, one per
+                   1 kHz tick; 0 records none. Drain it with
+                   :py:func:`read_telemetry` faster than it fills.
+
+               Reference commands, :py:func:`set_reference` and
+               :py:func:`step_reference`, are applied by the control loop on its
+               next tick, leashed against the pose of that tick; the loop never
+               waits for them.
            )delim")
       .def("set_reference", &TaskImpedance::setReference,
            py::call_guard<py::gil_scoped_release>(), py::arg("position"),
            py::arg("orientation"),
-           "Position and scalar-last quaternion of the control frame, base frame.")
+           R"delim(
+               Position and scalar-last quaternion of the control frame, base
+               frame. Applied, and leashed, by the loop on its next tick; replaces
+               any command not yet applied.
+           )delim")
+      .def("step_reference",
+           [](TaskImpedance &c, const Eigen::Vector3d &translation,
+              const Eigen::Vector3d &rotation,
+              std::optional<Vector6d> stiffness) {
+             py::gil_scoped_release release;
+             if (stiffness) {
+               c.stepReference(translation, rotation, *stiffness);
+             } else {
+               c.stepReference(translation, rotation);
+             }
+           },
+           py::arg("translation"), py::arg("rotation"),
+           py::arg("stiffness") = py::none(),
+           R"delim(
+               Moves the reference as one policy step does: by ``translation``
+               and by ``rotation``, an axis-angle vector applied on the left,
+               both in the base frame. With ``stiffness``, sets it on the same
+               tick. Applied, and leashed, by the loop on its next tick; steps
+               not yet applied add up.
+           )delim")
+      .def("set_leash", &TaskImpedance::setLeash,
+           py::call_guard<py::gil_scoped_release>(), py::arg("position"),
+           py::arg("rotation"),
+           R"delim(
+               Keeps every reference command within ``position`` (m) and
+               ``rotation`` (rad) of the pose at the tick it is applied.
+               ``float("inf")``, the default, disables it.
+           )delim")
+      .def("get_leash", &TaskImpedance::getLeash,
+           py::call_guard<py::gil_scoped_release>())
+      .def("get_snapshot",
+           [](TaskImpedance &c) {
+             task_impedance::Snapshot snap;
+             {
+               py::gil_scoped_release release;
+               snap = c.getSnapshot();
+             }
+             py::dict d;
+             d["time"] = snap.time;
+             d["pose"] = snap.pose;
+             d["applied_time"] = snap.applied_time;
+             d["applied_pose"] = snap.applied_pose;
+             d["position_ref"] = snap.position_ref;
+             d["orientation_ref"] = Eigen::Vector4d(snap.orientation_ref.coeffs());
+             d["stiffness"] = snap.stiffness;
+             d["applied"] = snap.applied;
+             return d;
+           },
+           R"delim(
+               What the loop last did: ``time`` and ``pose`` (control frame) of
+               the latest tick, ``applied_time`` and ``applied_pose`` of the
+               tick the latest reference command was applied at, the reference
+               and stiffness in effect, and ``applied``, the number of commands
+               applied since start. Times are the robot's, in seconds.
+           )delim")
+      .def("read_telemetry",
+           [](TaskImpedance &c) {
+             std::vector<task_impedance::Sample> samples;
+             {
+               py::gil_scoped_release release;
+               c.readTelemetry(samples);
+             }
+             const py::ssize_t n = static_cast<py::ssize_t>(samples.size());
+             py::dict d;
+#define TASK_IMPEDANCE_UNPACK(name, size)                                    \
+             {                                                               \
+               py::array_t<double> a(                                        \
+                   size == 1 ? std::vector<py::ssize_t>{n}                   \
+                             : std::vector<py::ssize_t>{n, size});           \
+               double *data = a.mutable_data();                              \
+               for (py::ssize_t i = 0; i < n; i++) {                         \
+                 std::copy(samples[i].name, samples[i].name + size,          \
+                           data + i * size);                                 \
+               }                                                             \
+               d[#name] = a;                                                 \
+             }
+             TASK_IMPEDANCE_SAMPLE_FIELDS(TASK_IMPEDANCE_UNPACK)
+#undef TASK_IMPEDANCE_UNPACK
+             return d;
+           },
+           R"delim(
+               The telemetry recorded since the last call, a dict of arrays with
+               one row per 1 kHz tick: ``tick`` (counts every tick since start,
+               so a gap is a sample the buffer had no room for), ``time``,
+               ``duration`` (s since the previous tick; above 1 ms the robot
+               ticked without a command), ``reference_update`` (1 where a
+               reference command was applied), the control frame's ``position``
+               and ``orientation``, ``position_ref``, ``orientation_ref``,
+               ``stiffness``, ``damping``, ``wrench_active`` (before alpha),
+               ``wrench_passive``, ``alpha``, ``tank``, ``tau_task``,
+               ``tau_nullspace``, ``tau_law`` (the law's torque), ``tau_cmd``
+               (sent, after the joint walls, rate limit and clipping), and the
+               robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``,
+               ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major),
+               ``O_F_ext_hat_K``, ``K_F_ext_hat_K`` and
+               ``control_command_success_rate``, and the law's ``jacobian`` (6x7)
+               and ``mass`` (7x7, NaN unless the nullspace is dynamic), both
+               column-major, so that every tick can be replayed through
+               :py:func:`compute`. Quaternions are scalar-last.
+           )delim")
+      .def_property_readonly("telemetry_dropped", &TaskImpedance::telemetryDropped,
+           "Samples lost because the telemetry buffer was full.")
+      .def_property_readonly("telemetry_capacity", &TaskImpedance::telemetryCapacity)
       .def("set_stiffness", &TaskImpedance::setStiffness,
            py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"),
            "Also sets the damping, for the current damping ratio.")
@@ -533,6 +652,29 @@ PYBIND11_MODULE(_core, m) {
                dict of ``error``, ``velocity``, ``wrench_active`` (before
                alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace`` and
                ``tau``.
+           )delim")
+      .def_static("step_reference_update",
+           [](Eigen::Vector3d position_ref, const Eigen::Vector4d &orientation_ref,
+              const Eigen::Vector3d &translation, const Eigen::Vector3d &rotation,
+              const Eigen::Vector3d &position, const Eigen::Vector4d &orientation,
+              double leash_position, double leash_rotation) {
+             Eigen::Quaterniond q_ref = Eigen::Quaterniond(orientation_ref).normalized();
+             task_impedance::stepReference(
+                 position_ref, q_ref, translation,
+                 task_impedance::axisAngleToQuaternion(rotation), position,
+                 Eigen::Quaterniond(orientation).normalized(), leash_position,
+                 leash_rotation);
+             return std::make_pair(position_ref, Eigen::Vector4d(q_ref.coeffs()));
+           },
+           py::arg("position_ref"), py::arg("orientation_ref"),
+           py::arg("translation"), py::arg("rotation"), py::arg("position"),
+           py::arg("orientation"),
+           py::arg("leash_position") = std::numeric_limits<double>::infinity(),
+           py::arg("leash_rotation") = std::numeric_limits<double>::infinity(),
+           R"delim(
+               The update :py:func:`step_reference` makes in the loop, for a
+               given reference and pose: returns the new position and
+               scalar-last orientation reference.
            )delim")
       .def_static("critical_damping", &task_impedance::criticalDamping,
            py::arg("stiffness"), py::arg("damping_ratio") = 1.0)

@@ -13,6 +13,10 @@ class TorqueController {
                     std::shared_ptr<franka::Model> model) = 0;
   virtual bool isRunning() = 0;
   virtual const std::string name() = 0;
+  /// Called after step() with the torque actually sent to the robot, after
+  /// the virtual walls, the torque rate limit and the clipping.
+  virtual void commanded(const franka::RobotState& robot_state,
+                         const franka::Torques& torques) {}
 
   void setTime(double time) { time_ = time; }
 
