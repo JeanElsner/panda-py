@@ -36,6 +36,14 @@ import panda_py
 from panda_py import controllers, libfranka
 
 SPEED_FACTOR = 0.1
+# Motion generators start from the robot's last commanded position, q_d, as
+# libfranka's examples do. --measured-start uses the measured q instead, which
+# after a Cartesian motion differs by the tracking error and opens with a jump.
+MEASURED_START = False
+
+
+def start_position(state):
+    return np.array(state.q if MEASURED_START else state.q_d)
 
 
 def ok(message):
@@ -48,11 +56,13 @@ def step(title):
 
 def joint_seven_out_and_back(robot, amplitude, period, repeat=1):
     """Joint 7 by `amplitude` and back, with zero velocity at both ends."""
-    q0 = np.array(robot.read_once().q)
+    q0 = start_position(robot.read_once())
     elapsed = [0.0]
     worst = {"tracking": 0.0, "success": 1.0}
 
     def callback(state, duration):
+        if elapsed[0] == 0.0 and not MEASURED_START:
+            q0[:] = state.q_d  # the commanded position at the motion's first tick
         elapsed[0] += duration.to_sec()
         t = elapsed[0]
         q = q0.copy()
@@ -91,14 +101,16 @@ class Abort(Exception):
 
 def cancelled_motion(robot):
     """A hold whose callback raises after 0.5 s, so libfranka cancels the motion."""
-    q0 = robot.read_once().q
+    q0 = start_position(robot.read_once())
     elapsed = [0.0]
 
     def callback(state, duration):
+        if elapsed[0] == 0.0 and not MEASURED_START:
+            q0[:] = state.q_d
         elapsed[0] += duration.to_sec()
         if elapsed[0] > 0.5:
             raise Abort("deliberate abort from the motion callback")
-        return libfranka.JointPositions(q0)
+        return libfranka.JointPositions(q0.tolist())
 
     try:
         robot.control_joint_position(callback)
@@ -198,8 +210,13 @@ def main():
     parser.add_argument("username")
     parser.add_argument("password", nargs="?")
     parser.add_argument("--skip-user-stop", action="store_true")
+    parser.add_argument(
+        "--measured-start", action="store_true", help="start motions from q instead of q_d"
+    )
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    global MEASURED_START  # pylint: disable=global-statement
+    MEASURED_START = args.measured_start
     if args.worker:
         return worker(args.hostname, args.skip_user_stop)
     password = args.password or getpass.getpass("  Desk password: ")
@@ -222,6 +239,7 @@ def main():
         print("  desk: FCI activated")
         command = [sys.executable, __file__, args.hostname, args.username, "-", "--worker"]
         command += ["--skip-user-stop"] if args.skip_user_stop else []
+        command += ["--measured-start"] if args.measured_start else []
         status = subprocess.run(command, check=False).returncode
         if status < 0:
             print(f"\n  ! crashed: {signal.Signals(-status).name}")
