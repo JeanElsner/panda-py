@@ -9,18 +9,18 @@ function :py:func:`panda_py.Panda.start_controller`.
 from ._core import (
     AppliedForce,
     AppliedTorque,
-    CartesianImpedance,
     Force,
     IntegratedVelocity,
     JointPosition,
+    TaskImpedance,
     TorqueController,
 )
 
 __all__ = [
     "TorqueController",
-    "CartesianImpedance",
     "IntegratedVelocity",
     "JointPosition",
+    "TaskImpedance",
     "AppliedTorque",
     "AppliedForce",
     "Force",

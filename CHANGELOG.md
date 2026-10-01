@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Releases before 1.0.0 are documented in the
 [GitHub releases](https://github.com/JeanElsner/panda-py/releases).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** `controllers.CartesianImpedance` is replaced by
+  `controllers.TaskImpedance`. Its law is
+  `tau = J^T (alpha K e - D J dq) + N M u`, `u = k (q0 - q) - 2 sqrt(k) dq`,
+  the same as the insertion simulator's controller:
+  - The control frame is selectable: `frame="flange"` or `"end_effector"`
+    (the default), plus a fixed `frame_transform` relative to it. Pose,
+    velocity and Jacobian are all taken at that frame.
+  - The orientation error is the axis-angle vector of `q_ref q^-1`, the full
+    rotation angle. CartesianImpedance used the error quaternion's vector part,
+    about half the angle, so the same rotational stiffness is now about twice
+    as stiff.
+  - The posture term uses the dynamically consistent projection,
+    `N = I - J^T (J M^-1 J^T)^-1 J M^-1`, by default (`nullspace="dynamic"`),
+    which cannot perturb the task. `"kinematic"` is the exact
+    `I - J^T (J J^T)^-1 J`; CartesianImpedance used a damped pseudo-inverse.
+    `"none"` drops the term. The default nullspace stiffness is 10.
+  - Stiffness is a diagonal 6-vector, and the damping is `2 zeta sqrt(K)`,
+    recomputed whenever the stiffness or damping ratio is set.
+  - No Coriolis torque by default (`coriolis=True` adds it), and no input
+    filter: the reference is applied as set.
+  - `set_control(position, orientation, q_nullspace)` is now
+    `set_reference(position, orientation)` and `set_nullspace_target(q)`. The
+    nullspace target defaults to the joint positions at start, and is no longer
+    reset by setting the reference.
+- `move_to_pose` runs on TaskImpedance at the end-effector frame, with the
+  kinematic projection and Coriolis compensation as before. Its default
+  rotational stiffness is 20 instead of 40, which keeps the same stiffness under
+  the new orientation error. The `impedance` argument must be diagonal.
+
+### Added
+
+- `TaskImpedance.compute()`, the control law alone for a given state, and
+  `panda_py.reference`, an independent NumPy transcription of the simulator's
+  controller to compare it with on logged states.
+
 ## [1.1.1] - 2026-10-01
 
 Fixes a deadlock in `stop_controller()` and control loop stalls caused by

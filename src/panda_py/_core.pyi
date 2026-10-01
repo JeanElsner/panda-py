@@ -4,7 +4,7 @@ import numpy
 import numpy.typing
 import panda_py.libfranka
 import typing
-__all__: list[str] = ['AppliedForce', 'AppliedTorque', 'CartesianImpedance', 'CartesianTrajectory', 'Force', 'IntegratedVelocity', 'JointPosition', 'JointTrajectory', 'Panda', 'PandaContext', 'TorqueController', 'fk', 'ik', 'ik_full', 'realtime_priority_available']
+__all__: list[str] = ['AppliedForce', 'AppliedTorque', 'CartesianTrajectory', 'Force', 'IntegratedVelocity', 'JointPosition', 'JointTrajectory', 'Panda', 'PandaContext', 'TaskImpedance', 'TorqueController', 'fk', 'ik', 'ik_full', 'realtime_priority_available']
 class AppliedForce(TorqueController):
     def __init__(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., filter_coeff: typing.SupportsFloat | typing.SupportsIndex = 1.0) -> None:
         ...
@@ -22,30 +22,6 @@ class AppliedTorque(TorqueController):
     def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
         ...
     def set_filter(self, filter_coeff: typing.SupportsFloat | typing.SupportsIndex) -> None:
-        ...
-class CartesianImpedance(TorqueController):
-    def __init__(self, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 0.5, filter_coeff: typing.SupportsFloat | typing.SupportsIndex = 1.0) -> None:
-        """
-                       Cartesian impedance controller. Takes the end-effector pose in robot
-                       base frame, as well as desired nullspace joint positions as input.
-        
-                       Args:
-                         impedance: Cartesian impedance expressed as a matrix
-                           :math:`\\in \\mathbb{R}^{6\\times 6}`.
-                         damping_ratio: Cartesian damping is computed based on the given
-                           impedance and damping ratio.
-                         nullspace_stiffness: Control gain of the nullspace term.
-                         filter_coeff: TP1 filter coefficient used to filter input signals.
-        """
-    def set_control(self, position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> None:
-        ...
-    def set_damping_ratio(self, damping: typing.SupportsFloat | typing.SupportsIndex) -> None:
-        ...
-    def set_filter(self, filter_coeff: typing.SupportsFloat | typing.SupportsIndex) -> None:
-        ...
-    def set_impedance(self, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"]) -> None:
-        ...
-    def set_nullspace_stiffness(self, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex) -> None:
         ...
 class CartesianTrajectory:
     @typing.overload
@@ -250,6 +226,90 @@ class PandaContext:
         ...
     @property
     def time(self) -> float:
+        ...
+class TaskImpedance(TorqueController):
+    @staticmethod
+    def compute(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], mass: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 7]"], position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex, nullspace: str = 'dynamic', alpha: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, coriolis: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> dict:
+        """
+                       The control law alone, for a given state: what the controller
+                       computes in one step. ``pose`` and ``jacobian`` are the control
+                       frame's, ``orientation_ref`` a scalar-last quaternion. Returns a
+                       dict of ``error``, ``velocity``, ``wrench_active`` (before
+                       alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace`` and
+                       ``tau``.
+        """
+    @staticmethod
+    def critical_damping(stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
+        ...
+    @staticmethod
+    def orientation_error(orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[3, 1]"]:
+        """
+        Axis-angle vector of the rotation from orientation to orientation_ref.
+        """
+    @staticmethod
+    def shift_jacobian(jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], offset: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 7]"]:
+        """
+        Moves a geometric Jacobian to a point offset from its origin, base frame.
+        """
+    def __init__(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace: str = 'dynamic', nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 10.0, frame: str = 'end_effector', frame_transform: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"] = ..., coriolis: bool = False, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0) -> None:
+        """
+                       Impedance in task space at a selectable control frame:
+        
+                       .. math::
+                         \\tau = J^\\top (\\alpha K e - D J \\dot q) + N M u, \\quad
+                         u = k_{ns}(q_0 - q) - 2\\sqrt{k_{ns}}\\,\\dot q
+        
+                       with :math:`e` the position error and the axis-angle orientation
+                       error :math:`\\mathrm{axisangle}(q_{ref} q^{-1})` of the control
+                       frame, all in the base frame, and :math:`D = 2\\zeta\\sqrt{K}`.
+                       There is no gravity term: the robot compensates gravity itself.
+                       On start the controller holds the current pose of the control
+                       frame, and the current joint positions in the nullspace.
+        
+                       Args:
+                         stiffness: Diagonal stiffness, translational (N/m) then
+                           rotational (Nm/rad).
+                         damping_ratio: The damping is :math:`2\\zeta\\sqrt{K}` for this
+                           ratio :math:`\\zeta`.
+                         nullspace: ``"dynamic"`` projects the posture term with
+                           :math:`N = I - J^\\top (J M^{-1} J^\\top)^{-1} J M^{-1}` and
+                           applies :math:`N M u`, which cannot perturb the task.
+                           ``"kinematic"`` applies :math:`(I - J^\\top (J J^\\top)^{-1} J) u`.
+                           ``"none"`` drops the posture term.
+                         nullspace_stiffness: :math:`k_{ns}`. The two projections need
+                           different gains: the dynamic one multiplies by the mass
+                           matrix.
+                         frame: ``"flange"`` or ``"end_effector"``, the libfranka frame
+                           the control frame is attached to.
+                         frame_transform: Pose of the control frame relative to
+                           ``frame``.
+                         coriolis: Add the Coriolis torque.
+                         nullspace_damping: Regularises the projector's 6x6 inverse,
+                           relative to the mean of its diagonal. 0 is exact.
+        """
+    def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
+        ...
+    def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
+        ...
+    def set_damping_ratio(self, damping_ratio: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        ...
+    def set_nullspace_stiffness(self, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        ...
+    def set_nullspace_target(self, q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def set_reference(self, position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]) -> None:
+        """
+        Position and scalar-last quaternion of the control frame, base frame.
+        """
+    def set_stiffness(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"]) -> None:
+        """
+        Also sets the damping, for the current damping ratio.
+        """
+    @property
+    def frame(self) -> str:
+        ...
+    @property
+    def frame_transform(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 4]"]:
         ...
 class TorqueController:
     """

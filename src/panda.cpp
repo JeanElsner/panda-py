@@ -519,7 +519,7 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d>& positions,
   }
   auto ctrl = std::make_shared<controllers::CartesianTrajectory>(
       traj, getJointPositions(), impedance, damping_ratio, nullspace_stiffness,
-      dq_threshold, 1.0);
+      dq_threshold);
   _startController(ctrl);
   auto cb = _createTorqueCallback();
   _runController(cb);

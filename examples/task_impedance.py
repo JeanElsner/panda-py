@@ -1,5 +1,5 @@
 """
-Uses the cartesian impedance controller to create a sinusoidal
+Uses the task impedance controller to create a sinusoidal
 end-effector movement along the robot's y-axis.
 """
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     panda = panda_py.Panda(sys.argv[1])
     panda.move_to_start()
-    ctrl = controllers.CartesianImpedance(filter_coeff=1.0)
+    ctrl = controllers.TaskImpedance()
     x0 = panda.get_position()
     q0 = panda.get_orientation()
     runtime = np.pi * 4.0
@@ -26,4 +26,4 @@ if __name__ == "__main__":
         while ctx.ok():
             x_d = x0.copy()
             x_d[1] += 0.1 * np.sin(ctrl.get_time())
-            ctrl.set_control(x_d, q0)
+            ctrl.set_reference(x_d, q0)

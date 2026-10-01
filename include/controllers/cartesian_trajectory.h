@@ -1,10 +1,13 @@
 #pragma once
-#include "controllers/cartesian_impedance.h"
+#include "controllers/task_impedance.h"
 #include "motion/generators.h"
 
 namespace controllers {
 
-class CartesianTrajectory : public CartesianImpedance {
+// Follows a Cartesian trajectory with the end effector, using task impedance
+// at the end-effector frame with a kinematic nullspace and Coriolis
+// compensation.
+class CartesianTrajectory : public TaskImpedance {
  public:
   static const double kDefaultDqThreshold;
   // Impedance control has no integral term, so the robot settles a little short
@@ -16,6 +19,8 @@ class CartesianTrajectory : public CartesianImpedance {
   static const double kSettleOrientationTolerance;
   static const double kSettleTimeout;
   static const double kDefaultNullspaceStiffness;
+  static const double kDefaultDampingRatio;
+  // Diagonal; off-diagonal entries are rejected.
   static const Eigen::Matrix<double, 6, 6> kDefaultImpedance;
 
   CartesianTrajectory(
@@ -24,8 +29,7 @@ class CartesianTrajectory : public CartesianImpedance {
       const Eigen::Matrix<double, 6, 6>& impedance = kDefaultImpedance,
       const double& damping_ratio = kDefaultDampingRatio,
       const double& nullspace_stiffness = kDefaultNullspaceStiffness,
-      const double dq_threshold = kDefaultDqThreshold,
-      const double filter_coeff = kDefaultFilterCoeff);
+      const double dq_threshold = kDefaultDqThreshold);
 
   franka::Torques step(const franka::RobotState& robot_state,
                        franka::Duration& duration) override;

@@ -66,7 +66,7 @@ pybind11_add_module(_core
   src/controllers/joint_limits/virtual_wall.cpp
   src/controllers/integrated_velocity.cpp
   src/controllers/joint_position.cpp
-  src/controllers/cartesian_impedance.cpp
+  src/controllers/task_impedance.cpp
   src/controllers/applied_torque.cpp
   src/controllers/applied_force.cpp
   src/controllers/force.cpp

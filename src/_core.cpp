@@ -7,7 +7,7 @@
 
 #include "controllers/applied_force.h"
 #include "controllers/applied_torque.h"
-#include "controllers/cartesian_impedance.h"
+#include "controllers/task_impedance.h"
 #include "controllers/force.h"
 #include "controllers/integrated_velocity.h"
 #include "controllers/joint_position.h"
@@ -17,6 +17,25 @@
 #include "panda.h"
 
 namespace py = pybind11;
+
+namespace {
+
+task_impedance::Nullspace parseNullspace(const std::string &name) {
+  if (name == "dynamic") return task_impedance::Nullspace::kDynamic;
+  if (name == "kinematic") return task_impedance::Nullspace::kKinematic;
+  if (name == "none") return task_impedance::Nullspace::kNone;
+  throw std::invalid_argument(
+      "nullspace must be 'dynamic', 'kinematic' or 'none', not '" + name + "'.");
+}
+
+TaskImpedance::Frame parseFrame(const std::string &name) {
+  if (name == "flange") return TaskImpedance::Frame::kFlange;
+  if (name == "end_effector") return TaskImpedance::Frame::kEndEffector;
+  throw std::invalid_argument(
+      "frame must be 'flange' or 'end_effector', not '" + name + "'.");
+}
+
+}  // namespace
 
 PYBIND11_MODULE(_core, m) {
   // clang-format off
@@ -386,41 +405,149 @@ PYBIND11_MODULE(_core, m) {
       .def("set_filter", &JointPosition::setFilter,
            py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"));
 
-  py::class_<CartesianImpedance, TorqueController,
-             std::shared_ptr<CartesianImpedance>>(m, "CartesianImpedance")
-      .def(py::init<const Eigen::Matrix<double, 6, 6> &, const double &,
-                    const double &,
-                    const double &>(), /*py::keep_alive<1, 0>(),*/
-           py::arg("impedance") = CartesianImpedance::kDefaultImpedance,
-           py::arg("damping_ratio") = CartesianImpedance::kDefaultDampingRatio,
+  py::class_<TaskImpedance, TorqueController,
+             std::shared_ptr<TaskImpedance>>(m, "TaskImpedance")
+      .def(py::init([](const Vector6d &stiffness, double damping_ratio,
+                       const std::string &nullspace, double nullspace_stiffness,
+                       const std::string &frame,
+                       const Eigen::Matrix4d &frame_transform, bool coriolis,
+                       double nullspace_damping) {
+             return std::make_shared<TaskImpedance>(
+                 stiffness, damping_ratio, parseNullspace(nullspace),
+                 nullspace_stiffness, parseFrame(frame), frame_transform,
+                 coriolis, nullspace_damping);
+           }),
+           py::arg("stiffness") = TaskImpedance::kDefaultStiffness,
+           py::arg("damping_ratio") = TaskImpedance::kDefaultDampingRatio,
+           py::arg("nullspace") = "dynamic",
            py::arg("nullspace_stiffness") =
-               CartesianImpedance::kDefaultNullspaceStiffness,
-           py::arg("filter_coeff") = CartesianImpedance::kDefaultFilterCoeff,
+               TaskImpedance::kDefaultNullspaceStiffness,
+           py::arg("frame") = "end_effector",
+           py::arg("frame_transform") = Eigen::Matrix4d::Identity(),
+           py::arg("coriolis") = false,
+           py::arg("nullspace_damping") = 0.0,
            R"delim(
-               Cartesian impedance controller. Takes the end-effector pose in robot
-               base frame, as well as desired nullspace joint positions as input.
+               Impedance in task space at a selectable control frame:
+
+               .. math::
+                 \tau = J^\top (\alpha K e - D J \dot q) + N M u, \quad
+                 u = k_{ns}(q_0 - q) - 2\sqrt{k_{ns}}\,\dot q
+
+               with :math:`e` the position error and the axis-angle orientation
+               error :math:`\mathrm{axisangle}(q_{ref} q^{-1})` of the control
+               frame, all in the base frame, and :math:`D = 2\zeta\sqrt{K}`.
+               There is no gravity term: the robot compensates gravity itself.
+               On start the controller holds the current pose of the control
+               frame, and the current joint positions in the nullspace.
 
                Args:
-                 impedance: Cartesian impedance expressed as a matrix
-                   :math:`\in \mathbb{R}^{6\times 6}`.
-                 damping_ratio: Cartesian damping is computed based on the given
-                   impedance and damping ratio.
-                 nullspace_stiffness: Control gain of the nullspace term.
-                 filter_coeff: TP1 filter coefficient used to filter input signals.
+                 stiffness: Diagonal stiffness, translational (N/m) then
+                   rotational (Nm/rad).
+                 damping_ratio: The damping is :math:`2\zeta\sqrt{K}` for this
+                   ratio :math:`\zeta`.
+                 nullspace: ``"dynamic"`` projects the posture term with
+                   :math:`N = I - J^\top (J M^{-1} J^\top)^{-1} J M^{-1}` and
+                   applies :math:`N M u`, which cannot perturb the task.
+                   ``"kinematic"`` applies :math:`(I - J^\top (J J^\top)^{-1} J) u`.
+                   ``"none"`` drops the posture term.
+                 nullspace_stiffness: :math:`k_{ns}`. The two projections need
+                   different gains: the dynamic one multiplies by the mass
+                   matrix.
+                 frame: ``"flange"`` or ``"end_effector"``, the libfranka frame
+                   the control frame is attached to.
+                 frame_transform: Pose of the control frame relative to
+                   ``frame``.
+                 coriolis: Add the Coriolis torque.
+                 nullspace_damping: Regularises the projector's 6x6 inverse,
+                   relative to the mean of its diagonal. 0 is exact.
            )delim")
-      .def("set_control", &CartesianImpedance::setControl,
+      .def("set_reference", &TaskImpedance::setReference,
            py::call_guard<py::gil_scoped_release>(), py::arg("position"),
-           py::arg("orientation"), py::arg("q_nullspace") = kJointPositionStart)
-      .def("set_impedance", &CartesianImpedance::setImpedance,
-           py::call_guard<py::gil_scoped_release>(), py::arg("impedance"))
-      .def("set_damping_ratio", &CartesianImpedance::setDampingRatio,
-           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
-      .def("set_nullspace_stiffness",
-           &CartesianImpedance::setNullspaceStiffness,
+           py::arg("orientation"),
+           "Position and scalar-last quaternion of the control frame, base frame.")
+      .def("set_stiffness", &TaskImpedance::setStiffness,
+           py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"),
+           "Also sets the damping, for the current damping ratio.")
+      .def("set_damping_ratio", &TaskImpedance::setDampingRatio,
+           py::call_guard<py::gil_scoped_release>(), py::arg("damping_ratio"))
+      .def("set_nullspace_target", &TaskImpedance::setNullspaceTarget,
+           py::call_guard<py::gil_scoped_release>(), py::arg("q"))
+      .def("set_nullspace_stiffness", &TaskImpedance::setNullspaceStiffness,
            py::call_guard<py::gil_scoped_release>(),
            py::arg("nullspace_stiffness"))
-      .def("set_filter", &CartesianImpedance::setFilter,
-           py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"));
+      .def("get_stiffness", &TaskImpedance::getStiffness,
+           py::call_guard<py::gil_scoped_release>())
+      .def("get_damping", &TaskImpedance::getDamping,
+           py::call_guard<py::gil_scoped_release>())
+      .def_property_readonly("frame_transform", &TaskImpedance::getFrameTransform)
+      .def_property_readonly("frame", [](const TaskImpedance &c) {
+             return c.getFrame() == TaskImpedance::Frame::kFlange
+                        ? "flange" : "end_effector";
+           })
+      .def_static("compute",
+           [](const Vector7d &q, const Vector7d &dq, const Eigen::Matrix4d &pose,
+              const Eigen::Matrix<double, 6, 7> &jacobian,
+              const Eigen::Matrix<double, 7, 7> &mass,
+              const Eigen::Vector3d &position_ref,
+              const Eigen::Vector4d &orientation_ref, const Vector6d &stiffness,
+              const Vector6d &damping, const Vector7d &q_nullspace,
+              double nullspace_stiffness, const std::string &nullspace,
+              double alpha, double nullspace_damping, const Vector7d &coriolis) {
+             task_impedance::Inputs in;
+             in.q = q;
+             in.dq = dq;
+             in.pose = pose;
+             in.jacobian = jacobian;
+             in.mass = mass;
+             in.coriolis = coriolis;
+             in.position_ref = position_ref;
+             in.orientation_ref = Eigen::Quaterniond(orientation_ref).normalized();
+             in.stiffness = stiffness;
+             in.damping = damping;
+             in.alpha = alpha;
+             in.q_nullspace = q_nullspace;
+             in.nullspace_stiffness = nullspace_stiffness;
+             in.nullspace = parseNullspace(nullspace);
+             in.nullspace_damping = nullspace_damping;
+             const auto out = task_impedance::compute(in);
+             py::dict result;
+             result["error"] = out.error;
+             result["velocity"] = out.velocity;
+             result["wrench_active"] = out.wrench_active;
+             result["wrench_passive"] = out.wrench_passive;
+             result["tau_task"] = out.tau_task;
+             result["tau_nullspace"] = out.tau_nullspace;
+             result["tau"] = out.tau;
+             return result;
+           },
+           py::arg("q"), py::arg("dq"), py::arg("pose"), py::arg("jacobian"),
+           py::arg("mass"), py::arg("position_ref"), py::arg("orientation_ref"),
+           py::arg("stiffness"), py::arg("damping"), py::arg("q_nullspace"),
+           py::arg("nullspace_stiffness"), py::arg("nullspace") = "dynamic",
+           py::arg("alpha") = 1.0, py::arg("nullspace_damping") = 0.0,
+           py::arg("coriolis") = Vector7d::Zero(),
+           R"delim(
+               The control law alone, for a given state: what the controller
+               computes in one step. ``pose`` and ``jacobian`` are the control
+               frame's, ``orientation_ref`` a scalar-last quaternion. Returns a
+               dict of ``error``, ``velocity``, ``wrench_active`` (before
+               alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace`` and
+               ``tau``.
+           )delim")
+      .def_static("critical_damping", &task_impedance::criticalDamping,
+           py::arg("stiffness"), py::arg("damping_ratio") = 1.0)
+      .def_static("orientation_error",
+           [](const Eigen::Vector4d &orientation_ref,
+              const Eigen::Vector4d &orientation) {
+             return task_impedance::orientationError(
+                 Eigen::Quaterniond(orientation_ref).normalized(),
+                 Eigen::Quaterniond(orientation).normalized());
+           },
+           py::arg("orientation_ref"), py::arg("orientation"),
+           "Axis-angle vector of the rotation from orientation to orientation_ref.")
+      .def_static("shift_jacobian", &task_impedance::shiftJacobian,
+           py::arg("jacobian"), py::arg("offset"),
+           "Moves a geometric Jacobian to a point offset from its origin, base frame.");
 
   py::class_<AppliedTorque, TorqueController, std::shared_ptr<AppliedTorque>>(
       m, "AppliedTorque")
