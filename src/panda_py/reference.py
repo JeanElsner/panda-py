@@ -11,6 +11,11 @@ simulator, and the projectors are formed the way the simulator forms them.
 What the simulator computes and the controller does not, the tank meter and the
 learned nullspace action, is left out; alpha is an input.
 
+The deployment request's own reference, ``vic_reference.py`` in the phd
+repository's ``contact/hardware``, ports the same code and also covers the 50 Hz
+reference update and the tank; ``tests/test_task_impedance.py`` checks the
+controller and this module against it when a checkout is available.
+
 One difference from the controller is kept on purpose, because the simulator
 has it: its axis-angle conversion returns zero below a rotation of 1e-4 rad,
 where the controller continues smoothly. The torques differ there by at most

@@ -202,3 +202,124 @@ def test_constructor():
         TaskImpedance(frame="hand")
     with pytest.raises(ValueError):
         TaskImpedance(frame_transform=np.ones((4, 4)))
+
+
+# -- parity with the simulator's reference implementation --------------------
+#
+# vic_reference.py (contact/hardware in the phd repository) is the NumPy port
+# of the simulator's controller that the deployment request specifies for the
+# parity checks. It is not part of panda-py: these tests load it from a phd
+# checkout, $VIC_REFERENCE or ~/dev/phd/contact/hardware/vic_reference.py, and
+# are skipped without one.
+
+
+def _load_vic_reference():
+    import importlib.util  # pylint: disable=import-outside-toplevel
+    import os  # pylint: disable=import-outside-toplevel
+    import pathlib  # pylint: disable=import-outside-toplevel
+    import sys  # pylint: disable=import-outside-toplevel
+
+    path = pathlib.Path(
+        os.environ.get(
+            "VIC_REFERENCE",
+            pathlib.Path.home() / "dev" / "phd" / "contact" / "hardware" / "vic_reference.py",
+        )
+    )
+    if not path.is_file():
+        pytest.skip(f"no vic_reference.py at {path}")
+    spec = importlib.util.spec_from_file_location("vic_reference", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["vic_reference"] = module  # its dataclass looks itself up there
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(name="vic", scope="module")
+def fixture_vic():
+    return _load_vic_reference()
+
+
+def wxyz(r):
+    return reference._matrix_to_quat(r)  # pylint: disable=protected-access
+
+
+VARIANTS = {
+    "fixed": {},
+    "fixed-kinematic": {"nullspace_projection": "kinematic"},
+    "variable": {"variable_stiffness": True},
+    "power-tank": {"tank_E0": 0.05, "tank_mode": "power"},
+    "impulse-tank": {"tank_E0": 0.05, "tank_mode": "impulse"},
+}
+
+
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_matches_vic_reference_over_a_trial(vic, variant):
+    """Policy steps at 50 Hz, torques at 1 kHz, as on the arm.
+
+    The reference integrates and leashes the reference pose, maps the
+    stiffness and runs the tank; the controller law is fed what the reference
+    holds at each tick (x_ref, q_ref, K and alpha), which is what the 50 Hz
+    side and the tank will hand it, and must give the same torques. Its torque
+    clip is off: panda-py saturates torques after the law, in the Panda class.
+    """
+    rng = np.random.default_rng(10)
+    ref_ = vic.VicReference(clip_torque=False, **VARIANTS[variant])
+    action_size = 12 if ref_.variable_stiffness else 6
+    state = random_state(rng)
+    pose = state["pose"]
+    ref_.reset(pose[:3, 3], wxyz(pose[:3, :3]))
+    worst = 0.0
+    for step in range(20):
+        # A new state each step stands in for the arm having moved.
+        state = random_state(rng)
+        pose = state["pose"]
+        x, quat = pose[:3, 3], wxyz(pose[:3, :3])
+        if step:
+            ref_.process_action(rng.uniform(-1.2, 1.2, action_size), x, quat)
+        for _ in range(20):
+            state["dq"] = rng.normal(scale=0.3, size=7)
+            v6 = state["jacobian"] @ state["dq"]
+            tau, tel = ref_.torque(
+                x, quat, v6[:3], v6[3:], state["q"], state["dq"],
+                state["jacobian"], state["mass"], 1e-3,
+            )
+            w, *xyz = tel["q_ref"]
+            ours = TaskImpedance.compute(
+                q=state["q"], dq=state["dq"], pose=pose, jacobian=state["jacobian"],
+                mass=state["mass"], position_ref=tel["x_ref"], orientation_ref=[*xyz, w],
+                stiffness=tel["K"], damping=TaskImpedance.critical_damping(tel["K"]),
+                q_nullspace=ref_.q0, nullspace_stiffness=ref_.nullspace_kp,
+                nullspace=ref_.nullspace_projection, alpha=tel["alpha"],
+            )
+            np.testing.assert_allclose(ours["wrench_active"], tel["w_active"], atol=1e-9)
+            np.testing.assert_allclose(ours["wrench_passive"], tel["w_passive"], atol=1e-9)
+            np.testing.assert_allclose(ours["tau_nullspace"], tel["tau_ns"], atol=1e-9)
+            worst = max(worst, np.linalg.norm(ours["tau"] - tau) / np.linalg.norm(tau))
+    # The request's acceptance is 1 % of the torque norm.
+    assert worst < 1e-9
+
+
+def test_reference_transcription_matches_vic_reference(vic):
+    """panda_py.reference, which CI runs without the phd repository, agrees."""
+    rng = np.random.default_rng(11)
+    for projection in ("dynamic", "kinematic"):
+        ref_ = vic.VicReference(clip_torque=False, nullspace_projection=projection)
+        for _ in range(50):
+            state = random_state(rng)
+            pose = state["pose"]
+            x, quat = pose[:3, 3], wxyz(pose[:3, :3])
+            ref_.reset(x, quat)
+            ref_.process_action(rng.uniform(-1, 1, 6), x, quat)
+            v6 = state["jacobian"] @ state["dq"]
+            tau, tel = ref_.torque(
+                x, quat, v6[:3], v6[3:], state["q"], state["dq"],
+                state["jacobian"], state["mass"], 1e-3,
+            )
+            w, *xyz = tel["q_ref"]
+            ours = reference.task_impedance(
+                q=state["q"], dq=state["dq"], pose=pose, jacobian=state["jacobian"],
+                mass=state["mass"], position_ref=tel["x_ref"], orientation_ref=[*xyz, w],
+                stiffness=tel["K"], q_nullspace=ref_.q0,
+                nullspace_stiffness=ref_.nullspace_kp, nullspace=projection,
+            )
+            np.testing.assert_allclose(ours["tau"], tau, rtol=1e-9, atol=1e-9)
