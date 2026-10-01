@@ -120,21 +120,26 @@ def cancelled_motion(robot):
 
 
 def hold(panda, seconds=60.0):
-    panda.enable_logging(int(seconds * 1000) + 5000)
+    """Hold position under torque control, sampling the success rate every 10 ms.
+
+    Not with panda-py's log: get_log() copies the whole log under the lock the
+    1 kHz loop takes on every state, which stalls the loop long enough for the
+    robot to abort, and stop_controller() then deadlocks on the GIL. Both are
+    panda-py bugs, fixed separately.
+    """
     controller = controllers.JointPosition()
     q0 = panda.q
+    rates = []
     try:
         panda.start_controller(controller)
         with panda.create_context(frequency=100, max_runtime=seconds) as ctx:
             while ctx.ok():
                 controller.set_control(q0, np.zeros(7))
-        log = panda.get_log()
+                rates.append(panda.get_state().control_command_success_rate)
     finally:
         panda.stop_controller()
-        panda.disable_logging()
-    rate = np.array(log["control_command_success_rate"]).ravel()
     drift = np.abs(np.array(panda.q) - q0).max()
-    return rate, drift
+    return np.array(rates[10:]), drift
 
 
 def user_stop(robot):
