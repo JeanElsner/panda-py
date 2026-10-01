@@ -43,7 +43,7 @@ from panda_py import controllers, telemetry
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import vic_reference as vic  # noqa: E402  pylint: disable=wrong-import-position
 
-STIFFNESS = [vic.FIXED_K_TRANS] * 3 + [vic.FIXED_K_ROT] * 3
+STIFFNESS = [vic.FIXED_K_TRANS] * 3 + [vic.FIXED_K_ROT] * 3  # --stiffness overrides
 RATE = 50
 SPEED_FACTOR = 0.1
 
@@ -131,10 +131,13 @@ def analyse(log, meta):
     t = log["time"] - log["time"][0]
     gaps = telemetry.check(log)
     span = log["time"][-1] - log["time"][0]
+    lost = np.round(log["duration"][1:] / 1e-3) > 1
     print(f"\n  telemetry: {gaps['samples']} rows over {span:.2f} s, "
-          f"{gaps['missing']} missing, {gaps['lost_cycles']} lost cycles, "
-          f"{int(log['dropped'])} dropped")
-    ok &= gaps["ok"] and int(log["dropped"]) == 0
+          f"{gaps['missing']} missing, {int(log['dropped'])} dropped; "
+          f"{gaps['lost_cycles']} robot cycles without a command in {int(lost.sum())} events, "
+          "marked in the log (a real-time kernel avoids most)")
+    # Item 4: no row missing. Lost robot cycles are marked, not a failure.
+    ok &= gaps["missing"] == 0 and int(log["dropped"]) == 0
 
     marks = dict()
     times = [m[1] for m in meta["marks"]] + [log["time"][-1]]
@@ -151,8 +154,9 @@ def analyse(log, meta):
         w = window(label)
         x, ref = log["position"][w, 0], log["position_ref"][w, 0]
         over, settle, residual = step_metrics(t[w], x, ref[-1], ref[0])
+        stall = log["wrench_active"][w][-200:, 0].mean()
         print(f"  {label}: overshoot {over * 1e3:.2f} mm, settles (5 %) in {settle:.3f} s, "
-              f"residual {residual * 1e3:+.2f} mm")
+              f"residual {residual * 1e3:+.2f} mm, spring force left {stall:+.2f} N")
     error = controllers.TaskImpedance.orientation_error
     for label in ("z +0.05 rad", "z -0.05 rad"):
         w = window(label)
@@ -213,11 +217,14 @@ def analyse(log, meta):
     print(f"  parity with vic_reference (item 13): run {np.linalg.norm(sim) / np.linalg.norm(norm):.2e} "
           f"of the torque norm; per tick with |tau| > 0.5 Nm median {np.median(rel[loaded]):.2e}, "
           f"worst {rel[loaded].max():.2e}")
-    ok &= np.linalg.norm(sim) <= 0.01 * np.linalg.norm(norm)
+    # vic_reference zeroes rotation errors below 1e-4 rad, the controller does
+    # not, which shows on near-zero torques only; judged per loaded tick.
+    ok &= rel[loaded].max() <= 0.01
     sent_vs_law = np.abs(log["tau_cmd"] - log["tau_law"]).max()
     print(f"  sent vs law torque: largest difference {sent_vs_law:.3f} Nm "
           "(joint walls, rate limit, clipping)")
-    print(f"  control command success rate: lowest {log['control_command_success_rate'].min():.3f}")
+    # The rate starts at 0 on the first tick of a motion.
+    print(f"  control command success rate: lowest {log['control_command_success_rate'][1:].min():.3f}")
     return ok
 
 
@@ -237,6 +244,8 @@ def main():
     parser.add_argument("username")
     parser.add_argument("password", nargs="?")
     parser.add_argument("--platform", default="panda")
+    parser.add_argument("--stiffness", nargs=2, type=float, metavar=("K_T", "K_R"),
+                        help="translational and rotational stiffness (default 400 30)")
     parser.add_argument("--out", default=None, help="npz path (default results/task_impedance_<time>.npz)")
     parser.add_argument("--analyse", metavar="NPZ", help="only analyse a saved run")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
@@ -246,7 +255,11 @@ def main():
     if args.analyse:
         log, meta = telemetry.load(args.analyse)
         return 0 if analyse(log, meta) else 1
-    out = args.out or f"results/task_impedance_{time.strftime('%Y%m%d-%H%M%S')}.npz"
+    global STIFFNESS  # pylint: disable=global-statement
+    if args.stiffness:
+        STIFFNESS = [args.stiffness[0]] * 3 + [args.stiffness[1]] * 3
+    tag = f"_K{STIFFNESS[0]:g}" if args.stiffness else ""
+    out = args.out or f"results/task_impedance{tag}_{time.strftime('%Y%m%d-%H%M%S')}.npz"
     if args.worker:
         return worker(args.hostname, out, start=not args.no_start)
     pathlib.Path(out).parent.mkdir(parents=True, exist_ok=True)
@@ -270,6 +283,8 @@ def main():
         print("  desk: FCI activated")
         command = [sys.executable, __file__, args.hostname, args.username, "-",
                    "--worker", "--out", out]
+        if args.stiffness:
+            command += ["--stiffness", *map(str, args.stiffness)]
         status = subprocess.run(command, check=False).returncode
         if status < 0:
             print(f"\n  ! crashed: {signal.Signals(-status).name}")
