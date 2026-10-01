@@ -176,14 +176,14 @@ franka::RobotState Panda::getState() {
 }
 
 void Panda::enableLogging(size_t buffer_size) {
-  std::lock_guard<std::mutex> lock(mux_);
+  std::lock_guard<std::mutex> lock(log_mux_);
   log_enabled_ = true;
   log_size_ = buffer_size;
   log_.clear();
 }
 
 void Panda::disableLogging() {
-  std::lock_guard<std::mutex> lock(mux_);
+  std::lock_guard<std::mutex> lock(log_mux_);
   log_enabled_ = false;
 }
 
@@ -193,7 +193,7 @@ std::map<std::string, std::list<Eigen::VectorXd>> Panda::getLog() {
   std::map<std::string, std::list<Eigen::VectorXd>> log;
   std::list<Eigen::VectorXd> O_T_EE, elbow, tau_J, control_command_success_rate,
       O_F_ext_hat_K, K_F_ext_hat_K, q, dq, tau_ext_hat_filtered, time;
-  std::lock_guard<std::mutex> lock(mux_);
+  std::lock_guard<std::mutex> lock(log_mux_);
   for (auto l : log_) {
     O_T_EE.push_back(Eigen::Map<Eigen::VectorXd>(l.O_T_EE.data(), 16, 1));
     elbow.push_back(Eigen::Map<Eigen::VectorXd>(l.elbow.data(), 2, 1));
@@ -298,9 +298,14 @@ Eigen::Matrix4d Panda::getPose() {
 }
 
 void Panda::_setState(const franka::RobotState& state) {
-  std::lock_guard<std::mutex> lock(mux_);
-  state_ = state;
-  if (log_enabled_) {
+  {
+    std::lock_guard<std::mutex> lock(mux_);
+    state_ = state;
+  }
+  // Called from the 1 kHz control loop, which must never wait for get_log()
+  // copying a long log. While a read holds the log, this sample is not logged.
+  std::unique_lock<std::mutex> log_lock(log_mux_, std::try_to_lock);
+  if (log_lock.owns_lock() && log_enabled_) {
     log_.push_back(state);
     if (log_.size() > log_size_) {
       log_.pop_front();
@@ -357,7 +362,15 @@ void Panda::stopController() {
     current_controller_->stop(getState(), model_);
   }
   if (current_thread_.joinable()) {
-    current_thread_.join();
+    // The control thread takes the GIL to log, for instance when its loop ends
+    // with an error, so it cannot finish while this thread holds the GIL. This
+    // is reached with the GIL held from Python and from the destructor.
+    if (PyGILState_Check()) {
+      py::gil_scoped_release release;
+      current_thread_.join();
+    } else {
+      current_thread_.join();
+    }
   }
 }
 

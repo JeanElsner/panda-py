@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Releases before 1.0.0 are documented in the
 [GitHub releases](https://github.com/JeanElsner/panda-py/releases).
 
+## [Unreleased]
+
+### Fixed
+
+- `stop_controller()` could deadlock. It waited for the control thread while
+  holding the GIL, and the control thread takes the GIL to log, for instance
+  when its loop ends with an error such as a reflex during the stop, so neither
+  could proceed. It now releases the GIL while waiting, as does the `Panda`
+  destructor, which takes the same path.
+- `get_log()` stalled the 1 kHz control loop for as long as it took to copy the
+  log, because both used the same lock; with a 60 s log that was long enough
+  for the robot to abort the motion. The log now has its own lock, which the
+  control loop only tries to take, so a sample arriving during a read is not
+  logged instead of the loop waiting. Reading 17,500 samples during control
+  now leaves a 3.6 ms gap between commands, against 23.8 ms before.
+
 ## [1.1.0] - 2026-09-30
 
 Fixes the segfault in every `move_to_start`, `move_to_joint_position` and
