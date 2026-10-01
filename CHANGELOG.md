@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Releases before 1.0.0 are documented in the
 [GitHub releases](https://github.com/JeanElsner/panda-py/releases).
 
-## [Unreleased]
+## [1.1.1] - 2026-10-01
+
+Fixes a deadlock in `stop_controller()` and control loop stalls caused by
+`get_log()`, both in 1.1.0 and earlier. Upgrade if you log during control or
+stop controllers.
 
 ### Fixed
 

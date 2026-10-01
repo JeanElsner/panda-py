@@ -9,7 +9,7 @@
 project = "panda-py"
 copyright = "2023, Jean Elsner"
 author = "Jean Elsner"
-release = "1.1.0"
+release = "1.1.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
