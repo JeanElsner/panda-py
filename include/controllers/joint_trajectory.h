@@ -18,8 +18,7 @@ class JointTrajectory : public JointPosition {
   JointTrajectory(std::shared_ptr<motion::JointTrajectory> trajectory,
                   const Vector7d& stiffness = kDefaultStiffness,
                   const Vector7d& damping = kDefaultDamping,
-                  const double dq_threshold = kDefaultDqThreshold,
-                  const double filter_coeff = kDefaultFilterCoeff);
+                  const double dq_threshold = kDefaultDqThreshold);
 
   franka::Torques step(const franka::RobotState& robot_state,
                        franka::Duration& duration) override;

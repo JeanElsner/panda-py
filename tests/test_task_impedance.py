@@ -410,3 +410,88 @@ def test_set_collision_thresholds():
     assert lower_wrench == [50, 50, 50, 15, 15, 15]
     with pytest.raises(ValueError):
         safety.set_collision_thresholds(robot, 100, 30, contact=0)
+
+
+# -- tank ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("mode", ["power", "impulse"])
+@pytest.mark.parametrize("smooth", [0.25, None])
+def test_tank_matches_vic_reference(mode, smooth):
+    """Over a simulated trial: the gate, level and draw of every tick."""
+    if mode == "impulse" and smooth is None:
+        pytest.skip("vic_reference offers impulse mode with the smooth gate only")
+    rng = np.random.default_rng(12)
+    E0 = 0.05 if mode == "power" else 0.5
+    ref_ = vic.VicReference(clip_torque=False, tank_E0=E0, tank_mode=mode,
+                            tank_smooth_frac=smooth)
+    state = random_state(rng)
+    pose = state["pose"]
+    ref_.reset(pose[:3, 3], wxyz(pose[:3, :3]))
+    level, drawn, ramped = E0, 0.0, False
+    for _ in range(40):
+        state = random_state(rng)
+        pose = state["pose"]
+        ref_.process_action(rng.uniform(-1, 1, 6), pose[:3, 3], wxyz(pose[:3, :3]))
+        for _ in range(20):
+            state["dq"] = rng.normal(scale=0.3, size=7)
+            _, tel = reference_torque(ref_, state)
+            v6 = state["jacobian"] @ state["dq"]
+            alpha, level, drawn = TaskImpedance.tank_step(
+                level, drawn, tel["w_active"], v6, 1e-3, E0, mode, smooth or 0.0)
+            assert alpha == pytest.approx(tel["alpha"], abs=1e-12)
+            assert level == pytest.approx(tel["E_T"], abs=1e-12)
+            assert drawn == pytest.approx(ref_.E_drawn, abs=1e-12)
+            ramped |= 0 < alpha < 1
+    assert ramped, "the trial never reached the gate's ramp"
+
+
+def test_tank_with_a_huge_budget_changes_nothing():
+    """Item 10: with E0 = 1e9 the controller is the plain one."""
+    rng = np.random.default_rng(13)
+    for _ in range(50):
+        w, v = rng.normal(size=6), rng.normal(size=6)
+        alpha, _, _ = TaskImpedance.tank_step(1e9, 0.0, w, v, 1e-3, 1e9)
+        assert alpha == 1.0
+
+
+def test_tank_gate_ramps_with_the_level():
+    for level in (5.0, 1.25, 0.625, 0.0):
+        alpha, _, _ = TaskImpedance.tank_step(level, 0.0, np.zeros(6), np.zeros(6), 1e-3, 5.0)
+        assert alpha == pytest.approx(min(level / (0.25 * 5.0), 1.0))
+
+
+def test_tank_configuration():
+    ctrl = TaskImpedance()
+    assert ctrl.get_tank() is None
+    ctrl.set_tank(33.0, "power")
+    assert ctrl.get_tank() == {"E0": 33.0, "mode": "power", "smooth_fraction": 0.25}
+    ctrl.set_tank(16.4, "impulse", 0.25)
+    assert ctrl.get_tank()["mode"] == "impulse"
+    ctrl.set_tank(None)
+    assert ctrl.get_tank() is None
+    with pytest.raises(ValueError):
+        ctrl.set_tank(0.0)
+    with pytest.raises(ValueError):
+        ctrl.set_tank(1.0, "energy")
+
+
+# -- joint servo -------------------------------------------------------------------
+
+
+def test_joint_position_api():
+    from panda_py.controllers import JointPosition  # pylint: disable=import-outside-toplevel
+
+    stiffness = np.array([600, 600, 600, 600, 250, 150, 50], float)
+    damping = np.array([30, 30, 30, 30, 10, 10, 5], float)
+    ctrl = JointPosition(stiffness, damping, telemetry=1000)
+    np.testing.assert_array_equal(ctrl.get_stiffness(), stiffness)
+    np.testing.assert_array_equal(ctrl.get_damping(), damping)
+    ctrl.set_stiffness(stiffness / 2)
+    np.testing.assert_array_equal(ctrl.get_stiffness(), stiffness / 2)
+    assert ctrl.telemetry_capacity == 1000
+    assert len(ctrl.read_telemetry()["tick"]) == 0
+    ctrl.step_control(np.full(7, 0.01))
+    ctrl.set_guard(force=150, force_time=0.02)
+    assert ctrl.get_guard()["force"] == 150
+    assert not ctrl.guard_state["tripped"]

@@ -1,5 +1,6 @@
 #include "controllers/task_impedance.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "panda.h"
@@ -77,23 +78,32 @@ Eigen::Quaterniond axisAngleToQuaternion(const Eigen::Vector3d& rotation) {
              : Eigen::Quaterniond::Identity();
 }
 
-const char* tripName(Trip trip) {
-  switch (trip) {
-    case Trip::kNone: return "none";
-    case Trip::kForce: return "force";
-    case Trip::kSaturation: return "saturation";
-    case Trip::kSpeed: return "speed";
-    case Trip::kJointVelocity: return "joint_velocity";
-    case Trip::kWorkspace: return "workspace";
-    case Trip::kManual: return "manual";
+double tankStep(const TankConfig& config, TankState& state,
+                const Vector6d& wrench_active, const Vector6d& velocity,
+                double dt) {
+  if (!config.enabled) {
+    state.alpha = 1.0;
+    return 1.0;
   }
-  return "unknown";
-}
-
-bool Box::contains(const Eigen::Vector3d& point) const {
-  const Eigen::Vector3d local =
-      pose.topLeftCorner<3, 3>().transpose() * (point - pose.topRightCorner<3, 1>());
-  return (local.cwiseAbs() - half_extents).maxCoeff() <= 0.0;
+  const double power = config.mode == TankMode::kImpulse
+                           ? wrench_active.head<3>().norm()
+                           : std::max(wrench_active.dot(velocity), 0.0);
+  double alpha, spent;
+  if (config.smooth_fraction > 0.0) {
+    // A function of the level only, so there is no relay at an empty tank.
+    alpha = std::clamp(state.level / (config.smooth_fraction * config.E0), 0.0, 1.0);
+    spent = std::min(alpha * power * dt, state.level);
+  } else {
+    const double draw = power * dt;
+    alpha = draw > state.level
+                ? std::clamp(state.level / std::max(draw, 1e-12), 0.0, 1.0)
+                : 1.0;
+    spent = alpha * draw;
+  }
+  state.level -= spent;
+  state.drawn += spent;
+  state.alpha = alpha;
+  return alpha;
 }
 
 namespace {
@@ -219,17 +229,19 @@ void TaskImpedance::controlFrame(const franka::RobotState& robot_state,
 
 void TaskImpedance::applyCommand(const Command& command,
                                  const Eigen::Matrix4d& pose, double time) {
+  if (command.tank_reset) {
+    tank_state_ = task_impedance::TankState();
+    tank_state_.level = tank_.enabled ? tank_.E0 : 0.0;
+  }
   if (command.rearm) {
-    guard_state_ = task_impedance::GuardState();
-    force_time_ = saturation_time_ = 0.0;
+    monitor_.reset();
     // Resume from zero active wrench, unless a reference came with it.
     const Eigen::Affine3d transform(pose);
     position_ref_ = transform.translation();
     orientation_ref_ = Eigen::Quaterniond(transform.rotation());
   }
-  if (command.trip && guard_state_.trip == task_impedance::Trip::kNone) {
-    guard_state_.trip = task_impedance::Trip::kManual;
-    guard_state_.time = time;
+  if (command.trip) {
+    monitor_.trip(task_impedance::Trip::kManual, time);
   }
   if (command.stiffness) {
     loop_.stiffness = command.stiffness_value;
@@ -276,6 +288,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     const Vector6d stiffness = loop_.stiffness, damping = loop_.damping;
     loop_ = shared_;
     guard_ = guard_shared_;
+    tank_ = tank_shared_;
     // A stiffness set by a command lives in loop_ until the setters see it.
     loop_.stiffness = stiffness;
     loop_.damping = damping;
@@ -288,21 +301,23 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     }
     shared_.stiffness = loop_.stiffness;
     shared_.damping = loop_.damping;
-    guard_state_shared_ = guard_state_;
+    guard_state_shared_ = monitor_.state();
     snapshot_.time = time;
     snapshot_.pose = in.pose;
     snapshot_.position_ref = position_ref_;
     snapshot_.orientation_ref = orientation_ref_;
     snapshot_.stiffness = loop_.stiffness;
     snapshot_.applied = applied_;
+    snapshot_.tank = tank_state_;
+    if (!tank_.enabled) {
+      snapshot_.tank.level = std::numeric_limits<double>::quiet_NaN();
+    }
     lock.unlock();
   }
 
-  evaluateGuard(robot_state, in, duration.toSec());
-  if (guard_state_.trip != task_impedance::Trip::kNone) {
-    // Tripped: no spring, damping and posture only, from this very tick.
-    in.alpha = 0.0;
-  }
+  const double dt = duration.toSec();
+  monitor_.evaluate(guard_, robot_state, in.pose.topRightCorner<3, 1>(),
+                    in.jacobian.topRows<3>() * in.dq, dt);
 
   in.position_ref = position_ref_;
   in.orientation_ref = orientation_ref_;
@@ -312,7 +327,26 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
   in.nullspace_stiffness = loop_.nullspace_stiffness;
   in.nullspace = nullspace_;
   in.nullspace_damping = nullspace_damping_;
-  const auto out = task_impedance::compute(in);
+  auto out = task_impedance::compute(in);
+  // The gate needs the active wrench, so it is applied to the law's output:
+  // tau_task = J^T (alpha w_act + w_pas).
+  double alpha = 1.0;
+  if (monitor_.state().tripped()) {
+    // Tripped: no spring, damping and posture only, from this very tick. The
+    // tank draws nothing while nothing is applied.
+    alpha = 0.0;
+    tank_state_.alpha = 0.0;
+  } else {
+    alpha = task_impedance::tankStep(tank_, tank_state_, out.wrench_active,
+                                     out.velocity, dt);
+  }
+  if (alpha != 1.0) {
+    const Vector7d change =
+        (alpha - 1.0) * (in.jacobian.transpose() * out.wrench_active);
+    out.tau_task += change;
+    out.tau += change;
+    in.alpha = alpha;
+  }
 
   sample_ = telemetry_.claim();
   if (sample_) {
@@ -337,7 +371,9 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     put(s.wrench_active, out.wrench_active);
     put(s.wrench_passive, out.wrench_passive);
     s.alpha[0] = in.alpha;
-    s.tank[0] = std::numeric_limits<double>::quiet_NaN();
+    s.tank[0] = tank_.enabled ? tank_state_.level
+                              : std::numeric_limits<double>::quiet_NaN();
+    s.tank_drawn[0] = tank_state_.drawn;
     put(s.tau_task, out.tau_task);
     put(s.tau_nullspace, out.tau_nullspace);
     put(s.tau_law, out.tau);
@@ -350,7 +386,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     put(s.F_T_EE, robot_state.F_T_EE);
     put(s.O_F_ext_hat_K, robot_state.O_F_ext_hat_K);
     put(s.K_F_ext_hat_K, robot_state.K_F_ext_hat_K);
-    s.guard[0] = static_cast<double>(guard_state_.trip);
+    s.guard[0] = static_cast<double>(monitor_.state().trip);
     put(s.jacobian, in.jacobian);
     if (nullspace_ == Nullspace::kDynamic) {
       put(s.mass, in.mass);
@@ -371,12 +407,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
 
 void TaskImpedance::commanded(const franka::RobotState& robot_state,
                               const franka::Torques& torques) {
-  saturated_ = false;
-  for (size_t i = 0; i < 7; i++) {
-    if (std::abs(torques.tau_J[i]) >= kTauJMax[i] - 1e-9) {
-      saturated_ = true;
-    }
-  }
+  monitor_.commanded(torques);
   if (sample_) {
     std::copy(torques.tau_J.begin(), torques.tau_J.end(), sample_->tau_cmd);
     telemetry_.publish();
@@ -402,9 +433,11 @@ void TaskImpedance::start(const franka::RobotState& robot_state,
   tick_ = 0;
   applied_ = 0;
   guard_ = guard_shared_;
-  guard_state_ = guard_state_shared_ = task_impedance::GuardState();
-  force_time_ = saturation_time_ = 0.0;
-  saturated_ = false;
+  monitor_.reset();
+  guard_state_shared_ = task_impedance::GuardState();
+  tank_ = tank_shared_;
+  tank_state_ = task_impedance::TankState();
+  tank_state_.level = tank_.enabled ? tank_.E0 : 0.0;
   sample_ = nullptr;
   snapshot_ = task_impedance::Snapshot();
   snapshot_.time = robot_state.time.toSec();
@@ -414,6 +447,10 @@ void TaskImpedance::start(const franka::RobotState& robot_state,
   snapshot_.position_ref = position_ref_;
   snapshot_.orientation_ref = orientation_ref_;
   snapshot_.stiffness = shared_.stiffness;
+  snapshot_.tank = tank_state_;
+  if (!tank_.enabled) {
+    snapshot_.tank.level = std::numeric_limits<double>::quiet_NaN();
+  }
 }
 
 void TaskImpedance::stop(const franka::RobotState& robot_state,
@@ -528,59 +565,6 @@ uint64_t TaskImpedance::telemetryDropped() const { return telemetry_.dropped(); 
 
 size_t TaskImpedance::telemetryCapacity() const { return telemetry_.capacity(); }
 
-void TaskImpedance::evaluateGuard(const franka::RobotState& robot_state,
-                                  const task_impedance::Inputs& in, double dt) {
-  using task_impedance::Trip;
-  if (guard_state_.trip != Trip::kNone) {
-    return;
-  }
-  const double time = robot_state.time.toSec();
-  auto trip = [&](Trip reason, double value, int joint = -1) {
-    guard_state_.trip = reason;
-    guard_state_.time = time;
-    guard_state_.value = value;
-    guard_state_.joint = joint;
-  };
-  const double force =
-      Eigen::Map<const Eigen::Vector3d>(robot_state.O_F_ext_hat_K.data()).norm();
-  force_time_ = force > guard_.force ? force_time_ + dt : 0.0;
-  if (force > guard_.force && force_time_ >= guard_.force_time) {
-    return trip(Trip::kForce, force);
-  }
-  // Whether last tick's torque was clipped: commanded() runs after step().
-  saturation_time_ = saturated_ ? saturation_time_ + dt : 0.0;
-  if (saturated_ && saturation_time_ >= guard_.saturation_time) {
-    return trip(Trip::kSaturation, saturation_time_);
-  }
-  const double speed = (in.jacobian.topRows<3>() * in.dq).norm();
-  if (speed > guard_.speed) {
-    return trip(Trip::kSpeed, speed);
-  }
-  for (int i = 0; i < 7; i++) {
-    if (std::abs(in.dq[i]) > guard_.joint_velocity[i]) {
-      return trip(Trip::kJointVelocity, std::abs(in.dq[i]), i);
-    }
-  }
-  if (guard_.workspace_size > 0) {
-    const Eigen::Vector3d point =
-        guard_.workspace_end_effector
-            ? Eigen::Vector3d(robot_state.O_T_EE[12], robot_state.O_T_EE[13],
-                              robot_state.O_T_EE[14])
-            : Eigen::Vector3d(in.pose.topRightCorner<3, 1>());
-    double outside = std::numeric_limits<double>::infinity();
-    for (size_t b = 0; b < guard_.workspace_size; b++) {
-      const auto& box = guard_.workspace[b];
-      const Eigen::Vector3d local = box.pose.topLeftCorner<3, 3>().transpose() *
-                                    (point - box.pose.topRightCorner<3, 1>());
-      outside = std::min(
-          outside, (local.cwiseAbs() - box.half_extents).cwiseMax(0.0).norm());
-    }
-    if (outside > 0.0) {
-      return trip(Trip::kWorkspace, outside);
-    }
-  }
-}
-
 void TaskImpedance::setGuard(const task_impedance::GuardConfig& config) {
   if (config.workspace_size > task_impedance::GuardConfig::kMaxBoxes) {
     throw std::invalid_argument("Too many workspace boxes.");
@@ -608,4 +592,26 @@ void TaskImpedance::rearm() {
   std::lock_guard<std::mutex> lock(mux_);
   command_.rearm = true;
   command_.trip = false;
+}
+
+void TaskImpedance::setTank(const task_impedance::TankConfig& config) {
+  if (config.enabled && !(config.E0 > 0.0)) {
+    throw std::invalid_argument("The tank's E0 must be positive.");
+  }
+  if (config.smooth_fraction < 0.0) {
+    throw std::invalid_argument("The smooth fraction must not be negative.");
+  }
+  std::lock_guard<std::mutex> lock(mux_);
+  tank_shared_ = config;
+  command_.tank_reset = true;
+}
+
+task_impedance::TankConfig TaskImpedance::getTank() {
+  std::lock_guard<std::mutex> lock(mux_);
+  return tank_shared_;
+}
+
+void TaskImpedance::resetTank() {
+  std::lock_guard<std::mutex> lock(mux_);
+  command_.tank_reset = true;
 }

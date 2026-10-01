@@ -35,6 +35,8 @@ Releases before 1.0.0 are documented in the
     `set_reference(position, orientation)` and `set_nullspace_target(q)`. The
     nullspace target defaults to the joint positions at start, and is no longer
     reset by setting the reference.
+- **Breaking:** `JointPosition` and `JointTrajectory` lose their input filter
+  (`filter_coeff`, `set_filter()`), which defaulted to off.
 - `move_to_pose` runs on TaskImpedance at the end-effector frame, with the
   kinematic projection and Coriolis compensation as before. Its default
   rotational stiffness is 20 instead of 40, which keeps the same stiffness under
@@ -74,6 +76,16 @@ Releases before 1.0.0 are documented in the
   resumes from the pose of the next tick. `trip()` raises it from outside
   the loop; `guard_state` says why it tripped, and telemetry logs it per
   tick.
+- The insertion simulator's energy and impulse tank in TaskImpedance,
+  `set_tank(E0, mode, smooth_fraction)`, metered and gated at 1 kHz on the
+  active wrench only; `reset_tank()` refills it, the snapshot and telemetry
+  carry its level, draw and gate, and `TaskImpedance.tank_step()` is the
+  loop's update for replaying logs.
+- `JointPosition` is a joint servo with the same loop as TaskImpedance:
+  targets applied on the next tick without the loop ever waiting,
+  `step_control(delta)` for q_d = q + delta at that tick, gains readable with
+  `get_stiffness()`/`get_damping()`, the same guards (the spring term drops,
+  damping stays) and 1 kHz telemetry.
 - `panda_py.safety`: `set_collision_thresholds()` for the robot's own
   collision reflex, and `box_along_axis()` for workspace boxes around an
   axis such as a bore.

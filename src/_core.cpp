@@ -14,6 +14,7 @@
 #include "controllers/force.h"
 #include "controllers/integrated_velocity.h"
 #include "controllers/joint_position.h"
+#include "controllers/guard.h"
 #include "kinematics/fk.h"
 #include "kinematics/ik.h"
 #include "motion/generators.h"
@@ -38,6 +39,169 @@ TaskImpedance::Frame parseFrame(const std::string &name) {
       "frame must be 'flange' or 'end_effector', not '" + name + "'.");
 }
 
+
+task_impedance::TankMode parseTankMode(const std::string &name) {
+  if (name == "power") return task_impedance::TankMode::kPower;
+  if (name == "impulse") return task_impedance::TankMode::kImpulse;
+  throw std::invalid_argument("mode must be 'power' or 'impulse', not '" + name + "'.");
+}
+
+#define UNPACK_FIELD(name, size)                                           \
+  {                                                                        \
+    py::array_t<double> a(size == 1 ? std::vector<py::ssize_t>{n}          \
+                                    : std::vector<py::ssize_t>{n, size});  \
+    double *data = a.mutable_data();                                       \
+    for (py::ssize_t i = 0; i < n; i++) {                                  \
+      std::copy(samples[i].name, samples[i].name + size, data + i * size); \
+    }                                                                      \
+    d[#name] = a;                                                          \
+  }
+
+py::dict unpackTaskImpedance(const std::vector<task_impedance::Sample> &samples) {
+  const py::ssize_t n = static_cast<py::ssize_t>(samples.size());
+  py::dict d;
+  TASK_IMPEDANCE_SAMPLE_FIELDS(UNPACK_FIELD)
+  return d;
+}
+
+py::dict unpackJointPosition(const std::vector<joint_position::Sample> &samples) {
+  const py::ssize_t n = static_cast<py::ssize_t>(samples.size());
+  py::dict d;
+  JOINT_POSITION_SAMPLE_FIELDS(UNPACK_FIELD)
+  return d;
+}
+#undef UNPACK_FIELD
+
+/// read_telemetry and the telemetry properties of a controller with a ring.
+template <typename Controller, typename Sample, typename Class>
+void bindTelemetry(Class &cls, py::dict (*unpack)(const std::vector<Sample> &),
+                   const char *doc) {
+  cls.def("read_telemetry",
+          [unpack](Controller &c) {
+            std::vector<Sample> samples;
+            {
+              py::gil_scoped_release release;
+              c.readTelemetry(samples);
+            }
+            return unpack(samples);
+          },
+          doc)
+      .def_property_readonly("telemetry_dropped", &Controller::telemetryDropped,
+                             "Samples lost because the telemetry buffer was full.")
+      .def_property_readonly("telemetry_capacity", &Controller::telemetryCapacity);
+}
+
+/// The guard methods of a controller with a guard::Monitor.
+template <typename Class>
+void bindGuard(Class &cls, const char *rearm_doc) {
+  using Controller = typename Class::type;
+  using Boxes = std::vector<std::pair<Eigen::Matrix4d, Eigen::Vector3d>>;
+  cls.def("set_guard",
+          [](Controller &c, double force, double force_time, double saturation_time,
+             double speed, std::optional<Vector7d> joint_velocity,
+             const Boxes &workspace, const std::string &workspace_point) {
+            guard::Config config;
+            config.force = force;
+            config.force_time = force_time;
+            config.saturation_time = saturation_time;
+            config.speed = speed;
+            if (joint_velocity) {
+              config.joint_velocity = *joint_velocity;
+            }
+            if (workspace.size() > guard::Config::kMaxBoxes) {
+              throw std::invalid_argument("At most 8 workspace boxes.");
+            }
+            for (size_t i = 0; i < workspace.size(); i++) {
+              config.workspace[i].pose = workspace[i].first;
+              config.workspace[i].half_extents = workspace[i].second;
+            }
+            config.workspace_size = workspace.size();
+            if (workspace_point != "end_effector" && workspace_point != "control") {
+              throw std::invalid_argument(
+                  "workspace_point must be 'end_effector' or 'control'.");
+            }
+            config.workspace_end_effector = workspace_point == "end_effector";
+            py::gil_scoped_release release;
+            c.setGuard(config);
+          },
+          py::arg("force") = std::numeric_limits<double>::infinity(),
+          py::arg("force_time") = 0.05,
+          py::arg("saturation_time") = std::numeric_limits<double>::infinity(),
+          py::arg("speed") = std::numeric_limits<double>::infinity(),
+          py::arg("joint_velocity") = py::none(), py::arg("workspace") = Boxes(),
+          py::arg("workspace_point") = "end_effector",
+          R"delim(
+              Guards evaluated in the 1 kHz loop. When one trips, the loop drops
+              the controller's active term (the spring) on that same tick and
+              keeps the damping, until :py:func:`rearm`. Infinite values disable
+              a guard; calling this replaces every setting.
+
+              Args:
+                force: External force norm, N, from ``O_F_ext_hat_K``.
+                force_time: Seconds the force must stay above ``force``.
+                saturation_time: Seconds any sent joint torque may stay at its
+                  limit.
+                speed: Speed of the controller's frame (the control frame, or
+                  the flange for joint control), m/s.
+                joint_velocity: Per-joint speed limits, rad/s.
+                workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
+                  a 4x4 transform in the base frame; the guarded point must stay
+                  inside at least one. :py:func:`panda_py.safety.box_along_axis`
+                  builds one around an axis.
+                workspace_point: ``"end_effector"`` (``O_T_EE``) or
+                  ``"control"``, the controller's frame.
+          )delim")
+      .def("get_guard",
+           [](Controller &c) {
+             guard::Config g;
+             {
+               py::gil_scoped_release release;
+               g = c.getGuard();
+             }
+             py::dict d;
+             d["force"] = g.force;
+             d["force_time"] = g.force_time;
+             d["saturation_time"] = g.saturation_time;
+             d["speed"] = g.speed;
+             d["joint_velocity"] = g.joint_velocity;
+             py::list boxes;
+             for (size_t i = 0; i < g.workspace_size; i++) {
+               boxes.append(
+                   py::make_tuple(g.workspace[i].pose, g.workspace[i].half_extents));
+             }
+             d["workspace"] = boxes;
+             d["workspace_point"] = g.workspace_end_effector ? "end_effector" : "control";
+             return d;
+           })
+      .def_property_readonly(
+          "guard_state",
+          [](Controller &c) {
+            guard::State g;
+            {
+              py::gil_scoped_release release;
+              g = c.getGuardState();
+            }
+            py::dict d;
+            d["tripped"] = g.tripped();
+            d["reason"] = std::string(guard::tripName(g.trip));
+            d["time"] = g.time;
+            d["value"] = g.value;
+            d["joint"] = g.joint;
+            return d;
+          },
+          R"delim(
+              ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
+              ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
+              or ``"none"``), the robot ``time`` of the trip, the ``value`` that
+              tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
+              ``joint``, where one is at fault. Telemetry's ``guard`` column
+              holds the reason as a number, 0 while armed, in this order.
+          )delim")
+      .def("trip", &Controller::trip, py::call_guard<py::gil_scoped_release>(),
+           "Trips the guard from outside the loop, on its next tick.")
+      .def("rearm", &Controller::rearm, py::call_guard<py::gil_scoped_release>(),
+           rearm_doc);
+}
 }  // namespace
 
 PYBIND11_MODULE(_core, m) {
@@ -393,25 +557,85 @@ PYBIND11_MODULE(_core, m) {
       .def("set_damping", &IntegratedVelocity::setDamping,
            py::call_guard<py::gil_scoped_release>(), py::arg("damping"));
 
-  py::class_<JointPosition, TorqueController, std::shared_ptr<JointPosition>>(
-      m, "JointPosition")
-      .def(py::init<const Vector7d &, const Vector7d &,
-                    const double>(), /*py::keep_alive<1, 0>(),*/
+  py::class_<JointPosition, TorqueController, std::shared_ptr<JointPosition>>
+      joint_position_class(m, "JointPosition");
+  joint_position_class
+      .def(py::init<const Vector7d &, const Vector7d &, size_t>(),
            py::arg("stiffness") = JointPosition::kDefaultStiffness,
            py::arg("damping") = JointPosition::kDefaultDamping,
-           py::arg("filter_coeff") = JointPosition::kDefaultFilterCoeff)
+           py::arg("telemetry") = 0,
+           R"delim(
+               Joint position servo,
+               :math:`\tau = K (q_d - q) + D (\dot q_d - \dot q)`. Targets are
+               applied by the loop on its next tick, which never waits for
+               them. On start it holds the current joint positions.
+
+               Args:
+                 stiffness: :math:`K`, Nm/rad per joint.
+                 damping: :math:`D`, Nm s/rad per joint.
+                 telemetry: Capacity of the telemetry buffer in samples; 0
+                   records none.
+           )delim")
       .def("set_control", &JointPosition::setControl,
            py::call_guard<py::gil_scoped_release>(), py::arg("position"),
            py::arg("velocity") = JointPosition::kDefaultDqd)
+      .def("step_control", &JointPosition::stepControl,
+           py::call_guard<py::gil_scoped_release>(), py::arg("delta"),
+           R"delim(
+               :math:`q_d = q + \delta`, :math:`\dot q_d = 0`, with :math:`q` of
+               the tick it is applied at: one policy step of the simulator's
+               joint servo.
+           )delim")
       .def("set_stiffness", &JointPosition::setStiffness,
            py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"))
       .def("set_damping", &JointPosition::setDamping,
            py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
-      .def("set_filter", &JointPosition::setFilter,
-           py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"));
+      .def("get_stiffness", &JointPosition::getStiffness,
+           py::call_guard<py::gil_scoped_release>())
+      .def("get_damping", &JointPosition::getDamping,
+           py::call_guard<py::gil_scoped_release>())
+      .def("get_snapshot",
+           [](JointPosition &c) {
+             joint_position::Snapshot snap;
+             {
+               py::gil_scoped_release release;
+               snap = c.getSnapshot();
+             }
+             py::dict d;
+             d["time"] = snap.time;
+             d["q"] = snap.q;
+             d["applied_time"] = snap.applied_time;
+             d["applied_q"] = snap.applied_q;
+             d["q_d"] = snap.q_d;
+             d["applied"] = snap.applied;
+             return d;
+           },
+           R"delim(
+               What the loop last did: ``time`` and ``q`` of the latest tick,
+               ``applied_time`` and ``applied_q`` of the tick the latest target
+               was applied at, the target ``q_d`` and ``applied``, the number of
+               targets applied since start.
+           )delim");
+  bindGuard(joint_position_class, R"delim(
+               Clears a trip on the loop's next tick; the target becomes the
+               joint positions of that tick.
+           )delim");
+  bindTelemetry<JointPosition>(joint_position_class, unpackJointPosition, R"delim(
+               The telemetry recorded since the last call, one row per 1 kHz
+               tick: ``tick``, ``time``, ``duration``, ``reference_update``,
+               ``control_command_success_rate``, ``q_d``, ``dq_d``,
+               ``stiffness``, ``damping``, ``tau_active``
+               (:math:`K (q_d - q) + D \dot q_d`, zero while a guard is
+               tripped), ``tau_passive`` (:math:`-D \dot q`), ``tau_law``,
+               ``tau_cmd`` (sent), the robot state's ``q``, ``dq``, ``tau_J``,
+               ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE``,
+               ``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard``. See
+               :py:func:`TaskImpedance.read_telemetry`.
+           )delim");
 
-  py::class_<TaskImpedance, TorqueController,
-             std::shared_ptr<TaskImpedance>>(m, "TaskImpedance")
+  py::class_<TaskImpedance, TorqueController, std::shared_ptr<TaskImpedance>>
+      task_impedance_class(m, "TaskImpedance");
+  task_impedance_class
       .def(py::init([](const Vector6d &stiffness, double damping_ratio,
                        const std::string &nullspace, double nullspace_stiffness,
                        const std::string &frame,
@@ -529,175 +753,20 @@ PYBIND11_MODULE(_core, m) {
              d["orientation_ref"] = Eigen::Vector4d(snap.orientation_ref.coeffs());
              d["stiffness"] = snap.stiffness;
              d["applied"] = snap.applied;
+             d["tank_level"] = snap.tank.level;
+             d["tank_drawn"] = snap.tank.drawn;
+             d["alpha"] = snap.tank.alpha;
              return d;
            },
            R"delim(
                What the loop last did: ``time`` and ``pose`` (control frame) of
                the latest tick, ``applied_time`` and ``applied_pose`` of the
                tick the latest reference command was applied at, the reference
-               and stiffness in effect, and ``applied``, the number of commands
-               applied since start. Times are the robot's, in seconds.
+               and stiffness in effect, ``applied``, the number of commands
+               applied since start, and the tank's ``tank_level`` (NaN without
+               one), ``tank_drawn`` and gate ``alpha``. Times are the robot's,
+               in seconds.
            )delim")
-      .def("read_telemetry",
-           [](TaskImpedance &c) {
-             std::vector<task_impedance::Sample> samples;
-             {
-               py::gil_scoped_release release;
-               c.readTelemetry(samples);
-             }
-             const py::ssize_t n = static_cast<py::ssize_t>(samples.size());
-             py::dict d;
-#define TASK_IMPEDANCE_UNPACK(name, size)                                    \
-             {                                                               \
-               py::array_t<double> a(                                        \
-                   size == 1 ? std::vector<py::ssize_t>{n}                   \
-                             : std::vector<py::ssize_t>{n, size});           \
-               double *data = a.mutable_data();                              \
-               for (py::ssize_t i = 0; i < n; i++) {                         \
-                 std::copy(samples[i].name, samples[i].name + size,          \
-                           data + i * size);                                 \
-               }                                                             \
-               d[#name] = a;                                                 \
-             }
-             TASK_IMPEDANCE_SAMPLE_FIELDS(TASK_IMPEDANCE_UNPACK)
-#undef TASK_IMPEDANCE_UNPACK
-             return d;
-           },
-           R"delim(
-               The telemetry recorded since the last call, a dict of arrays with
-               one row per 1 kHz tick: ``tick`` (counts every tick since start,
-               so a gap is a sample the buffer had no room for), ``time``,
-               ``duration`` (s since the previous tick; above 1 ms the robot
-               ticked without a command), ``reference_update`` (1 where a
-               reference command was applied), the control frame's ``position``
-               and ``orientation``, ``position_ref``, ``orientation_ref``,
-               ``stiffness``, ``damping``, ``wrench_active`` (before alpha),
-               ``wrench_passive``, ``alpha``, ``tank``, ``tau_task``,
-               ``tau_nullspace``, ``tau_law`` (the law's torque), ``tau_cmd``
-               (sent, after the joint walls, rate limit and clipping), and the
-               robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``,
-               ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major),
-               ``O_F_ext_hat_K``, ``K_F_ext_hat_K`` and
-               ``control_command_success_rate``, and the law's ``jacobian`` (6x7)
-               and ``mass`` (7x7, NaN unless the nullspace is dynamic), both
-               column-major, so that every tick can be replayed through
-               :py:func:`compute`. Quaternions are scalar-last.
-           )delim")
-      .def("set_guard",
-           [](TaskImpedance &c, double force, double force_time,
-              double saturation_time, double speed,
-              std::optional<Vector7d> joint_velocity,
-              const std::vector<std::pair<Eigen::Matrix4d, Eigen::Vector3d>> &workspace,
-              const std::string &workspace_point) {
-             task_impedance::GuardConfig config;
-             config.force = force;
-             config.force_time = force_time;
-             config.saturation_time = saturation_time;
-             config.speed = speed;
-             if (joint_velocity) {
-               config.joint_velocity = *joint_velocity;
-             }
-             if (workspace.size() > task_impedance::GuardConfig::kMaxBoxes) {
-               throw std::invalid_argument("At most 8 workspace boxes.");
-             }
-             for (size_t i = 0; i < workspace.size(); i++) {
-               config.workspace[i].pose = workspace[i].first;
-               config.workspace[i].half_extents = workspace[i].second;
-             }
-             config.workspace_size = workspace.size();
-             if (workspace_point != "end_effector" && workspace_point != "control") {
-               throw std::invalid_argument(
-                   "workspace_point must be 'end_effector' or 'control'.");
-             }
-             config.workspace_end_effector = workspace_point == "end_effector";
-             py::gil_scoped_release release;
-             c.setGuard(config);
-           },
-           py::arg("force") = std::numeric_limits<double>::infinity(),
-           py::arg("force_time") = 0.05,
-           py::arg("saturation_time") = std::numeric_limits<double>::infinity(),
-           py::arg("speed") = std::numeric_limits<double>::infinity(),
-           py::arg("joint_velocity") = py::none(),
-           py::arg("workspace") =
-               std::vector<std::pair<Eigen::Matrix4d, Eigen::Vector3d>>(),
-           py::arg("workspace_point") = "end_effector",
-           R"delim(
-               Guards evaluated in the 1 kHz loop. When one trips, the loop drops
-               the active (spring) wrench on that same tick and keeps the
-               damping and the posture term, until :py:func:`rearm`. Infinite
-               values disable a guard; calling this replaces every setting.
-
-               Args:
-                 force: External force norm, N, from ``O_F_ext_hat_K``.
-                 force_time: Seconds the force must stay above ``force``.
-                 saturation_time: Seconds any sent joint torque may stay at its
-                   limit.
-                 speed: Control frame speed, m/s.
-                 joint_velocity: Per-joint speed limits, rad/s.
-                 workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
-                   a 4x4 transform in the base frame; the guarded point must stay
-                   inside at least one. :py:func:`panda_py.safety.box_along_axis`
-                   builds one around an axis.
-                 workspace_point: ``"end_effector"`` (``O_T_EE``) or
-                   ``"control"``, the control frame.
-           )delim")
-      .def("get_guard",
-           [](TaskImpedance &c) {
-             task_impedance::GuardConfig g;
-             {
-               py::gil_scoped_release release;
-               g = c.getGuard();
-             }
-             py::dict d;
-             d["force"] = g.force;
-             d["force_time"] = g.force_time;
-             d["saturation_time"] = g.saturation_time;
-             d["speed"] = g.speed;
-             d["joint_velocity"] = g.joint_velocity;
-             py::list boxes;
-             for (size_t i = 0; i < g.workspace_size; i++) {
-               boxes.append(py::make_tuple(g.workspace[i].pose,
-                                           g.workspace[i].half_extents));
-             }
-             d["workspace"] = boxes;
-             d["workspace_point"] =
-                 g.workspace_end_effector ? "end_effector" : "control";
-             return d;
-           })
-      .def_property_readonly("guard_state",
-           [](TaskImpedance &c) {
-             task_impedance::GuardState g;
-             {
-               py::gil_scoped_release release;
-               g = c.getGuardState();
-             }
-             py::dict d;
-             d["tripped"] = g.trip != task_impedance::Trip::kNone;
-             d["reason"] = std::string(task_impedance::tripName(g.trip));
-             d["time"] = g.time;
-             d["value"] = g.value;
-             d["joint"] = g.joint;
-             return d;
-           },
-           R"delim(
-               ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
-               ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
-               or ``"none"``), the robot ``time`` of the trip, the ``value`` that
-               tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
-               ``joint``, where one is at fault. Telemetry's ``guard`` column
-               holds the reason as a number, 0 while armed, in this order.
-           )delim")
-      .def("trip", &TaskImpedance::trip, py::call_guard<py::gil_scoped_release>(),
-           "Trips the guard from outside the loop, on its next tick.")
-      .def("rearm", &TaskImpedance::rearm, py::call_guard<py::gil_scoped_release>(),
-           R"delim(
-               Clears a trip on the loop's next tick and resets the reference to
-               the pose of that tick, so the active wrench resumes from zero. A
-               reference set before that tick replaces the reset.
-           )delim")
-      .def_property_readonly("telemetry_dropped", &TaskImpedance::telemetryDropped,
-           "Samples lost because the telemetry buffer was full.")
-      .def_property_readonly("telemetry_capacity", &TaskImpedance::telemetryCapacity)
       .def("set_stiffness", &TaskImpedance::setStiffness,
            py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"),
            "Also sets the damping, for the current damping ratio.")
@@ -804,6 +873,98 @@ PYBIND11_MODULE(_core, m) {
       .def_static("shift_jacobian", &task_impedance::shiftJacobian,
            py::arg("jacobian"), py::arg("offset"),
            "Moves a geometric Jacobian to a point offset from its origin, base frame.");
+
+  bindGuard(task_impedance_class, R"delim(
+               Clears a trip on the loop's next tick and resets the reference to
+               the pose of that tick, so the active wrench resumes from zero. A
+               reference set before that tick replaces the reset.
+           )delim");
+  bindTelemetry<TaskImpedance>(task_impedance_class, unpackTaskImpedance, R"delim(
+               The telemetry recorded since the last call, a dict of arrays with
+               one row per 1 kHz tick: ``tick`` (counts every tick since start,
+               so a gap is a sample the buffer had no room for), ``time``,
+               ``duration`` (s since the previous tick; above 1 ms the robot
+               ticked without a command), ``reference_update`` (1 where a
+               command was applied), the control frame's ``position`` and
+               ``orientation``, ``position_ref``, ``orientation_ref``,
+               ``stiffness``, ``damping``, ``wrench_active`` (before alpha),
+               ``wrench_passive``, ``alpha`` (the tank's gate, 0 while a guard
+               is tripped), ``tank`` (its level, NaN without one),
+               ``tank_drawn``, ``tau_task``, ``tau_nullspace``, ``tau_law``
+               (the law's torque), ``tau_cmd`` (sent, after the joint walls,
+               rate limit and clipping), the robot state's ``q``, ``dq``,
+               ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``,
+               ``F_T_EE`` (column-major), ``O_F_ext_hat_K``, ``K_F_ext_hat_K``
+               and ``control_command_success_rate``, ``guard`` (the trip reason
+               as a number, 0 while armed), and the law's ``jacobian`` (6x7) and
+               ``mass`` (7x7, NaN unless the nullspace is dynamic), both
+               column-major, so that every tick can be replayed through
+               :py:func:`compute`. Quaternions are scalar-last.
+           )delim");
+  task_impedance_class
+      .def("set_tank",
+           [](TaskImpedance &c, std::optional<double> E0, const std::string &mode,
+              double smooth_fraction) {
+             task_impedance::TankConfig config;
+             config.enabled = E0.has_value();
+             config.E0 = E0.value_or(0.0);
+             config.mode = parseTankMode(mode);
+             config.smooth_fraction = smooth_fraction;
+             py::gil_scoped_release release;
+             c.setTank(config);
+           },
+           py::arg("E0"), py::arg("mode") = "power",
+           py::arg("smooth_fraction") = 0.25,
+           R"delim(
+               The insertion simulator's tank, filled to ``E0`` on the loop's
+               next tick. Every tick it meters the active wrench, power
+               :math:`\max(0, w_{act} \cdot [v; \omega])` in ``"power"`` mode
+               (``E0`` in J) or :math:`|w_{act,xyz}|` in ``"impulse"`` mode
+               (``E0`` in N s), and gates it with
+               :math:`\alpha = \mathrm{clamp}(E_T / (f E_0), 0, 1)`, ``f`` the
+               ``smooth_fraction``; damping is never scaled. A fraction of 0
+               selects the hard gate, which scales only a draw that would
+               overdraw the tank. ``E0=None`` removes the tank.
+           )delim")
+      .def("get_tank",
+           [](TaskImpedance &c) -> py::object {
+             task_impedance::TankConfig t;
+             {
+               py::gil_scoped_release release;
+               t = c.getTank();
+             }
+             if (!t.enabled) {
+               return py::none();
+             }
+             py::dict d;
+             d["E0"] = t.E0;
+             d["mode"] = t.mode == task_impedance::TankMode::kImpulse ? "impulse" : "power";
+             d["smooth_fraction"] = t.smooth_fraction;
+             return std::move(d);
+           })
+      .def("reset_tank", &TaskImpedance::resetTank,
+           py::call_guard<py::gil_scoped_release>(),
+           "Refills the tank to E0 on the loop's next tick, as at a trial's start.")
+      .def_static("tank_step",
+           [](double level, double drawn, const Vector6d &wrench_active,
+              const Vector6d &velocity, double dt, double E0, const std::string &mode,
+              double smooth_fraction) {
+             task_impedance::TankConfig config;
+             config.enabled = true;
+             config.E0 = E0;
+             config.mode = parseTankMode(mode);
+             config.smooth_fraction = smooth_fraction;
+             task_impedance::TankState state;
+             state.level = level;
+             state.drawn = drawn;
+             const double alpha = task_impedance::tankStep(
+                 config, state, wrench_active, velocity, dt);
+             return py::make_tuple(alpha, state.level, state.drawn);
+           },
+           py::arg("level"), py::arg("drawn"), py::arg("wrench_active"),
+           py::arg("velocity"), py::arg("dt"), py::arg("E0"),
+           py::arg("mode") = "power", py::arg("smooth_fraction") = 0.25,
+           "One tick of the tank, as the loop runs it: returns (alpha, level, drawn).");
 
   py::class_<AppliedTorque, TorqueController, std::shared_ptr<AppliedTorque>>(
       m, "AppliedTorque")

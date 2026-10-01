@@ -6,6 +6,7 @@
 
 #include "constants.h"
 #include "controllers/controller.h"
+#include "controllers/guard.h"
 #include "telemetry.h"
 #include "utils.h"
 
@@ -99,49 +100,40 @@ void stepReference(Eigen::Vector3d& position_ref,
 /// The rotation of an axis-angle vector.
 Eigen::Quaterniond axisAngleToQuaternion(const Eigen::Vector3d& rotation);
 
-/// Why a guard tripped.
-enum class Trip {
-  kNone = 0,
-  kForce,           // external force norm above the threshold for long enough
-  kSaturation,      // a joint torque at its limit for long enough
-  kSpeed,           // control frame speed
-  kJointVelocity,   // a joint above its velocity limit
-  kWorkspace,       // the guarded point outside every workspace box
-  kManual,          // trip() from outside the loop
+// The guards are shared with the other controllers.
+using Trip = guard::Trip;
+using Box = guard::Box;
+using GuardConfig = guard::Config;
+using GuardState = guard::State;
+using guard::tripName;
+
+/// The energy or impulse tank of the insertion simulator. It meters the
+/// active wrench only and gates it with alpha; damping is never scaled.
+enum class TankMode {
+  kPower,    // P = max(0, w_act . [v; omega]), W; E0 in J
+  kImpulse,  // P = |w_act[0:3]|, N; E0 in N s
 };
 
-const char* tripName(Trip trip);
-
-/// An oriented box: the point p is inside when |R^T (p - t)| <= half_extents
-/// on every axis, with pose = [R t; 0 1] in the base frame.
-struct Box {
-  Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();
-  Eigen::Vector3d half_extents = Eigen::Vector3d::Zero();
-  bool contains(const Eigen::Vector3d& point) const;
+struct TankConfig {
+  bool enabled = false;
+  double E0 = 0.0;
+  TankMode mode = TankMode::kPower;
+  /// alpha = clamp(E_T / (smooth_fraction E0), 0, 1). Zero selects the hard
+  /// gate instead, which scales only a draw that would overdraw the tank.
+  double smooth_fraction = 0.25;
 };
 
-/// Guard thresholds; infinity disables a guard. All evaluated at 1 kHz.
-struct GuardConfig {
-  static constexpr size_t kMaxBoxes = 8;
-  double force = std::numeric_limits<double>::infinity();  // N, |O_F_ext_hat_K[0:3]|
-  double force_time = 0.05;                                 // s above it to trip
-  double saturation_time = std::numeric_limits<double>::infinity();  // s
-  double speed = std::numeric_limits<double>::infinity();   // m/s, control frame
-  Vector7d joint_velocity =
-      Vector7d::Constant(std::numeric_limits<double>::infinity());  // rad/s
-  /// The point must stay inside at least one box; none disables the guard.
-  std::array<Box, kMaxBoxes> workspace;
-  size_t workspace_size = 0;
-  /// Guard the end effector (O_T_EE) rather than the control frame.
-  bool workspace_end_effector = true;
+struct TankState {
+  double level = 0.0;  // E_T
+  double drawn = 0.0;  // drawn since the last reset
+  double alpha = 1.0;  // the gate of the latest tick
 };
 
-struct GuardState {
-  Trip trip = Trip::kNone;
-  double time = 0.0;   // robot time of the trip
-  double value = 0.0;  // what tripped it: N, s, m/s, rad/s or m outside
-  int joint = -1;      // the joint, for kSaturation and kJointVelocity
-};
+/// One tick of the tank for an active wrench and velocity over dt seconds:
+/// sets the gate, draws from the tank and returns the gate, alpha.
+double tankStep(const TankConfig& config, TankState& state,
+                const Vector6d& wrench_active, const Vector6d& velocity,
+                double dt);
 
 /// One telemetry sample per control tick. Every field is a block of doubles,
 /// so a table of fields is all the Python side needs to unpack it.
@@ -161,6 +153,7 @@ struct GuardState {
   X(wrench_passive, 6)                  \
   X(alpha, 1)                           \
   X(tank, 1)                            \
+  X(tank_drawn, 1)                      \
   X(tau_task, 7)                        \
   X(tau_nullspace, 7)                   \
   X(tau_law, 7)                         \
@@ -194,6 +187,7 @@ struct Snapshot {
   Eigen::Quaterniond orientation_ref = Eigen::Quaterniond::Identity();
   Vector6d stiffness = Vector6d::Zero();
   uint64_t applied = 0;  // reference commands applied since start
+  TankState tank;        // NaN level without a tank
 };
 
 }  // namespace task_impedance
@@ -262,6 +256,12 @@ class TaskImpedance : public TorqueController {
   /// Clears a trip on the loop's next tick, with the reference reset to the
   /// pose of that tick, so the active wrench resumes from zero.
   void rearm();
+  /// Enables the tank, full at E0 from the loop's next tick; the gate scales
+  /// the active wrench only. A config with enabled = false removes it.
+  void setTank(const task_impedance::TankConfig& config);
+  task_impedance::TankConfig getTank();
+  /// Refills the tank to E0 on the loop's next tick, as at a trial's start.
+  void resetTank();
   /// Infinite disables the leash, which is the default.
   void setLeash(double position, double rotation);
   std::pair<double, double> getLeash();
@@ -304,14 +304,14 @@ class TaskImpedance : public TorqueController {
   };
   struct Command {
     bool absolute = false, step = false, stiffness = false, rearm = false,
-         trip = false;
+         trip = false, tank_reset = false;
     Eigen::Vector3d position = Eigen::Vector3d::Zero();
     Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
     Eigen::Vector3d translation = Eigen::Vector3d::Zero();
     Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
     Vector6d stiffness_value = Vector6d::Zero();
     bool pending() const {
-      return absolute || step || stiffness || rearm || trip;
+      return absolute || step || stiffness || rearm || trip || tank_reset;
     }
   };
 
@@ -323,15 +323,14 @@ class TaskImpedance : public TorqueController {
 
   task_impedance::GuardConfig guard_shared_;
   task_impedance::GuardState guard_state_shared_;
+  task_impedance::TankConfig tank_shared_;
 
   // Loop thread only.
   Parameters loop_;
   task_impedance::GuardConfig guard_;
-  task_impedance::GuardState guard_state_;
-  double force_time_ = 0.0, saturation_time_ = 0.0;
-  bool saturated_ = false;
-  void evaluateGuard(const franka::RobotState& robot_state,
-                     const task_impedance::Inputs& in, double dt);
+  guard::Monitor monitor_;
+  task_impedance::TankConfig tank_;
+  task_impedance::TankState tank_state_;
   Eigen::Vector3d position_ref_;
   Eigen::Quaterniond orientation_ref_;
   uint64_t tick_ = 0;

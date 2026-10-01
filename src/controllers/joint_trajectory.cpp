@@ -9,8 +9,8 @@ const double JointTrajectory::kSettleTimeout = 1.0;
 JointTrajectory::JointTrajectory(
     std::shared_ptr<motion::JointTrajectory> trajectory,
     const Vector7d& stiffness, const Vector7d& damping,
-    const double dq_threshold, const double filter_coeff)
-    : JointPosition(stiffness, damping, filter_coeff),
+    const double dq_threshold)
+    : JointPosition(stiffness, damping),
       traj_(trajectory),
       dq_threshold_(dq_threshold) {}
 
