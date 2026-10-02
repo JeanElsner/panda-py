@@ -369,6 +369,20 @@ PYBIND11_MODULE(_core, m) {
           Upper joint position limits of the connected robot (cf.
           :py:func:`get_joint_limits_lower`).
       )delim")
+      .def("set_joint_walls", &Panda::setJointWalls, py::arg("enabled"),
+           R"delim(
+          Switches the virtual joint walls, the torques that push a joint back
+          as it nears its limit (the last 0.24 rad for joint 1, 0.18 rad for
+          joints 2 to 4, 0.07 rad for the wrist), on top of whatever the
+          controller commands. They are on by default. Off, nothing is added,
+          and a joint that reaches its limit trips the firmware's
+          ``joint_position_limits_violation`` reflex instead. Takes effect on
+          the next tick, also while a controller runs.
+      )delim")
+      .def("get_joint_walls", &Panda::getJointWalls, R"delim(
+          Whether the virtual joint walls are on (cf.
+          :py:func:`set_joint_walls`).
+      )delim")
       .def("is_moving", &Panda::isMoving, R"delim(
           True while a controller is running, i.e. while the robot is under
           active control by this instance.

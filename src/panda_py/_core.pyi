@@ -200,6 +200,11 @@ class Panda:
                   Upper joint position limits of the connected robot (cf.
                   :py:func:`get_joint_limits_lower`).
         """
+    def get_joint_walls(self) -> bool:
+        """
+                  Whether the virtual joint walls are on (cf.
+                  :py:func:`set_joint_walls`).
+        """
     def get_log(self) -> dict[str, list[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[m, 1]"]]]:
         ...
     def get_model(self) -> panda_py.libfranka.Model:
@@ -292,6 +297,16 @@ class Panda:
         """
     def set_default_behavior(self) -> None:
         ...
+    def set_joint_walls(self, enabled: bool) -> None:
+        """
+                  Switches the virtual joint walls, the torques that push a joint back
+                  as it nears its limit (the last 0.24 rad for joint 1, 0.18 rad for
+                  joints 2 to 4, 0.07 rad for the wrist), on top of whatever the
+                  controller commands. They are on by default. Off, nothing is added,
+                  and a joint that reaches its limit trips the firmware's
+                  ``joint_position_limits_violation`` reflex instead. Takes effect on
+                  the next tick, also while a controller runs.
+        """
     def start_controller(self, controller: TorqueController) -> None:
         ...
     def stop_controller(self) -> None:

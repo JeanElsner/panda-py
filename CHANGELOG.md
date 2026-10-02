@@ -52,6 +52,8 @@ Releases before 1.0.0 are documented in the
 
 ### Added
 
+- `Panda.set_joint_walls()` and `Panda.get_joint_walls()`: the virtual joint
+  walls can be switched off, also while a controller runs; on by default.
 - `TaskImpedance.compute()`, the control law alone for a given state, and
   `TaskImpedance.step_reference_update()`, the loop's reference update.
 - `TaskImpedance.step_reference(translation, rotation, stiffness=None)`: one

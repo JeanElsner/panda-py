@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <franka/exception.h>
 #include <franka/model.h>
 #include <pybind11/chrono.h>
@@ -163,6 +164,8 @@ class Panda {
   void refreshState();
   Vector7d getJointLimitsLower();
   Vector7d getJointLimitsUpper();
+  void setJointWalls(bool enabled);
+  bool getJointWalls();
   Eigen::Vector3d getPosition();
   Eigen::Vector4d getOrientation(bool scalar_first = false);
   Eigen::Vector4d getOrientationScalarLast();
@@ -199,6 +202,8 @@ class Panda {
   std::shared_ptr<controllers::joint_limits::VirtualWallController>
       virtual_walls_;
   JointLimits joint_limits_;
+  // Read by the control loop on every tick, set from Python.
+  std::atomic<bool> joint_walls_{true};
   py::object logger_;
   std::string hostname_;
   std::shared_ptr<franka::Exception> last_error_;

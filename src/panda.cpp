@@ -228,6 +228,13 @@ Vector7d Panda::getJointLimitsLower() { return joint_limits_.lower; }
 
 Vector7d Panda::getJointLimitsUpper() { return joint_limits_.upper; }
 
+void Panda::setJointWalls(bool enabled) {
+  joint_walls_ = enabled;
+  _log("info", "Joint walls %s.", enabled ? "on" : "off");
+}
+
+bool Panda::getJointWalls() { return joint_walls_; }
+
 bool Panda::isMoving() {
   return current_controller_ && current_controller_->isRunning();
 }
@@ -341,10 +348,12 @@ TorqueCallback Panda::_createTorqueCallback() {
     }
     // Virtual joint walls
     Array7d tau_virtual_wall, tau_saturated, tau_clipped;
-    virtual_walls_->computeTorque(robot_state.q, robot_state.dq,
-                                  tau_virtual_wall);
-    for (int i = 0; i < 7; i++) {
-      tau.tau_J[i] += tau_virtual_wall[i];
+    if (joint_walls_) {
+      virtual_walls_->computeTorque(robot_state.q, robot_state.dq,
+                                    tau_virtual_wall);
+      for (int i = 0; i < 7; i++) {
+        tau.tau_J[i] += tau_virtual_wall[i];
+      }
     }
     tau_saturated = saturateTorqueRate(tau.tau_J, robot_state.tau_J_d);
     tau_clipped = clipTorques(tau_saturated);
