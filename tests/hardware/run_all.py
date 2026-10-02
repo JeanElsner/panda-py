@@ -111,6 +111,8 @@ def main():
     parser.add_argument("--only", help="comma-separated names of the checks to run")
     parser.add_argument("--extra", action="append", default=[],
                         help="a Python file with more CHECKS")
+    parser.add_argument("--results", help="write into this directory, e.g. an earlier run's, "
+                        "so that checks that resume (trials) skip what is complete")
     args = parser.parse_args()
 
     checks, order = list(CHECKS), None
@@ -130,7 +132,8 @@ def main():
     if not POSE_PATH.exists():
         checks = [c for c in checks if c[0] != "pose_path"]
 
-    run_dir = pathlib.Path("results") / f"run_{time.strftime('%Y%m%d-%H%M%S')}"
+    run_dir = pathlib.Path(args.results or pathlib.Path("results")
+                           / f"run_{time.strftime('%Y%m%d-%H%M%S')}")
     run_dir.mkdir(parents=True, exist_ok=True)
     print(f"panda-py {panda_py.__version__} from {panda_py.__file__}")
     print(f"results in {run_dir}\n")
@@ -162,7 +165,10 @@ def main():
                 continue
             out = str(run_dir / name)
             started = time.monotonic()
-            status = run_check(command(args.hostname, args.username, out), f"{out}.log")
+            log = pathlib.Path(f"{out}.log")
+            if log.exists():
+                log = log.with_name(f"{name}.{time.strftime('%H%M%S')}.log")
+            status = run_check(command(args.hostname, args.username, out), log)
             results.append((name, status, time.monotonic() - started))
             print(f"\n    {name}: {describe(status)}")
     finally:
