@@ -235,6 +235,29 @@ void Panda::setJointWalls(bool enabled) {
 
 bool Panda::getJointWalls() { return joint_walls_; }
 
+void Panda::setControlOptions(bool torque_rate_limit, bool limit_rate,
+                              double cutoff_frequency) {
+  if (!(cutoff_frequency > 0 && cutoff_frequency <= franka::kMaxCutoffFrequency)) {
+    throw std::invalid_argument("cutoff_frequency must be in (0, 1000] Hz.");
+  }
+  torque_rate_limit_ = torque_rate_limit;
+  limit_rate_ = limit_rate;
+  cutoff_frequency_ = cutoff_frequency;
+  _log("info",
+       "Control options: torque rate limit %s, libfranka limit_rate %s, "
+       "cutoff %.0f Hz.",
+       torque_rate_limit ? "on" : "off", limit_rate ? "on" : "off",
+       cutoff_frequency);
+}
+
+py::dict Panda::getControlOptions() {
+  py::dict options;
+  options["torque_rate_limit"] = bool(torque_rate_limit_);
+  options["limit_rate"] = limit_rate_;
+  options["cutoff_frequency"] = cutoff_frequency_;
+  return options;
+}
+
 bool Panda::isMoving() {
   return current_controller_ && current_controller_->isRunning();
 }
@@ -355,7 +378,9 @@ TorqueCallback Panda::_createTorqueCallback() {
         tau.tau_J[i] += tau_virtual_wall[i];
       }
     }
-    tau_saturated = saturateTorqueRate(tau.tau_J, robot_state.tau_J_d);
+    tau_saturated = torque_rate_limit_
+                        ? saturateTorqueRate(tau.tau_J, robot_state.tau_J_d)
+                        : tau.tau_J;
     tau_clipped = clipTorques(tau_saturated);
     tau.tau_J = tau_clipped;
     if (current_controller_) {
@@ -398,7 +423,7 @@ void Panda::recover() {
 
 void Panda::_runController(TorqueCallback& control_callback) {
   try {
-    robot_->control(control_callback);
+    robot_->control(control_callback, limit_rate_, cutoff_frequency_);
   } catch (const franka::Exception& e) {
     _log("error", "Control loop interruped: %s", e.what());
     std::lock_guard<std::mutex> lock(error_mux_);

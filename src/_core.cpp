@@ -379,6 +379,26 @@ PYBIND11_MODULE(_core, m) {
           ``joint_position_limits_violation`` reflex instead. Takes effect on
           the next tick, also while a controller runs.
       )delim")
+      .def("set_control_options", &Panda::setControlOptions,
+           py::arg("torque_rate_limit") = true, py::arg("limit_rate") = false,
+           py::arg("cutoff_frequency") = franka::kDefaultCutoffFrequency,
+           R"delim(
+          The torque path between a controller and the robot.
+
+          Args:
+            torque_rate_limit: panda-py's limit of the commanded torque's
+              change to 1 N m per tick and joint (on by default). Takes effect
+              on the next tick.
+            limit_rate: libfranka's own rate limiter (off by default).
+            cutoff_frequency: libfranka's first-order low-pass on the
+              commanded torque, Hz; 1000 turns it off (default 100).
+
+          ``limit_rate`` and ``cutoff_frequency`` take effect when the next
+          controller starts.
+      )delim")
+      .def("get_control_options", &Panda::getControlOptions, R"delim(
+          The options of :py:func:`set_control_options` in effect, as a dict.
+      )delim")
       .def("get_joint_walls", &Panda::getJointWalls, R"delim(
           Whether the virtual joint walls are on (cf.
           :py:func:`set_joint_walls`).

@@ -200,6 +200,10 @@ class Panda:
                   Upper joint position limits of the connected robot (cf.
                   :py:func:`get_joint_limits_lower`).
         """
+    def get_control_options(self) -> dict:
+        """
+                  The options of :py:func:`set_control_options` in effect, as a dict.
+        """
     def get_joint_walls(self) -> bool:
         """
                   Whether the virtual joint walls are on (cf.
@@ -297,6 +301,21 @@ class Panda:
         """
     def set_default_behavior(self) -> None:
         ...
+    def set_control_options(self, torque_rate_limit: bool = True, limit_rate: bool = False, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        """
+                  The torque path between a controller and the robot.
+
+                  Args:
+                    torque_rate_limit: panda-py's limit of the commanded torque's
+                      change to 1 N m per tick and joint (on by default). Takes effect
+                      on the next tick.
+                    limit_rate: libfranka's own rate limiter (off by default).
+                    cutoff_frequency: libfranka's first-order low-pass on the
+                      commanded torque, Hz; 1000 turns it off (default 100).
+
+                  ``limit_rate`` and ``cutoff_frequency`` take effect when the next
+                  controller starts.
+        """
     def set_joint_walls(self, enabled: bool) -> None:
         """
                   Switches the virtual joint walls, the torques that push a joint back

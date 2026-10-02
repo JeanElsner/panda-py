@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include <franka/exception.h>
+#include <franka/lowpass_filter.h>
 #include <franka/model.h>
 #include <pybind11/chrono.h>
 #include <pybind11/eigen.h>
@@ -166,6 +167,9 @@ class Panda {
   Vector7d getJointLimitsUpper();
   void setJointWalls(bool enabled);
   bool getJointWalls();
+  void setControlOptions(bool torque_rate_limit, bool limit_rate,
+                         double cutoff_frequency);
+  py::dict getControlOptions();
   Eigen::Vector3d getPosition();
   Eigen::Vector4d getOrientation(bool scalar_first = false);
   Eigen::Vector4d getOrientationScalarLast();
@@ -204,6 +208,11 @@ class Panda {
   JointLimits joint_limits_;
   // Read by the control loop on every tick, set from Python.
   std::atomic<bool> joint_walls_{true};
+  // panda-py's own torque rate limit, read every tick; libfranka's
+  // limit_rate and low-pass, read when a controller starts.
+  std::atomic<bool> torque_rate_limit_{true};
+  bool limit_rate_ = false;
+  double cutoff_frequency_ = franka::kDefaultCutoffFrequency;
   py::object logger_;
   std::string hostname_;
   std::shared_ptr<franka::Exception> last_error_;
