@@ -9,7 +9,8 @@ At panda-py's start pose, flange control at 400 N/m and 30 Nm/rad:
   2. workspace guard: a 15 mm box around the end effector; the reference
      moves out in +x at 0.1 m/s until the guard trips. The arm should stop
      within a few millimetres of the box.
-  3. speed guard: 0.01 m/s; a 10 mm reference step trips it.
+  3. speed guard: 5 mm/s; a 20 mm reference step trips it (a 10 mm step, held
+     back by the joints' stiction, peaks at about 1 cm/s).
   4. a manual trip, as the policy runner raises on missed deadlines.
 
 After each trip, back to the start pose. For the push, the robot's collision
@@ -135,8 +136,8 @@ def run(panda, out, fake=False):
         r.back_to(home)
 
         r.mark("speed")
-        ctrl.set_guard(speed=0.01)
-        ctrl.step_reference([0.01, 0, 0], [0, 0, 0])
+        ctrl.set_guard(speed=0.005)
+        ctrl.step_reference([0.02, 0, 0], [0, 0, 0])
         results["speed"] = r.wait_for_trip(2.0)
         r.hold(0.5)
         r.mark("home")
@@ -213,7 +214,9 @@ def analyse(log, meta):
     if retreat is not None:
         print(f"  retreat: {'tripped again: ' + retreat['reason'] if retreat['tripped'] else 'no trip'}")
         ok &= not retreat["tripped"]
-    print(f"  control command success rate: lowest {log['control_command_success_rate'][1:].min():.3f}")
+    settled = log["time"] - log["time"][0] > 0.1
+    print(f"  control command success rate: lowest "
+          f"{log['control_command_success_rate'][settled].min():.3f}")
     return ok
 
 

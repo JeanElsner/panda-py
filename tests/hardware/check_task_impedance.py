@@ -224,7 +224,10 @@ def analyse(log, meta):
     print(f"  sent vs law torque: largest difference {sent_vs_law:.3f} Nm "
           "(joint walls, rate limit, clipping)")
     # The rate starts at 0 on the first tick of a motion.
-    print(f"  control command success rate: lowest {log['control_command_success_rate'][1:].min():.3f}")
+    # The rate is averaged over a window and starts at 0.
+    settled = log["time"] - log["time"][0] > 0.1
+    print(f"  control command success rate: lowest "
+          f"{log['control_command_success_rate'][settled].min():.3f}")
     return ok
 
 

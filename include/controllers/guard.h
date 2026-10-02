@@ -40,6 +40,9 @@ struct Config {
   static constexpr size_t kMaxBoxes = 8;
   double force = std::numeric_limits<double>::infinity();  // N, |O_F_ext_hat_K[0:3]|
   double force_time = 0.05;  // s above it to trip
+  /// Subtracted from O_F_ext_hat_K[0:3] first: the estimate's bias, tared
+  /// in free space.
+  Eigen::Vector3d force_bias = Eigen::Vector3d::Zero();
   double saturation_time = std::numeric_limits<double>::infinity();  // s
   double speed = std::numeric_limits<double>::infinity();  // m/s
   Vector7d joint_velocity =

@@ -99,10 +99,14 @@ void bindGuard(Class &cls, const char *rearm_doc) {
   cls.def("set_guard",
           [](Controller &c, double force, double force_time, double saturation_time,
              double speed, std::optional<Vector7d> joint_velocity,
-             const Boxes &workspace, const std::string &workspace_point) {
+             const Boxes &workspace, const std::string &workspace_point,
+             std::optional<Eigen::Vector3d> force_bias) {
             guard::Config config;
             config.force = force;
             config.force_time = force_time;
+            if (force_bias) {
+              config.force_bias = *force_bias;
+            }
             config.saturation_time = saturation_time;
             config.speed = speed;
             if (joint_velocity) {
@@ -130,6 +134,7 @@ void bindGuard(Class &cls, const char *rearm_doc) {
           py::arg("speed") = std::numeric_limits<double>::infinity(),
           py::arg("joint_velocity") = py::none(), py::arg("workspace") = Boxes(),
           py::arg("workspace_point") = "end_effector",
+          py::arg("force_bias") = py::none(),
           R"delim(
               Guards evaluated in the 1 kHz loop. When one trips, the loop drops
               the controller's active term (the spring) on that same tick and
@@ -150,6 +155,8 @@ void bindGuard(Class &cls, const char *rearm_doc) {
                   builds one around an axis.
                 workspace_point: ``"end_effector"`` (``O_T_EE``) or
                   ``"control"``, the controller's frame.
+                force_bias: Subtracted from the force estimate before the
+                  force guard compares it, N: its bias, tared in free space.
           )delim")
       .def("get_guard",
            [](Controller &c) {
@@ -161,6 +168,7 @@ void bindGuard(Class &cls, const char *rearm_doc) {
              py::dict d;
              d["force"] = g.force;
              d["force_time"] = g.force_time;
+             d["force_bias"] = g.force_bias;
              d["saturation_time"] = g.saturation_time;
              d["speed"] = g.speed;
              d["joint_velocity"] = g.joint_velocity;

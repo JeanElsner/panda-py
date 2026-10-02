@@ -374,8 +374,11 @@ def test_guard_configuration():
         ctrl.set_guard(workspace=[box] * 9)
     with pytest.raises(ValueError):
         ctrl.set_guard(workspace_point="tip")
+    ctrl.set_guard(force=80, force_bias=[0.4, 0.3, 1.7])
+    np.testing.assert_allclose(ctrl.get_guard()["force_bias"], [0.4, 0.3, 1.7])
     ctrl.set_guard()
     assert ctrl.get_guard()["speed"] == float("inf")
+    np.testing.assert_array_equal(ctrl.get_guard()["force_bias"], 0)
 
 
 def test_box_along_axis():

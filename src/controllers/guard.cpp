@@ -33,7 +33,8 @@ void Monitor::evaluate(const Config& config, const franka::RobotState& robot_sta
   }
   const double time = robot_state.time.toSec();
   const double force =
-      Eigen::Map<const Eigen::Vector3d>(robot_state.O_F_ext_hat_K.data()).norm();
+      (Eigen::Map<const Eigen::Vector3d>(robot_state.O_F_ext_hat_K.data()) - config.force_bias)
+          .norm();
   force_time_ = force > config.force ? force_time_ + dt : 0.0;
   if (force > config.force && force_time_ >= config.force_time) {
     return trip(Trip::kForce, time, force);

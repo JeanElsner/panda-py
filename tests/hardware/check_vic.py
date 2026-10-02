@@ -13,7 +13,10 @@ item 12, in free space at panda-py's start pose:
      power mode and 0.5 N s in impulse mode (the gate must ramp as
      E_T / (0.25 E0)). The meter is replayed from the logged wrench and
      velocity: E_drawn must match within 2 %.
-  3. servo (item 11): the POS variant's gains, a 20 mrad step on joint 4 and
+  3. rotational stiffness 30, 60, 100 and 150 Nm/rad at the flange, the
+     variable-stiffness range: 0.05 rad steps about z and x, checked for
+     ringing; a velocity guard ends a growing oscillation.
+  4. servo (item 11): the POS variant's gains, a 20 mrad step on joint 4 and
      back; the response is compared with the second-order prediction from
      the joint's inertia, and the gains are read back from the controller.
 
@@ -45,6 +48,8 @@ SERVO_K = np.array([600.0, 600, 600, 600, 250, 150, 50])
 SERVO_D = np.array([30.0, 30, 30, 30, 10, 10, 5])
 # The simulator's joint armature, kg m^2, added to the arm's inertia there.
 ARMATURE = 0.1
+# The variable-stiffness range reaches 150 Nm/rad at the flange.
+ROTATIONAL = [30.0, 60.0, 100.0, 150.0]
 
 
 def task_impedance(stiffness=FIXED):
@@ -121,6 +126,28 @@ def run(panda, out, fake=False):
         meta[name] = {"E0": E0, "mode": mode}
         start()
 
+    for k_rot in ROTATIONAL:
+        print(f"    rotational stiffness {k_rot:g} Nm/rad: 0.05 rad steps about z and x",
+              flush=True)
+        ctrl = task_impedance(np.array([400.0] * 3 + [k_rot] * 3))
+        # A growing oscillation trips this and leaves only damping.
+        ctrl.set_guard(speed=0.2, joint_velocity=np.full(7, 1.0))
+
+        def rotation_steps(ctrl, ctx):
+            wait(ctx, 0.5)
+            for rotation in ([0, 0, 0.05], [0, 0, -0.05], [0.05, 0, 0], [-0.05, 0, 0]):
+                ctrl.step_reference([0, 0, 0], rotation)
+                wait(ctx, 1.5)
+                if ctrl.guard_state["tripped"]:
+                    return
+
+        name = f"rotation_{k_rot:g}"
+        logs[name] = record(panda, ctrl, rotation_steps)
+        if np.any(logs[name]["guard"] > 0):
+            print(f"      tripped at {k_rot:g} Nm/rad: {ctrl.guard_state}; stopping the sweep")
+            break
+        start()
+
     print("    servo: joint 4 +20 mrad and back", flush=True)
     state = panda.get_state()
     mass = np.array(panda.get_model().mass(state)).reshape(7, 7, order="F")
@@ -148,32 +175,63 @@ def run(panda, out, fake=False):
 
 
 def analyse_stiffness(log):
+    """Item 9: at every switch the torque is the law's own, J^T (K e - D v)
+    with the new K and D, nothing more; replayed from the logged state."""
     ok = True
     damping_ok = np.allclose(log["damping"], 2 * np.sqrt(log["stiffness"]), rtol=1e-12)
     print(f"  damping = 2 sqrt(K) on every tick: {damping_ok}")
     ok &= damping_ok
+    error = controllers.TaskImpedance.orientation_error
     switches = np.flatnonzero(np.any(np.diff(log["stiffness"], axis=0) != 0, axis=1)) + 1
-    excess, jump, predicted = [], [], []
+    residual, jump, spring = [], [], []
     for k in switches:
         J = log["jacobian"][k].reshape(6, 7, order="F")
-        dk = log["stiffness"][k] - log["stiffness"][k - 1]
-        dd = log["damping"][k] - log["damping"][k - 1]
-        error = log["wrench_active"][k - 1] / np.where(log["stiffness"][k - 1] > 0,
-                                                       log["stiffness"][k - 1], 1)
-        velocity = -log["wrench_passive"][k - 1] / np.where(log["damping"][k - 1] > 0,
-                                                            log["damping"][k - 1], 1)
-        law = J.T @ (dk * error - dd * velocity)
-        change = log["tau_task"][k] - log["tau_task"][k - 1]
-        jump.append(np.abs(change).max())
-        predicted.append(np.abs(law).max())
-        excess.append(np.abs(change - law).max())
-    excess = np.array(excess)
-    print(f"  {len(switches)} switches: largest torque change {max(jump):.2f} Nm, of which "
-          f"the law's own Delta K e, Delta D v {max(predicted):.2f} Nm; largest change "
-          f"beyond it {excess.max():.3f} Nm (from the state moving in 1 ms)")
-    ok &= excess.max() < 0.2
+        e = np.concatenate([log["position_ref"][k] - log["position"][k],
+                            error(log["orientation_ref"][k], log["orientation"][k])])
+        v = J @ log["dq"][k]
+        law = J.T @ (log["stiffness"][k] * e - log["damping"][k] * v)
+        residual.append(np.abs(log["tau_task"][k] - law).max())
+        jump.append(np.abs(log["tau_task"][k] - log["tau_task"][k - 1]).max())
+        spring.append(np.abs(J.T @ ((log["stiffness"][k] - log["stiffness"][k - 1]) * e)).max())
+    print(f"  {len(switches)} switches: the torque is J^T (K e - D v) to {max(residual):.1e} Nm; "
+          f"largest change at a switch {max(jump):.2f} Nm, its Delta K e part {max(spring):.2f} Nm")
+    ok &= max(residual) < 1e-9
     rate = np.abs(np.diff(log["tau_cmd"], axis=0)).max()
     print(f"  sent torque: largest change per tick {rate:.3f} Nm (rate limit 1 Nm)")
+    return ok
+
+
+def analyse_rotation(logs):
+    """Ringing after 0.05 rad steps, per rotational stiffness: sign changes
+    of the angular velocity about the step's axis, and how much motion is
+    left 0.5 s after the step. A stable, about critically damped response
+    changes sign once or twice."""
+    ok = True
+    for name in sorted((n for n in logs if n.startswith("rotation_")),
+                       key=lambda n: float(n.split("_")[1])):
+        log = logs[name]
+        jacobian = log["jacobian"].reshape(-1, 7, 6).transpose(0, 2, 1)
+        omega = np.einsum("nrc,nc->nr", jacobian, log["dq"])[:, 3:]
+        updates = np.flatnonzero(log["reference_update"] > 0)
+        rows = []
+        for i, k in enumerate(updates):
+            end = updates[i + 1] if i + 1 < len(updates) else len(log["tick"])
+            axis = 2 if i < 2 else 0  # the steps: about z, back, about x, back
+            w = omega[k:end, axis]
+            t = log["time"][k:end] - log["time"][k]
+            moving = np.abs(w) > 0.02
+            signs = np.sign(w[moving])
+            crossings = int(np.sum(signs[1:] != signs[:-1])) if len(signs) > 1 else 0
+            late = float(np.sqrt(np.mean(w[t > 0.5] ** 2))) if np.any(t > 0.5) else float("nan")
+            rows.append((crossings, late, float(np.abs(w).max())))
+        tripped = bool(np.any(log["guard"] > 0))
+        worst = max(r[0] for r in rows) if rows else 0
+        stable = not tripped and worst <= 4
+        print(f"  {name.replace('_', ' K_r ')} Nm/rad: sign changes per step "
+              f"{[r[0] for r in rows]}, angular speed left after 0.5 s "
+              f"{max(r[1] for r in rows):.3f} rad/s, peak {max(r[2] for r in rows):.2f} rad/s"
+              f"{', TRIPPED' if tripped else ''}: {'stable' if stable else 'RINGING'}")
+        ok &= stable
     return ok
 
 
@@ -254,14 +312,18 @@ def analyse(logs, meta):
     ok &= analyse_stiffness(logs["stiffness"])
     for name in ("tank_off", "tank_power", "tank_impulse"):
         ok &= analyse_tank(name, logs[name], meta)
+    ok &= analyse_rotation(logs)
     ok &= analyse_servo(logs["servo"], meta)
     return ok
 
 
 def load(prefix):
     logs, meta = {}, {}
-    for name in ("stiffness", "tank_off", "tank_power", "tank_impulse", "servo"):
-        logs[name], meta = telemetry.load(f"{prefix}_{name}.npz")
+    import glob  # pylint: disable=import-outside-toplevel
+
+    for path in sorted(glob.glob(f"{prefix}_*.npz")):
+        name = path[len(prefix) + 1:-4]
+        logs[name], meta = telemetry.load(path)
     return logs, meta
 
 
