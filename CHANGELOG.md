@@ -54,6 +54,8 @@ Releases before 1.0.0 are documented in the
 
 - `Panda.set_joint_walls()` and `Panda.get_joint_walls()`: the virtual joint
   walls can be switched off, also while a controller runs; on by default.
+- `TaskImpedance.set_joint_spring()`: a joint-space spring outside the task
+  projector, logged as `tau_joint_spring`.
 - `TaskImpedance.set_nullspace_armature()`: rotor inertia added to the mass
   matrix of the dynamic posture term only (`compute()` takes it as
   `nullspace_armature`).

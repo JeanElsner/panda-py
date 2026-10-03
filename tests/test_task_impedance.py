@@ -256,6 +256,35 @@ def test_nullspace_armature_is_the_mass_matrix_plus_its_diagonal():
                                    law(state, *ref, nullspace="kinematic")["tau"], atol=1e-12)
 
 
+def test_joint_spring_is_added_as_it_is():
+    """tau += k o (q0 - q) - d o dq, outside the projector, on top of the rest."""
+    rng = np.random.default_rng(13)
+    k, d = np.r_[np.zeros(6), 10.0], np.r_[np.zeros(6), 6.32]
+    q0 = np.r_[np.zeros(6), -0.7853]
+    for _ in range(20):
+        state = random_state(rng)
+        ref = near_reference(rng, state)
+        plain = law(state, *ref)
+        sprung = law(state, *ref, joint_spring_stiffness=k, joint_spring_damping=d, q_joint_spring=q0)
+        expected = k * (q0 - state["q"]) - d * state["dq"]
+        np.testing.assert_allclose(sprung["tau_joint_spring"], expected, atol=1e-12)
+        np.testing.assert_allclose(sprung["tau"] - plain["tau"], expected, atol=1e-12)
+        np.testing.assert_array_equal(plain["tau_joint_spring"], 0)
+        assert sprung["tau_joint_spring"][:6].tolist() == [0.0] * 6
+
+
+def test_joint_spring_setter():
+    ctrl = TaskImpedance()
+    k, d, q = ctrl.get_joint_spring()
+    np.testing.assert_array_equal(k, 0)
+    np.testing.assert_array_equal(d, 0)
+    ctrl.set_joint_spring(np.r_[np.zeros(6), 10.0], np.r_[np.zeros(6), 6.32], np.full(7, -0.5))
+    k, d, q = ctrl.get_joint_spring()
+    assert k[6] == 10.0 and d[6] == 6.32 and q[3] == -0.5
+    with pytest.raises(ValueError):
+        ctrl.set_joint_spring(-np.ones(7), np.zeros(7), np.zeros(7))
+
+
 def test_nullspace_armature_setter():
     ctrl = TaskImpedance()
     np.testing.assert_array_equal(ctrl.get_nullspace_armature(), 0)

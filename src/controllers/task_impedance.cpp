@@ -157,7 +157,10 @@ Outputs compute(const Inputs& in) {
       out.tau_nullspace = N * (M * u);
     }
   }
-  out.tau = out.tau_task + out.tau_nullspace + in.coriolis;
+  out.tau_joint_spring =
+      in.joint_spring_stiffness.cwiseProduct(in.q_joint_spring - in.q) -
+      in.joint_spring_damping.cwiseProduct(in.dq);
+  out.tau = out.tau_task + out.tau_nullspace + out.tau_joint_spring + in.coriolis;
   return out;
 }
 
@@ -330,6 +333,9 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
   in.nullspace = nullspace_;
   in.nullspace_damping = nullspace_damping_;
   in.nullspace_armature = loop_.nullspace_armature;
+  in.joint_spring_stiffness = loop_.joint_spring_stiffness;
+  in.joint_spring_damping = loop_.joint_spring_damping;
+  in.q_joint_spring = loop_.q_joint_spring;
   auto out = task_impedance::compute(in);
   // The gate needs the active wrench, so it is applied to the law's output:
   // tau_task = J^T (alpha w_act + w_pas).
@@ -379,6 +385,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     s.tank_drawn[0] = tank_state_.drawn;
     put(s.tau_task, out.tau_task);
     put(s.tau_nullspace, out.tau_nullspace);
+    put(s.tau_joint_spring, out.tau_joint_spring);
     put(s.tau_law, out.tau);
     put(s.q, robot_state.q);
     put(s.dq, robot_state.dq);
@@ -548,6 +555,25 @@ void TaskImpedance::setNullspaceArmature(const Vector7d& armature) {
   }
   std::lock_guard<std::mutex> lock(mux_);
   shared_.nullspace_armature = armature;
+}
+
+void TaskImpedance::setJointSpring(const Vector7d& stiffness,
+                                   const Vector7d& damping, const Vector7d& q) {
+  if ((stiffness.array() < 0).any() || (damping.array() < 0).any() ||
+      !stiffness.allFinite() || !damping.allFinite() || !q.allFinite()) {
+    throw std::invalid_argument(
+        "joint spring stiffness and damping must be finite and non-negative.");
+  }
+  std::lock_guard<std::mutex> lock(mux_);
+  shared_.joint_spring_stiffness = stiffness;
+  shared_.joint_spring_damping = damping;
+  shared_.q_joint_spring = q;
+}
+
+std::tuple<Vector7d, Vector7d, Vector7d> TaskImpedance::getJointSpring() {
+  std::lock_guard<std::mutex> lock(mux_);
+  return {shared_.joint_spring_stiffness, shared_.joint_spring_damping,
+          shared_.q_joint_spring};
 }
 
 Vector7d TaskImpedance::getNullspaceArmature() {

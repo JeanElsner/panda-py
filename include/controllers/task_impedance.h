@@ -3,6 +3,7 @@
 #include <atomic>
 #include <limits>
 #include <mutex>
+#include <tuple>
 
 #include "constants.h"
 #include "controllers/controller.h"
@@ -54,6 +55,11 @@ struct Inputs {
   /// (projector and N M u): the rotor inertia libfranka's model leaves out.
   /// Zero is libfranka's model.
   Vector7d nullspace_armature = Vector7d::Zero();
+  /// A joint-space spring outside the projector, added to the torque as it
+  /// is: k o (q_joint_spring - q) - d o dq per joint. Zero leaves it out.
+  Vector7d joint_spring_stiffness = Vector7d::Zero();
+  Vector7d joint_spring_damping = Vector7d::Zero();
+  Vector7d q_joint_spring = Vector7d::Zero();
 };
 
 struct Outputs {
@@ -65,7 +71,8 @@ struct Outputs {
   Vector6d wrench_passive;  // -D o velocity
   Vector7d tau_task;        // J^T (alpha w_act + w_pas)
   Vector7d tau_nullspace;
-  Vector7d tau;  // tau_task + tau_nullspace + coriolis
+  Vector7d tau_joint_spring;
+  Vector7d tau;  // tau_task + tau_nullspace + tau_joint_spring + coriolis
 };
 
 Outputs compute(const Inputs& in);
@@ -160,6 +167,7 @@ double tankStep(const TankConfig& config, TankState& state,
   X(tank_drawn, 1)                      \
   X(tau_task, 7)                        \
   X(tau_nullspace, 7)                   \
+  X(tau_joint_spring, 7)                \
   X(tau_law, 7)                         \
   X(tau_cmd, 7)                         \
   X(q, 7)                               \
@@ -276,6 +284,11 @@ class TaskImpedance : public TorqueController {
   void setNullspaceTarget(const Vector7d& q_nullspace);
   void setNullspaceStiffness(double nullspace_stiffness);
   void setNullspaceArmature(const Vector7d& armature);
+  /// The joint-space spring outside the projector (Inputs); zero stiffness
+  /// and damping, the default, leave it out.
+  void setJointSpring(const Vector7d& stiffness, const Vector7d& damping,
+                      const Vector7d& q);
+  std::tuple<Vector7d, Vector7d, Vector7d> getJointSpring();
   Vector7d getNullspaceArmature();
   Vector6d getStiffness();
   Vector6d getDamping();
@@ -306,6 +319,9 @@ class TaskImpedance : public TorqueController {
     double nullspace_stiffness;
     Vector7d q_nullspace;
     Vector7d nullspace_armature = Vector7d::Zero();
+    Vector7d joint_spring_stiffness = Vector7d::Zero();
+    Vector7d joint_spring_damping = Vector7d::Zero();
+    Vector7d q_joint_spring = Vector7d::Zero();
     double leash_position = std::numeric_limits<double>::infinity();
     double leash_rotation = std::numeric_limits<double>::infinity();
   };

@@ -832,6 +832,22 @@ PYBIND11_MODULE(_core, m) {
            )delim")
       .def("get_nullspace_armature", &TaskImpedance::getNullspaceArmature,
            py::call_guard<py::gil_scoped_release>())
+      .def("set_joint_spring", &TaskImpedance::setJointSpring,
+           py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"),
+           py::arg("damping"), py::arg("q"),
+           R"delim(
+               A joint-space spring outside the task projector, added to the
+               torque after the posture term on every tick:
+               ``stiffness * (q - q_now) - damping * dq`` per joint, N m, with ``q``
+               the spring's target.
+               Zero stiffness and damping (the default) leave it out; a
+               joint with both zero is untouched. It stays on when a guard
+               trips. Takes effect on the next tick; logged as
+               ``tau_joint_spring``.
+           )delim")
+      .def("get_joint_spring", &TaskImpedance::getJointSpring,
+           py::call_guard<py::gil_scoped_release>(),
+           "``(stiffness, damping, q)`` of :py:func:`set_joint_spring`.")
       .def("get_stiffness", &TaskImpedance::getStiffness,
            py::call_guard<py::gil_scoped_release>())
       .def("get_damping", &TaskImpedance::getDamping,
@@ -850,7 +866,10 @@ PYBIND11_MODULE(_core, m) {
               const Vector6d &damping, const Vector7d &q_nullspace,
               double nullspace_stiffness, const std::string &nullspace,
               double alpha, double nullspace_damping, const Vector7d &coriolis,
-              const Vector7d &nullspace_armature) {
+              const Vector7d &nullspace_armature,
+              const Vector7d &joint_spring_stiffness,
+              const Vector7d &joint_spring_damping,
+              const Vector7d &q_joint_spring) {
              task_impedance::Inputs in;
              in.q = q;
              in.dq = dq;
@@ -868,6 +887,9 @@ PYBIND11_MODULE(_core, m) {
              in.nullspace = parseNullspace(nullspace);
              in.nullspace_damping = nullspace_damping;
              in.nullspace_armature = nullspace_armature;
+             in.joint_spring_stiffness = joint_spring_stiffness;
+             in.joint_spring_damping = joint_spring_damping;
+             in.q_joint_spring = q_joint_spring;
              const auto out = task_impedance::compute(in);
              py::dict result;
              result["error"] = out.error;
@@ -876,6 +898,7 @@ PYBIND11_MODULE(_core, m) {
              result["wrench_passive"] = out.wrench_passive;
              result["tau_task"] = out.tau_task;
              result["tau_nullspace"] = out.tau_nullspace;
+             result["tau_joint_spring"] = out.tau_joint_spring;
              result["tau"] = out.tau;
              return result;
            },
@@ -886,12 +909,16 @@ PYBIND11_MODULE(_core, m) {
            py::arg("alpha") = 1.0, py::arg("nullspace_damping") = 0.0,
            py::arg("coriolis") = Vector7d::Zero(),
            py::arg("nullspace_armature") = Vector7d::Zero(),
+           py::arg("joint_spring_stiffness") = Vector7d::Zero(),
+           py::arg("joint_spring_damping") = Vector7d::Zero(),
+           py::arg("q_joint_spring") = Vector7d::Zero(),
            R"delim(
                The control law alone, for a given state: what the controller
                computes in one step. ``pose`` and ``jacobian`` are the control
                frame's, ``orientation_ref`` a scalar-last quaternion. Returns a
                dict of ``error``, ``velocity``, ``wrench_active`` (before
-               alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace`` and
+               alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace``,
+               ``tau_joint_spring`` and
                ``tau``.
            )delim")
       .def_static("step_reference_update",
@@ -948,7 +975,7 @@ PYBIND11_MODULE(_core, m) {
                ``stiffness``, ``damping``, ``wrench_active`` (before alpha),
                ``wrench_passive``, ``alpha`` (the tank's gate, 0 while a guard
                is tripped), ``tank`` (its level, NaN without one),
-               ``tank_drawn``, ``tau_task``, ``tau_nullspace``, ``tau_law``
+               ``tank_drawn``, ``tau_task``, ``tau_nullspace``, ``tau_joint_spring``, ``tau_law``
                (the law's torque), ``tau_cmd`` (sent, after the joint walls,
                rate limit and clipping), the robot state's ``q``, ``dq``,
                ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``,

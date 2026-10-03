@@ -353,7 +353,7 @@ class PandaContext:
         ...
 class TaskImpedance(TorqueController):
     @staticmethod
-    def compute(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], mass: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 7]"], position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex, nullspace: str = 'dynamic', alpha: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, coriolis: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., nullspace_armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> dict:
+    def compute(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], mass: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 7]"], position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex, nullspace: str = 'dynamic', alpha: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, coriolis: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., nullspace_armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., joint_spring_stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., joint_spring_damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_joint_spring: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> dict:
         """
                        The control law alone, for a given state: what the controller
                        computes in one step. ``pose`` and ``jacobian`` are the control
@@ -447,6 +447,10 @@ class TaskImpedance(TorqueController):
                        one), ``tank_drawn`` and gate ``alpha``. Times are the robot's,
                        in seconds.
         """
+    def get_joint_spring(self) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]]:
+        """
+        ``(stiffness, damping, q)`` of :py:func:`set_joint_spring`.
+        """
     def get_nullspace_armature(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         ...
     def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
@@ -515,6 +519,16 @@ class TaskImpedance(TorqueController):
                        Keeps every reference command within ``position`` (m) and
                        ``rotation`` (rad) of the pose at the tick it is applied.
                        ``float("inf")``, the default, disables it.
+        """
+    def set_joint_spring(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        """
+                       A joint-space spring outside the task projector, added to the
+                       torque after the posture term on every tick:
+                       ``stiffness * (q - q_now) - damping * dq`` per joint, N m, with ``q``
+                       the spring's target. Zero stiffness and damping (the default) leave
+                       it out; a joint with both zero is untouched. It stays on when a
+                       guard trips. Takes effect on the next tick; logged as
+                       ``tau_joint_spring``.
         """
     def set_nullspace_armature(self, armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
         """
