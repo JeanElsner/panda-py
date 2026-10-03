@@ -145,14 +145,16 @@ Outputs compute(const Inputs& in) {
           I - J.transpose() * jjt.ldlt().solve(J);
       out.tau_nullspace = N * u;
     } else {
-      const auto mass = in.mass.ldlt();
+      const Eigen::Matrix<double, 7, 7> M =
+          in.mass + Eigen::Matrix<double, 7, 7>(in.nullspace_armature.asDiagonal());
+      const auto mass = M.ldlt();
       const Eigen::Matrix<double, 7, 6> mi_jt = mass.solve(J.transpose());
       const Eigen::Matrix<double, 6, 6> lambda_inv =
           regularised(J * mi_jt, in.nullspace_damping);
       // N = I - J^T (J M^-1 J^T)^-1 J M^-1, with J M^-1 = (M^-1 J^T)^T
       const Eigen::Matrix<double, 7, 7> N =
           I - J.transpose() * lambda_inv.ldlt().solve(mi_jt.transpose());
-      out.tau_nullspace = N * (in.mass * u);
+      out.tau_nullspace = N * (M * u);
     }
   }
   out.tau = out.tau_task + out.tau_nullspace + in.coriolis;
@@ -327,6 +329,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
   in.nullspace_stiffness = loop_.nullspace_stiffness;
   in.nullspace = nullspace_;
   in.nullspace_damping = nullspace_damping_;
+  in.nullspace_armature = loop_.nullspace_armature;
   auto out = task_impedance::compute(in);
   // The gate needs the active wrench, so it is applied to the law's output:
   // tau_task = J^T (alpha w_act + w_pas).
@@ -537,6 +540,19 @@ void TaskImpedance::setNullspaceTarget(const Vector7d& q_nullspace) {
 void TaskImpedance::setNullspaceStiffness(double nullspace_stiffness) {
   std::lock_guard<std::mutex> lock(mux_);
   shared_.nullspace_stiffness = nullspace_stiffness;
+}
+
+void TaskImpedance::setNullspaceArmature(const Vector7d& armature) {
+  if ((armature.array() < 0).any() || !armature.allFinite()) {
+    throw std::invalid_argument("nullspace armature must be finite and non-negative.");
+  }
+  std::lock_guard<std::mutex> lock(mux_);
+  shared_.nullspace_armature = armature;
+}
+
+Vector7d TaskImpedance::getNullspaceArmature() {
+  std::lock_guard<std::mutex> lock(mux_);
+  return shared_.nullspace_armature;
 }
 
 Vector6d TaskImpedance::getStiffness() {

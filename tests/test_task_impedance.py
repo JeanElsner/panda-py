@@ -239,6 +239,32 @@ def test_dynamic_nullspace_does_not_leak_into_the_task():
         assert np.linalg.norm(leak) < 1e-9 * np.linalg.norm(tau_ns)
 
 
+def test_nullspace_armature_is_the_mass_matrix_plus_its_diagonal():
+    """The armature enters the posture term as if it were part of M, and only
+    there: the task torque does not change."""
+    rng = np.random.default_rng(12)
+    armature = np.full(7, 0.1)
+    for _ in range(20):
+        state = random_state(rng)
+        ref = near_reference(rng, state)
+        ours = law(state, *ref, nullspace_armature=armature)
+        heavier = law(dict(state, mass=state["mass"] + np.diag(armature)), *ref)
+        np.testing.assert_allclose(ours["tau_nullspace"], heavier["tau_nullspace"], atol=1e-12)
+        np.testing.assert_allclose(ours["tau_task"], law(state, *ref)["tau_task"], atol=1e-12)
+        kinematic = law(state, *ref, nullspace="kinematic", nullspace_armature=armature)
+        np.testing.assert_allclose(kinematic["tau"],
+                                   law(state, *ref, nullspace="kinematic")["tau"], atol=1e-12)
+
+
+def test_nullspace_armature_setter():
+    ctrl = TaskImpedance()
+    np.testing.assert_array_equal(ctrl.get_nullspace_armature(), 0)
+    ctrl.set_nullspace_armature(np.full(7, 0.1))
+    np.testing.assert_array_equal(ctrl.get_nullspace_armature(), 0.1)
+    with pytest.raises(ValueError):
+        ctrl.set_nullspace_armature(np.r_[np.zeros(6), -0.1])
+
+
 def test_kinematic_nullspace_does_not_move_the_task_kinematically():
     """The kinematic projection gives no task velocity: J tau_ns = 0."""
     rng = np.random.default_rng(3)

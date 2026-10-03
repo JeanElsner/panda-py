@@ -819,6 +819,19 @@ PYBIND11_MODULE(_core, m) {
       .def("set_nullspace_stiffness", &TaskImpedance::setNullspaceStiffness,
            py::call_guard<py::gil_scoped_release>(),
            py::arg("nullspace_stiffness"))
+      .def("set_nullspace_armature", &TaskImpedance::setNullspaceArmature,
+           py::call_guard<py::gil_scoped_release>(), py::arg("armature"),
+           R"delim(
+               Rotor inertia per joint, kg m^2, added to the diagonal of
+               libfranka's mass matrix for the dynamic posture term only (the
+               projector and N M u); the task law does not use the mass
+               matrix. libfranka's model carries the links and the tool but no
+               rotors, which the drives do not hide. Zero (the default) is
+               libfranka's model; takes effect on the next tick. Telemetry's
+               ``mass`` stays libfranka's.
+           )delim")
+      .def("get_nullspace_armature", &TaskImpedance::getNullspaceArmature,
+           py::call_guard<py::gil_scoped_release>())
       .def("get_stiffness", &TaskImpedance::getStiffness,
            py::call_guard<py::gil_scoped_release>())
       .def("get_damping", &TaskImpedance::getDamping,
@@ -836,7 +849,8 @@ PYBIND11_MODULE(_core, m) {
               const Eigen::Vector4d &orientation_ref, const Vector6d &stiffness,
               const Vector6d &damping, const Vector7d &q_nullspace,
               double nullspace_stiffness, const std::string &nullspace,
-              double alpha, double nullspace_damping, const Vector7d &coriolis) {
+              double alpha, double nullspace_damping, const Vector7d &coriolis,
+              const Vector7d &nullspace_armature) {
              task_impedance::Inputs in;
              in.q = q;
              in.dq = dq;
@@ -853,6 +867,7 @@ PYBIND11_MODULE(_core, m) {
              in.nullspace_stiffness = nullspace_stiffness;
              in.nullspace = parseNullspace(nullspace);
              in.nullspace_damping = nullspace_damping;
+             in.nullspace_armature = nullspace_armature;
              const auto out = task_impedance::compute(in);
              py::dict result;
              result["error"] = out.error;
@@ -870,6 +885,7 @@ PYBIND11_MODULE(_core, m) {
            py::arg("nullspace_stiffness"), py::arg("nullspace") = "dynamic",
            py::arg("alpha") = 1.0, py::arg("nullspace_damping") = 0.0,
            py::arg("coriolis") = Vector7d::Zero(),
+           py::arg("nullspace_armature") = Vector7d::Zero(),
            R"delim(
                The control law alone, for a given state: what the controller
                computes in one step. ``pose`` and ``jacobian`` are the control

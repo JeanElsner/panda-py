@@ -50,6 +50,10 @@ struct Inputs {
   /// Regularises the 6x6 inverse of the projector, relative to the mean of
   /// its diagonal. Zero is the exact projector.
   double nullspace_damping = 0.0;
+  /// Added to the diagonal of ``mass`` for the dynamic posture term only
+  /// (projector and N M u): the rotor inertia libfranka's model leaves out.
+  /// Zero is libfranka's model.
+  Vector7d nullspace_armature = Vector7d::Zero();
 };
 
 struct Outputs {
@@ -271,6 +275,8 @@ class TaskImpedance : public TorqueController {
   void setDampingRatio(double damping_ratio);
   void setNullspaceTarget(const Vector7d& q_nullspace);
   void setNullspaceStiffness(double nullspace_stiffness);
+  void setNullspaceArmature(const Vector7d& armature);
+  Vector7d getNullspaceArmature();
   Vector6d getStiffness();
   Vector6d getDamping();
   Eigen::Matrix4d getFrameTransform() const;
@@ -299,6 +305,7 @@ class TaskImpedance : public TorqueController {
     Vector6d stiffness, damping;
     double nullspace_stiffness;
     Vector7d q_nullspace;
+    Vector7d nullspace_armature = Vector7d::Zero();
     double leash_position = std::numeric_limits<double>::infinity();
     double leash_rotation = std::numeric_limits<double>::infinity();
   };

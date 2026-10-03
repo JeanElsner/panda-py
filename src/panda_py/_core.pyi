@@ -353,7 +353,7 @@ class PandaContext:
         ...
 class TaskImpedance(TorqueController):
     @staticmethod
-    def compute(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], mass: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 7]"], position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex, nullspace: str = 'dynamic', alpha: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, coriolis: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> dict:
+    def compute(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], mass: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 7]"], position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex, nullspace: str = 'dynamic', alpha: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, coriolis: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., nullspace_armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> dict:
         """
                        The control law alone, for a given state: what the controller
                        computes in one step. ``pose`` and ``jacobian`` are the control
@@ -447,6 +447,8 @@ class TaskImpedance(TorqueController):
                        one), ``tank_drawn`` and gate ``alpha``. Times are the robot's,
                        in seconds.
         """
+    def get_nullspace_armature(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        ...
     def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
         ...
     def get_tank(self) -> typing.Any:
@@ -513,6 +515,16 @@ class TaskImpedance(TorqueController):
                        Keeps every reference command within ``position`` (m) and
                        ``rotation`` (rad) of the pose at the tick it is applied.
                        ``float("inf")``, the default, disables it.
+        """
+    def set_nullspace_armature(self, armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        """
+                       Rotor inertia per joint, kg m^2, added to the diagonal of
+                       libfranka's mass matrix for the dynamic posture term only (the
+                       projector and N M u); the task law does not use the mass
+                       matrix. libfranka's model carries the links and the tool but no
+                       rotors, which the drives do not hide. Zero (the default) is
+                       libfranka's model; takes effect on the next tick. Telemetry's
+                       ``mass`` stays libfranka's.
         """
     def set_nullspace_stiffness(self, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex) -> None:
         ...
