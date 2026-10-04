@@ -6,7 +6,8 @@ session down. Before each check it says what the check does and waits: Enter
 runs it, s skips it, q ends the session. Every check's output is shown and
 also written to results/run_<time>/<check>.log; a summary closes the run. The
 robot is always restored at the end: FCI off, brakes locked, control
-released.
+released. After a check fails, it offers to re-unlock the brakes and
+reactivate FCI (r), for the rest of the session after a hard stop.
 
     python tests/hardware/run_all.py <robot-ip> <desk-user> [--platform panda]
         [--only name,name] [--extra path/to/checks.py]
@@ -65,6 +66,26 @@ CHECKS = [
         lambda host, user, out: [str(POSE_PATH), host, user, "-", "--worker", out],
     ),
 ]
+
+
+def recover_after_stop(desk):
+    """After a failed check, offer to re-unlock the brakes and reactivate FCI:
+    a hard stop (the robot in mode "Other", libfranka's recovery refused)
+    closes the brakes, and every later check would fail without this."""
+    print("\n    If the robot stopped hard (brakes closed, Desk shows an error or the")
+    print("    user stop was pressed), release the user stop and clear the error in")
+    print("    Desk first. Unlocking the brakes WILL make the robot move.")
+    answer = input("    r to re-unlock the brakes and reactivate FCI, Enter to go on as is: ")
+    if answer.strip().lower() != "r":
+        return
+    for label, call in (("FCI deactivated", desk.deactivate_fci), ("brakes unlocked", desk.unlock),
+                        ("FCI activated", desk.activate_fci)):
+        try:
+            call()
+            print(f"    desk: {label}")
+        except Exception as error:  # pylint: disable=broad-except
+            print(f"    desk: FAILED at '{label}': {error}")
+            return
 
 
 def load_extra(path):
@@ -171,6 +192,8 @@ def main():
             status = run_check(command(args.hostname, args.username, out), log)
             results.append((name, status, time.monotonic() - started))
             print(f"\n    {name}: {describe(status)}")
+            if status:
+                recover_after_stop(desk)
     finally:
         print("\n  restoring the previous state")
         for label, call in (
