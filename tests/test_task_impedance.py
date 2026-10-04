@@ -285,6 +285,36 @@ def test_joint_spring_setter():
         ctrl.set_joint_spring(-np.ones(7), np.zeros(7), np.zeros(7))
 
 
+def test_friction_compensation_follows_the_law_torque():
+    """tau += f o clip(tau_law / band, -1, 1), tau_law without Coriolis."""
+    rng = np.random.default_rng(17)
+    f = np.array([0.27, 0.47, 0.18, 1.12, 0.08, 0.54, 0.28])
+    for _ in range(20):
+        state = random_state(rng)
+        ref = near_reference(rng, state)
+        plain = law(state, *ref)
+        comp = law(state, *ref, friction=f, friction_deadband=0.1)
+        push = plain["tau_task"] + plain["tau_nullspace"] + plain["tau_joint_spring"]
+        expected = f * np.clip(push / 0.1, -1, 1)
+        np.testing.assert_allclose(comp["tau_friction"], expected, atol=1e-12)
+        np.testing.assert_allclose(comp["tau"] - plain["tau"], expected, atol=1e-12)
+        np.testing.assert_array_equal(plain["tau_friction"], 0)
+
+
+def test_friction_compensation_setter():
+    ctrl = TaskImpedance()
+    f, band = ctrl.get_friction_compensation()
+    np.testing.assert_array_equal(f, 0)
+    assert band == 0.1
+    ctrl.set_friction_compensation(np.full(7, 0.3), 0.05)
+    f, band = ctrl.get_friction_compensation()
+    assert f[3] == 0.3 and band == 0.05
+    with pytest.raises(ValueError):
+        ctrl.set_friction_compensation(-np.ones(7))
+    with pytest.raises(ValueError):
+        ctrl.set_friction_compensation(np.ones(7), 0.0)
+
+
 def test_nullspace_armature_setter():
     ctrl = TaskImpedance()
     np.testing.assert_array_equal(ctrl.get_nullspace_armature(), 0)

@@ -160,8 +160,21 @@ Outputs compute(const Inputs& in) {
   out.tau_joint_spring =
       in.joint_spring_stiffness.cwiseProduct(in.q_joint_spring - in.q) -
       in.joint_spring_damping.cwiseProduct(in.dq);
-  out.tau = out.tau_task + out.tau_nullspace + out.tau_joint_spring + in.coriolis;
+  out.tau_friction = frictionCompensation(
+      in.friction, in.friction_deadband,
+      out.tau_task + out.tau_nullspace + out.tau_joint_spring);
+  out.tau = out.tau_task + out.tau_nullspace + out.tau_joint_spring +
+            out.tau_friction + in.coriolis;
   return out;
+}
+
+Vector7d frictionCompensation(const Vector7d& friction, double deadband,
+                              const Vector7d& tau) {
+  if (friction.isZero()) {
+    return Vector7d::Zero();
+  }
+  const double band = std::max(deadband, 1e-9);
+  return friction.cwiseProduct((tau / band).cwiseMax(-1.0).cwiseMin(1.0));
 }
 
 }  // namespace task_impedance
@@ -336,6 +349,8 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
   in.joint_spring_stiffness = loop_.joint_spring_stiffness;
   in.joint_spring_damping = loop_.joint_spring_damping;
   in.q_joint_spring = loop_.q_joint_spring;
+  in.friction = loop_.friction;
+  in.friction_deadband = loop_.friction_deadband;
   auto out = task_impedance::compute(in);
   // The gate needs the active wrench, so it is applied to the law's output:
   // tau_task = J^T (alpha w_act + w_pas).
@@ -355,6 +370,18 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     out.tau_task += change;
     out.tau += change;
     in.alpha = alpha;
+  }
+  // The friction compensation follows the gated torque, and is off while a
+  // guard is tripped.
+  if (!in.friction.isZero()) {
+    const Vector7d friction =
+        monitor_.state().tripped()
+            ? Vector7d::Zero()
+            : task_impedance::frictionCompensation(
+                  in.friction, in.friction_deadband,
+                  out.tau_task + out.tau_nullspace + out.tau_joint_spring);
+    out.tau += friction - out.tau_friction;
+    out.tau_friction = friction;
   }
 
   sample_ = telemetry_.claim();
@@ -386,6 +413,7 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
     put(s.tau_task, out.tau_task);
     put(s.tau_nullspace, out.tau_nullspace);
     put(s.tau_joint_spring, out.tau_joint_spring);
+    put(s.tau_friction, out.tau_friction);
     put(s.tau_law, out.tau);
     put(s.q, robot_state.q);
     put(s.dq, robot_state.dq);
@@ -574,6 +602,23 @@ std::tuple<Vector7d, Vector7d, Vector7d> TaskImpedance::getJointSpring() {
   std::lock_guard<std::mutex> lock(mux_);
   return {shared_.joint_spring_stiffness, shared_.joint_spring_damping,
           shared_.q_joint_spring};
+}
+
+void TaskImpedance::setFrictionCompensation(const Vector7d& friction,
+                                            double deadband) {
+  if ((friction.array() < 0).any() || !friction.allFinite() ||
+      !(deadband > 0) || !std::isfinite(deadband)) {
+    throw std::invalid_argument(
+        "friction must be finite and non-negative, the deadband positive.");
+  }
+  std::lock_guard<std::mutex> lock(mux_);
+  shared_.friction = friction;
+  shared_.friction_deadband = deadband;
+}
+
+std::pair<Vector7d, double> TaskImpedance::getFrictionCompensation() {
+  std::lock_guard<std::mutex> lock(mux_);
+  return {shared_.friction, shared_.friction_deadband};
 }
 
 Vector7d TaskImpedance::getNullspaceArmature() {

@@ -60,7 +60,17 @@ struct Inputs {
   Vector7d joint_spring_stiffness = Vector7d::Zero();
   Vector7d joint_spring_damping = Vector7d::Zero();
   Vector7d q_joint_spring = Vector7d::Zero();
+  /// Coulomb friction compensation: per joint, friction o sat(tau / deadband)
+  /// with tau the law's torque without it (task, posture, joint spring, before
+  /// Coriolis) and sat clamping to [-1, 1]; a joint pushed with less than the
+  /// deadband gets a proportional share. Zero friction leaves it out.
+  Vector7d friction = Vector7d::Zero();
+  double friction_deadband = 0.1;
 };
+
+/// friction o clamp(tau / deadband, -1, 1).
+Vector7d frictionCompensation(const Vector7d& friction, double deadband,
+                              const Vector7d& tau);
 
 struct Outputs {
   /// [x_ref - x; axisangle(q_ref q^-1)]
@@ -72,7 +82,9 @@ struct Outputs {
   Vector7d tau_task;        // J^T (alpha w_act + w_pas)
   Vector7d tau_nullspace;
   Vector7d tau_joint_spring;
-  Vector7d tau;  // tau_task + tau_nullspace + tau_joint_spring + coriolis
+  Vector7d tau_friction;
+  // tau_task + tau_nullspace + tau_joint_spring + tau_friction + coriolis
+  Vector7d tau;
 };
 
 Outputs compute(const Inputs& in);
@@ -168,6 +180,7 @@ double tankStep(const TankConfig& config, TankState& state,
   X(tau_task, 7)                        \
   X(tau_nullspace, 7)                   \
   X(tau_joint_spring, 7)                \
+  X(tau_friction, 7)                    \
   X(tau_law, 7)                         \
   X(tau_cmd, 7)                         \
   X(q, 7)                               \
@@ -289,6 +302,10 @@ class TaskImpedance : public TorqueController {
   void setJointSpring(const Vector7d& stiffness, const Vector7d& damping,
                       const Vector7d& q);
   std::tuple<Vector7d, Vector7d, Vector7d> getJointSpring();
+  /// Coulomb friction compensation (Inputs); zero friction, the default,
+  /// leaves it out. Off while a guard is tripped.
+  void setFrictionCompensation(const Vector7d& friction, double deadband);
+  std::pair<Vector7d, double> getFrictionCompensation();
   Vector7d getNullspaceArmature();
   Vector6d getStiffness();
   Vector6d getDamping();
@@ -322,6 +339,8 @@ class TaskImpedance : public TorqueController {
     Vector7d joint_spring_stiffness = Vector7d::Zero();
     Vector7d joint_spring_damping = Vector7d::Zero();
     Vector7d q_joint_spring = Vector7d::Zero();
+    Vector7d friction = Vector7d::Zero();
+    double friction_deadband = 0.1;
     double leash_position = std::numeric_limits<double>::infinity();
     double leash_rotation = std::numeric_limits<double>::infinity();
   };

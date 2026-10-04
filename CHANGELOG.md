@@ -56,6 +56,10 @@ Releases before 1.0.0 are documented in the
   walls can be switched off, also while a controller runs; on by default.
 - `TaskImpedance.set_joint_spring()`: a joint-space spring outside the task
   projector, logged as `tau_joint_spring`.
+- `TaskImpedance.set_friction_compensation(friction, deadband)`: Coulomb
+  friction compensation, `friction o clip(tau / deadband, -1, 1)` per joint
+  in the direction of the law's torque, off while a guard is tripped, logged
+  as `tau_friction`.
 - `TaskImpedance.set_nullspace_armature()`: rotor inertia added to the mass
   matrix of the dynamic posture term only (`compute()` takes it as
   `nullspace_armature`).

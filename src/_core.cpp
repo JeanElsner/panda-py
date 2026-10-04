@@ -848,6 +848,22 @@ PYBIND11_MODULE(_core, m) {
       .def("get_joint_spring", &TaskImpedance::getJointSpring,
            py::call_guard<py::gil_scoped_release>(),
            "``(stiffness, damping, q)`` of :py:func:`set_joint_spring`.")
+      .def("set_friction_compensation", &TaskImpedance::setFrictionCompensation,
+           py::call_guard<py::gil_scoped_release>(), py::arg("friction"),
+           py::arg("deadband") = 0.1,
+           R"delim(
+               Coulomb friction compensation: adds, per joint,
+               ``friction * clip(tau / deadband, -1, 1)`` N m, with ``tau`` the
+               law's torque without it (task, posture and joint spring), so a
+               joint gets its breakaway torque in the direction it is pushed
+               and a proportional share below the deadband (N m). Zero
+               friction (the default) leaves it out; off while a guard is
+               tripped. Takes effect on the next tick; logged as
+               ``tau_friction``.
+           )delim")
+      .def("get_friction_compensation", &TaskImpedance::getFrictionCompensation,
+           py::call_guard<py::gil_scoped_release>(),
+           "``(friction, deadband)`` of :py:func:`set_friction_compensation`.")
       .def("get_stiffness", &TaskImpedance::getStiffness,
            py::call_guard<py::gil_scoped_release>())
       .def("get_damping", &TaskImpedance::getDamping,
@@ -869,7 +885,8 @@ PYBIND11_MODULE(_core, m) {
               const Vector7d &nullspace_armature,
               const Vector7d &joint_spring_stiffness,
               const Vector7d &joint_spring_damping,
-              const Vector7d &q_joint_spring) {
+              const Vector7d &q_joint_spring, const Vector7d &friction,
+              double friction_deadband) {
              task_impedance::Inputs in;
              in.q = q;
              in.dq = dq;
@@ -890,6 +907,8 @@ PYBIND11_MODULE(_core, m) {
              in.joint_spring_stiffness = joint_spring_stiffness;
              in.joint_spring_damping = joint_spring_damping;
              in.q_joint_spring = q_joint_spring;
+             in.friction = friction;
+             in.friction_deadband = friction_deadband;
              const auto out = task_impedance::compute(in);
              py::dict result;
              result["error"] = out.error;
@@ -899,6 +918,7 @@ PYBIND11_MODULE(_core, m) {
              result["tau_task"] = out.tau_task;
              result["tau_nullspace"] = out.tau_nullspace;
              result["tau_joint_spring"] = out.tau_joint_spring;
+             result["tau_friction"] = out.tau_friction;
              result["tau"] = out.tau;
              return result;
            },
@@ -912,13 +932,15 @@ PYBIND11_MODULE(_core, m) {
            py::arg("joint_spring_stiffness") = Vector7d::Zero(),
            py::arg("joint_spring_damping") = Vector7d::Zero(),
            py::arg("q_joint_spring") = Vector7d::Zero(),
+           py::arg("friction") = Vector7d::Zero(),
+           py::arg("friction_deadband") = 0.1,
            R"delim(
                The control law alone, for a given state: what the controller
                computes in one step. ``pose`` and ``jacobian`` are the control
                frame's, ``orientation_ref`` a scalar-last quaternion. Returns a
                dict of ``error``, ``velocity``, ``wrench_active`` (before
                alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace``,
-               ``tau_joint_spring`` and
+               ``tau_joint_spring``, ``tau_friction`` and
                ``tau``.
            )delim")
       .def_static("step_reference_update",
@@ -975,7 +997,7 @@ PYBIND11_MODULE(_core, m) {
                ``stiffness``, ``damping``, ``wrench_active`` (before alpha),
                ``wrench_passive``, ``alpha`` (the tank's gate, 0 while a guard
                is tripped), ``tank`` (its level, NaN without one),
-               ``tank_drawn``, ``tau_task``, ``tau_nullspace``, ``tau_joint_spring``, ``tau_law``
+               ``tank_drawn``, ``tau_task``, ``tau_nullspace``, ``tau_joint_spring``, ``tau_friction``, ``tau_law``
                (the law's torque), ``tau_cmd`` (sent, after the joint walls,
                rate limit and clipping), the robot state's ``q``, ``dq``,
                ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``,

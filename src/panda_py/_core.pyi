@@ -447,6 +447,10 @@ class TaskImpedance(TorqueController):
                        one), ``tank_drawn`` and gate ``alpha``. Times are the robot's,
                        in seconds.
         """
+    def get_friction_compensation(self) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], float]:
+        """
+        ``(friction, deadband)`` of :py:func:`set_friction_compensation`.
+        """
     def get_joint_spring(self) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]]:
         """
         ``(stiffness, damping, q)`` of :py:func:`set_joint_spring`.
@@ -519,6 +523,17 @@ class TaskImpedance(TorqueController):
                        Keeps every reference command within ``position`` (m) and
                        ``rotation`` (rad) of the pose at the tick it is applied.
                        ``float("inf")``, the default, disables it.
+        """
+    def set_friction_compensation(self, friction: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], deadband: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> None:
+        """
+                       Coulomb friction compensation: adds, per joint,
+                       ``friction * clip(tau / deadband, -1, 1)`` N m, with ``tau`` the
+                       law's torque without it (task, posture and joint spring), so a
+                       joint gets its breakaway torque in the direction it is pushed
+                       and a proportional share below the deadband (N m). Zero
+                       friction (the default) leaves it out; off while a guard is
+                       tripped. Takes effect on the next tick; logged as
+                       ``tau_friction``.
         """
     def set_joint_spring(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
         """
