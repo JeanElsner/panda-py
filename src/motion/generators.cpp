@@ -64,7 +64,7 @@ bool PandaTrajectory::_computeTrajectory(
 
 JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
                                  double speed_factor, double maxDeviation,
-                                 double timeout) {
+                                 double timeout, const RobotLimits& limits) {
   // Validate before any GIL juggling. An exception thrown while a
   // gil_scoped_release is in scope unwinds without the GIL held, and pybind11
   // then has to turn it into a Python exception without the GIL, which
@@ -74,6 +74,11 @@ JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
   for (const auto& waypoint : waypoints) {
     if (!waypoint.allFinite()) {
       throw std::invalid_argument("Waypoints must be finite.");
+    }
+    if ((waypoint.array() < limits.q_lower.array()).any() ||
+        (waypoint.array() > limits.q_upper.array()).any()) {
+      throw std::invalid_argument(std::string("A waypoint is outside the ") +
+                                  limits.name + " joint limits.");
     }
   }
 
@@ -89,8 +94,8 @@ JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
     logger_ = logging.attr("getLogger")("motion");
     py::gil_scoped_release release;
     computed = _computeTrajectory(_convertList(waypoints, maxDeviation),
-                                  speed_factor * kQMaxVelocity,
-                                  speed_factor * kQMaxAcceleration, timeout);
+                                  speed_factor * limits.dq_max,
+                                  speed_factor * limits.ddq_max, timeout);
   }
   if (!computed) {
     throw runtime_error("Trajectory generation failed.");
@@ -130,27 +135,29 @@ Vector7d JointTrajectory::getJointAccelerations(double time) {
 
 CartesianTrajectory::CartesianTrajectory(
     const std::vector<Eigen::Matrix<double, 4, 4>>& poses, double speed_factor,
-    double maxDeviation, double timeout) {
+    double maxDeviation, double timeout, const RobotLimits& limits) {
   std::vector<Eigen::Matrix<double, 3, 1>> positions;
   std::vector<Eigen::Matrix<double, 4, 1>> orientations;
   for (auto p : poses) {
     positions.push_back(MatrixToPosition(p));
     orientations.push_back(MatrixToOrientation(p));
   }
-  _init(positions, orientations, speed_factor, maxDeviation, timeout);
+  _init(positions, orientations, speed_factor, maxDeviation, timeout, limits);
 }
 
 CartesianTrajectory::CartesianTrajectory(
     const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
     const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
-    double speed_factor, double maxDeviation, double timeout) {
-  _init(positions, orientations, speed_factor, maxDeviation, timeout);
+    double speed_factor, double maxDeviation, double timeout,
+    const RobotLimits& limits) {
+  _init(positions, orientations, speed_factor, maxDeviation, timeout, limits);
 }
 
 void CartesianTrajectory::_init(
     const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
     const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
-    double speed_factor, double maxDeviation, double timeout) {
+    double speed_factor, double maxDeviation, double timeout,
+    const RobotLimits& limits) {
   // See the note in the JointTrajectory constructor: validation has to happen
   // before the GIL is released, or throwing takes the interpreter down.
   _validateWaypointCount(orientations.size());
@@ -203,8 +210,8 @@ void CartesianTrajectory::_init(
     }
 
     computed = _computeTrajectory(time_optimal::Path(waypoints, maxDeviation),
-                                  speed_factor * kXMaxVelocity,
-                                  speed_factor * kXMaxAcceleration, timeout);
+                                  speed_factor * limits.dx_max,
+                                  speed_factor * limits.ddx_max, timeout);
   }
   if (!computed) {
     throw runtime_error("Trajectory generation failed.");

@@ -189,8 +189,9 @@ def test_unusable_speed_factor_raises(kind, speed_factor):
 
 def test_the_minimum_speed_factor_computes_quickly():
     """At the minimum, even a move across the full joint range stays cheap."""
-    lower = np.asarray(constants.JOINT_LIMITS_LOWER) + 0.1
-    upper = np.asarray(constants.JOINT_LIMITS_UPPER) - 0.1
+    limits = panda_py.conservative_limits()
+    lower = np.asarray(limits.q_lower) + 0.1
+    upper = np.asarray(limits.q_upper) - 0.1
     trajectory = motion.JointTrajectory([lower, upper], speed_factor=1e-3)
     assert trajectory.get_duration() > 1000
     motion.CartesianTrajectory(POSITIONS, ORIENTATIONS, speed_factor=1e-3)

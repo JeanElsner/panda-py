@@ -32,7 +32,7 @@ franka::Torques IntegratedVelocity::step(const franka::RobotState& robot_state,
   mux_.unlock();
   // PD control
   q_d_ += duration.toSec() * dq_d;  // integrate velocity
-  q_d_ = q_d_.cwiseMin(kUpperJointLimits).cwiseMax(kLowerJointLimits);
+  q_d_ = q_d_.cwiseMin(robotLimits().q_upper).cwiseMax(robotLimits().q_lower);
   tau_d << K_p.asDiagonal() * (q_d_ - q) - K_d.asDiagonal() * dq;
   franka::Torques torques = VectorToArray(tau_d);
   torques.motion_finished = motion_finished_;

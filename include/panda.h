@@ -165,6 +165,8 @@ class Panda {
   void refreshState();
   Vector7d getJointLimitsLower();
   Vector7d getJointLimitsUpper();
+  /// The connected robot's type and motion limits, from its protocol version.
+  const RobotLimits& getLimits() const;
   void setJointWalls(bool enabled);
   bool getJointWalls();
   void setControlOptions(bool torque_rate_limit, bool limit_rate,
@@ -205,7 +207,7 @@ class Panda {
   std::thread current_thread_;
   std::shared_ptr<controllers::joint_limits::VirtualWallController>
       virtual_walls_;
-  JointLimits joint_limits_;
+  RobotLimits limits_;
   // Read by the control loop on every tick, set from Python.
   std::atomic<bool> joint_walls_{true};
   // panda-py's own torque rate limit, read every tick; libfranka's

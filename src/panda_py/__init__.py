@@ -28,6 +28,10 @@ from websockets.sync.client import connect
 from ._core import (
     Panda,
     PandaContext,
+    RobotLimits,
+    RobotType,
+    conservative_limits,
+    limits,
     fk,
     ik,
     ik_full,
@@ -38,6 +42,10 @@ from .exceptions import IncompatibleVersionError
 __all__ = [
     "Panda",
     "PandaContext",
+    "RobotLimits",
+    "RobotType",
+    "conservative_limits",
+    "limits",
     "constants",
     "controllers",
     "libfranka",

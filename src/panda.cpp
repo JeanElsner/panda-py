@@ -111,13 +111,13 @@ Panda::Panda(std::string hostname, std::string name,
   // they have to match the robot actually connected. The FER envelope applied
   // to an FR3 rejects a wide band of perfectly legal configurations, joint 6
   // above 3.7525 rad in particular.
-  joint_limits_ = jointLimitsForServerVersion(robot_->serverVersion());
-  _log("info", "Using %s joint limits (robot server version %d).",
-       joint_limits_.name, robot_->serverVersion());
+  limits_ = limitsForServerVersion(robot_->serverVersion());
+  _log("info", "Connected to an %s (protocol version %d).", limits_.name,
+       robot_->serverVersion());
   virtual_walls_ =
       std::shared_ptr<controllers::joint_limits::VirtualWallController>(
           new controllers::joint_limits::VirtualWallController(
-              joint_limits_.upper, joint_limits_.lower, kPDZoneWidth,
+              limits_.q_upper, limits_.q_lower, kPDZoneWidth,
               kDZoneWidth, kPDZoneStiffness, kPDZoneDamping, kDZoneDamping));
   _warnIfRealtimeUnavailable();
 }
@@ -224,9 +224,11 @@ std::map<std::string, std::list<Eigen::VectorXd>> Panda::getLog() {
   return log;
 }
 
-Vector7d Panda::getJointLimitsLower() { return joint_limits_.lower; }
+Vector7d Panda::getJointLimitsLower() { return limits_.q_lower; }
 
-Vector7d Panda::getJointLimitsUpper() { return joint_limits_.upper; }
+Vector7d Panda::getJointLimitsUpper() { return limits_.q_upper; }
+
+const RobotLimits& Panda::getLimits() const { return limits_; }
 
 void Panda::setJointWalls(bool enabled) {
   joint_walls_ = enabled;
@@ -356,6 +358,7 @@ void Panda::_startController(std::shared_ptr<TorqueController> controller_ptr) {
   virtual_walls_->reset();
   this->current_controller_ = controller_ptr;
   current_controller_->setTime(0);
+  current_controller_->setRobotLimits(limits_);
   current_controller_->start(robot_->readOnce(), model_);
 }
 
@@ -495,7 +498,8 @@ bool Panda::moveToJointPosition(std::vector<Vector7d>& waypoints,
   waypoints.push_back(getJointPositions());
   std::rotate(waypoints.rbegin(), waypoints.rbegin() + 1, waypoints.rend());
   auto traj =
-      std::make_shared<motion::JointTrajectory>(waypoints, speed_factor, 0.02);
+      std::make_shared<motion::JointTrajectory>(waypoints, speed_factor, 0.02,
+                                                motion::kDefaultTimeout, limits_);
   if (traj->getDuration() == 0.0) {
     _log("info", "Already at goal.");
     return true;
@@ -549,7 +553,8 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d>& positions,
   std::rotate(orientations.rbegin(), orientations.rbegin() + 1,
               orientations.rend());
   auto traj = std::make_shared<motion::CartesianTrajectory>(
-      positions, orientations, speed_factor);
+      positions, orientations, speed_factor, 0.0, motion::kDefaultTimeout,
+      limits_);
   if (traj->getDuration() == 0.0) {
     _log("info", "Already at goal.");
     return true;

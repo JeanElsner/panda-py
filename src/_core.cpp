@@ -221,7 +221,6 @@ PYBIND11_MODULE(_core, m) {
 
   m.attr("_JOINT_POSITION_START") = kJointPositionStart;
   m.attr("_TAU_J_MAX") = kTauJMax;
-  m.attr("_Q_MAX_VELOCITY") = kQMaxVelocity;
   m.attr("_MOVE_TO_POSE_POSITION_THRESHOLD") = Panda::kMoveToPosePositionThreshold;
   m.attr("_MOVE_TO_POSE_ORIENTATION_THRESHOLD") = Panda::kMoveToPoseOrientationThreshold;
   m.attr("_JOINT_LIMITS_LOWER") = kLowerJointLimits;
@@ -294,14 +293,54 @@ PYBIND11_MODULE(_core, m) {
      other half of what realtime control needs.
   )delim");
 
+  py::enum_<RobotType>(m, "RobotType", R"delim(
+      The robot generation: the Franka Emika Robot (FER, also known as Panda)
+      or the Franka Research 3 (FR3).
+  )delim")
+      .value("FER", RobotType::kFER)
+      .value("FR3", RobotType::kFR3);
+
+  py::class_<RobotLimits>(m, "RobotLimits", R"delim(
+      A robot's joint envelope and the motion limits panda-py plans with, all
+      read-only. :py:attr:`Panda.limits` holds the connected robot's;
+      :py:func:`limits` gives them for a protocol version and
+      :py:func:`conservative_limits` those valid on every robot.
+  )delim")
+      .def_readonly("type", &RobotLimits::type, "The robot generation.")
+      .def_property_readonly("name", [](const RobotLimits &l) { return std::string(l.name); },
+                             "A readable name of the robot and envelope.")
+      .def_readonly("q_lower", &RobotLimits::q_lower, "Lower joint position limits, rad.")
+      .def_readonly("q_upper", &RobotLimits::q_upper, "Upper joint position limits, rad.")
+      .def_readonly("dq_max", &RobotLimits::dq_max, "Joint velocity limits, rad/s.")
+      .def_readonly("ddq_max", &RobotLimits::ddq_max, "Joint acceleration limits, rad/s^2.")
+      .def_readonly("dx_max", &RobotLimits::dx_max,
+                    "Cartesian velocity limits: translation along x, y, z (m/s) and rotation (rad/s).")
+      .def_readonly("ddx_max", &RobotLimits::ddx_max,
+                    "Cartesian acceleration limits, the same layout as dx_max.")
+      .def("__repr__", [](const RobotLimits &l) {
+        return std::string("RobotLimits(") + l.name + ")";
+      });
+
+  m.def("limits", &limitsForServerVersion, py::arg("server_version"), R"delim(
+      The limits of a robot speaking a research interface protocol version:
+      up to 5 the FER, from 6 the FR3 (with the envelope Franka widened in
+      robot system 5.9.0, protocol version 10).
+  )delim");
+  m.def("conservative_limits", &conservativeLimits, R"delim(
+      Per joint the tighter of the FER's and the FR3's limits: what the
+      trajectory generators plan with when no robot is given.
+  )delim");
+
   py::class_<motion::JointTrajectory>(m, "JointTrajectory")
       // Released like the move_to_* methods release it, which construct these
       // internally. This also keeps the Python-side tests on that same path.
-      .def(py::init<const std::vector<Vector7d> &, double, double, double>(),
+      .def(py::init<const std::vector<Vector7d> &, double, double, double,
+                    const RobotLimits &>(),
            py::call_guard<py::gil_scoped_release>(), py::arg("waypoints"),
            py::arg("speed_factor") = motion::kDefaultJointSpeedFactor,
            py::arg("max_deviation") = 0,
-           py::arg("timeout") = motion::kDefaultTimeout)
+           py::arg("timeout") = motion::kDefaultTimeout,
+           py::arg("limits") = conservativeLimits())
       .def("get_duration", &motion::JointTrajectory::getDuration)
       .def("get_joint_positions", &motion::JointTrajectory::getJointPositions,
            py::arg("time"))
@@ -313,18 +352,20 @@ PYBIND11_MODULE(_core, m) {
   py::class_<motion::CartesianTrajectory>(m, "CartesianTrajectory")
       .def(py::init<const std::vector<Eigen::Matrix<double, 3, 1>> &,
                     const std::vector<Eigen::Matrix<double, 4, 1>> &, double,
-                    double, double>(),
+                    double, double, const RobotLimits &>(),
            py::call_guard<py::gil_scoped_release>(),
            py::arg("positions"), py::arg("orientations"),
            py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
            py::arg("max_deviation") = 0,
-           py::arg("timeout") = motion::kDefaultTimeout)
+           py::arg("timeout") = motion::kDefaultTimeout,
+           py::arg("limits") = conservativeLimits())
       .def(py::init<const std::vector<Eigen::Matrix<double, 4, 4>> &, double,
-                    double, double>(),
+                    double, double, const RobotLimits &>(),
            py::call_guard<py::gil_scoped_release>(), py::arg("poses"),
            py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
            py::arg("max_deviation") = 0,
-           py::arg("timeout") = motion::kDefaultTimeout)
+           py::arg("timeout") = motion::kDefaultTimeout,
+           py::arg("limits") = conservativeLimits())
       .def("get_duration", &motion::CartesianTrajectory::getDuration)
       .def("get_pose",
            &motion::CartesianTrajectory::getPose, py::arg("time"))
@@ -368,6 +409,11 @@ PYBIND11_MODULE(_core, m) {
       .def("get_joint_limits_upper", &Panda::getJointLimitsUpper, R"delim(
           Upper joint position limits of the connected robot (cf.
           :py:func:`get_joint_limits_lower`).
+      )delim")
+      .def_property_readonly("limits", &Panda::getLimits, R"delim(
+          The connected robot's type, joint envelope and motion limits
+          (:py:class:`RobotLimits`), from its protocol version. The motion
+          generators plan with them.
       )delim")
       .def("set_joint_walls", &Panda::setJointWalls, py::arg("enabled"),
            R"delim(

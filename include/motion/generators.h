@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-#include "kinematics/ik.h"
+#include "constants.h"
 #include "motion/time_optimal/trajectory.h"
 #include "utils.h"
 
@@ -48,9 +48,12 @@ class PandaTrajectory {
 
 class JointTrajectory : public PandaTrajectory {
  public:
+  /// A time-optimal trajectory through the waypoints within `limits` scaled
+  /// by `speed_factor`; the waypoints must lie within its joint limits.
   JointTrajectory(const std::vector<Vector7d>& waypoints,
                   double speed_factor = kDefaultJointSpeedFactor,
-                  double maxDeviation = 0.0, double timeout = kDefaultTimeout);
+                  double maxDeviation = 0.0, double timeout = kDefaultTimeout,
+                  const RobotLimits& limits = conservativeLimits());
 
   Vector7d getJointPositions(double time);
 
@@ -69,12 +72,14 @@ class CartesianTrajectory : public PandaTrajectory {
       const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
       const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
       double speed_factor = kDefaultCartesianSpeedFactor,
-      double maxDeviation = 0.0, double timeout = kDefaultTimeout);
+      double maxDeviation = 0.0, double timeout = kDefaultTimeout,
+      const RobotLimits& limits = conservativeLimits());
 
   CartesianTrajectory(const std::vector<Eigen::Matrix<double, 4, 4>>& poses,
                       double speed_factor = kDefaultCartesianSpeedFactor,
                       double maxDeviation = 0.0,
-                      double timeout = kDefaultTimeout);
+                      double timeout = kDefaultTimeout,
+                      const RobotLimits& limits = conservativeLimits());
 
   Eigen::Matrix<double, 4, 4> getPose(double time);
 
@@ -85,7 +90,8 @@ class CartesianTrajectory : public PandaTrajectory {
  private:
   void _init(const std::vector<Eigen::Matrix<double, 3, 1>>& positions,
              const std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
-             double speed_factor, double maxDeviation, double timeout);
+             double speed_factor, double maxDeviation, double timeout,
+             const RobotLimits& limits);
 
   std::vector<double> angles_;
   std::vector<Eigen::Vector3d> axes_;

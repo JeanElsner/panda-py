@@ -18,7 +18,7 @@ import pytest
 
 import panda_py
 from panda_py import libfranka
-from panda_py.exceptions import LIBFRANKA_FOR_SERVER_VERSION, IncompatibleVersionError
+from panda_py.exceptions import SUPPORTED_PROTOCOL_VERSIONS, IncompatibleVersionError
 
 # Runs in a subprocess rather than a thread: the libfranka.Robot binding holds
 # the GIL while it connects, so a fake in this interpreter would never answer.
@@ -54,7 +54,8 @@ conn, _ = sock.accept()
 with conn:
     command, command_id, size = header.unpack(recv_exactly(conn, header.size))
     offered, _ = request.unpack(recv_exactly(conn, size - header.size)[: request.size])
-    replied = 3 if offered != 3 else 10
+    # A version newer than any panda-py speaks: older ones it would reconnect in.
+    replied = 11
     conn.sendall(
         header.pack(command, command_id, header.size + response.size)
         + response.pack(k_incompatible_library_version, replied)
@@ -64,7 +65,7 @@ with conn:
 
 
 class FakeControlUnit:
-    """Rejects one Connect with a version other than the one offered."""
+    """Rejects one Connect with a protocol version panda-py does not speak."""
 
     def __init__(self):
         self._process = subprocess.Popen(
@@ -124,37 +125,19 @@ def test_existing_runtime_error_handlers_still_catch_it(control_unit):
         libfranka.Robot("127.0.0.1")
 
 
-@pytest.mark.parametrize(
-    "server_version, libfranka_version", LIBFRANKA_FOR_SERVER_VERSION.items()
-)
-def test_message_names_the_build_to_install(server_version, libfranka_version):
-    error = IncompatibleVersionError(server_version, 99)
-    assert error.libfranka_version == libfranka_version
-    assert f"protocol version {server_version}" in str(error)
-    assert f"libfranka {libfranka_version}" in str(error)
+def test_supports_every_protocol_version_from_3_to_10():
+    assert list(SUPPORTED_PROTOCOL_VERSIONS) == list(range(3, 11))
 
 
-def test_table_covers_every_protocol_version():
-    assert sorted(LIBFRANKA_FOR_SERVER_VERSION) == list(range(3, 11))
-
-
-def test_table_matches_the_readme():
-    """The README's build table is the one users read; the two must agree."""
-    readme = pathlib.Path(__file__).parents[1] / "README.md"
-    rows = re.findall(
-        r"^\|[^|]*\|[^|]*\| (\d+) \| \[panda_py_[\d.]+_libfranka_([\d.]+)\.zip",
-        readme.read_text(),
-        re.MULTILINE,
-    )
-    assert {
-        int(server): libfranka for server, libfranka in rows
-    } == LIBFRANKA_FOR_SERVER_VERSION
-
-
-def test_unknown_protocol_version_says_no_build_exists():
+def test_a_newer_robot_says_to_upgrade():
     error = IncompatibleVersionError(11, 10)
-    assert error.libfranka_version is None
-    assert "No panda-py build supports protocol version 11" in str(error)
+    assert "speaks version 11" in str(error)
+    assert "pip install -U panda-python" in str(error)
+
+
+def test_an_older_robot_says_it_is_unsupported():
+    error = IncompatibleVersionError(2, 10)
+    assert "not supported" in str(error)
 
 
 def test_pickles():

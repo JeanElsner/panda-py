@@ -3,6 +3,8 @@
 
 #include <atomic>
 
+#include "constants.h"
+
 class TorqueController {
  public:
   virtual franka::Torques step(const franka::RobotState& robot_state,
@@ -20,8 +22,15 @@ class TorqueController {
 
   void setTime(double time) { time_ = time; }
 
+  /// The connected robot's limits, set by Panda before start(); controllers
+  /// that clamp to the joint envelope or default a guard to the joint
+  /// velocity limits take them from here.
+  void setRobotLimits(const RobotLimits& limits) { limits_ = limits; }
+  const RobotLimits& robotLimits() const { return limits_; }
+
   double getTime() { return time_; }
 
  private:
   std::atomic<double> time_;
+  RobotLimits limits_ = conservativeLimits();
 };
