@@ -565,11 +565,10 @@ PYBIND11_MODULE(_core, m) {
                i.e. quaternions with scalar last. The computed trajectory is time-optimal.
 
                Returns whether the motion finished within ``success_threshold``
-               metres and ``orientation_threshold`` radians of the goal. The
-               controller is an impedance controller without integral action, so it
-               settles a few millimetres and degrees short of the goal wherever
-               friction balances its spring; the defaults allow for that at the
-               default impedance. Tighten them together with a higher impedance.
+               metres and ``orientation_threshold`` radians of the goal. Once the
+               trajectory has ended, a small integral term, bounded to 5 N and
+               0.5 N m, closes what friction or an unmodelled load leave of the
+               error, for at most a second.
                )delim")
       .def(
           "move_to_pose",

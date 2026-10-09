@@ -73,6 +73,16 @@ with guards and telemetry, and its kinematics are numerical. See the
 
 ### Added
 
+- `move_to_joint_position`, `move_to_start` and `move_to_pose` close the error
+  that friction or an unmodelled load leave at the goal with a small integral
+  term once the trajectory has ended: it integrates only outside the settle
+  tolerance and is bounded to 2 N m per joint, or 5 N and 0.5 N m at the end
+  effector, so pushing against an obstacle stays gentle. On an FR3 the moves
+  otherwise settled up to 0.015 rad short at joint 7.
+- `panda-identify-load` estimates the mass and centre of mass of a load that
+  is mounted but not configured, a camera or a mount say, from the external
+  joint torques in 13 wrist orientations, and prints the values for Desk or
+  `set_load`.
 - One 1 kHz loop for every controller: setters that only take a mutex the
   loop try-locks, so a command takes effect on the next tick and the loop
   never waits; guards; telemetry; and `TorqueController.commanded()`, called

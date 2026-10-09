@@ -30,7 +30,7 @@ class _Session:
         self.calls = []
 
     def _record(self, method):
-        def call(url, json=None, headers=None, files=None):
+        def call(url, json=None, headers=None, files=None, timeout=None):
             self.calls.append((method, url, json, headers, files))
             for suffix, response in self._by_url.items():
                 if url.endswith(suffix):

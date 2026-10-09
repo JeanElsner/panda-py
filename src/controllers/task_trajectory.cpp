@@ -20,6 +20,10 @@ const double TaskTrajectory::kDefaultDqThreshold = 1e-3;
 const double TaskTrajectory::kSettlePositionTolerance = 2e-3;
 const double TaskTrajectory::kSettleOrientationTolerance = 2e-3;
 const double TaskTrajectory::kSettleTimeout = 1.0;
+const double TaskTrajectory::kSettlePositionGain = 2000.0;
+const double TaskTrajectory::kSettleOrientationGain = 50.0;
+const double TaskTrajectory::kSettleForceLimit = 5.0;
+const double TaskTrajectory::kSettleTorqueLimit = 0.5;
 const double TaskTrajectory::kDefaultNullspaceStiffness = 15.0;
 const double TaskTrajectory::kDefaultDampingRatio = 1.0;
 // clang-format off
@@ -61,6 +65,53 @@ bool TaskTrajectory::sync(const franka::RobotState& robot_state, double time) {
   return updated;
 }
 
+void TaskTrajectory::begin(const franka::RobotState& robot_state) {
+  TaskImpedance::begin(robot_state);
+  settle_.setZero();
+}
+
+void TaskTrajectory::onRearm(const franka::RobotState& robot_state) {
+  TaskImpedance::onRearm(robot_state);
+  settle_.setZero();
+}
+
+Vector6d TaskTrajectory::goalError(const franka::RobotState& robot_state) const {
+  const Eigen::Affine3d transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
+  const Eigen::Quaterniond orientation(transform.rotation());
+  const Eigen::Quaterniond goal(traj_->getOrientation(traj_->getDuration()));
+  const Eigen::AngleAxisd rotation(goal * orientation.inverse());
+  double angle = rotation.angle();
+  if (angle > M_PI) {
+    angle -= 2 * M_PI;
+  }
+  Vector6d error;
+  error.head<3>() = traj_->getPosition(traj_->getDuration()) - transform.translation();
+  error.tail<3>() = angle * rotation.axis();
+  return error;
+}
+
+Vector7d TaskTrajectory::law(const franka::RobotState& robot_state, double dt,
+                             bool tripped) {
+  const Vector7d tau = TaskImpedance::law(robot_state, dt, tripped);
+  if (tripped || getTime() <= traj_->getDuration()) {
+    return tau;
+  }
+  const Vector6d error = goalError(robot_state);
+  if (error.head<3>().norm() > kSettlePositionTolerance) {
+    settle_.head<3>() += kSettlePositionGain * error.head<3>() * dt;
+    const double norm = settle_.head<3>().norm();
+    if (norm > kSettleForceLimit) settle_.head<3>() *= kSettleForceLimit / norm;
+  }
+  if (error.tail<3>().norm() > kSettleOrientationTolerance) {
+    settle_.tail<3>() += kSettleOrientationGain * error.tail<3>() * dt;
+    const double norm = settle_.tail<3>().norm();
+    if (norm > kSettleTorqueLimit) settle_.tail<3>() *= kSettleTorqueLimit / norm;
+  }
+  const Eigen::Matrix<double, 6, 7> jacobian(
+      model_->zeroJacobian(franka::Frame::kEndEffector, robot_state).data());
+  return tau + jacobian.transpose() * settle_;
+}
+
 bool TaskTrajectory::finished(const franka::RobotState& robot_state) {
   const double overrun = getTime() - traj_->getDuration();
   if (overrun <= 0.0) {
@@ -69,19 +120,10 @@ bool TaskTrajectory::finished(const franka::RobotState& robot_state) {
   const bool at_rest =
       Eigen::Map<const Vector7d>(robot_state.dq.data()).cwiseAbs().maxCoeff() <=
       dq_threshold_;
-  // Being at rest is not enough on its own: without an integral term the
-  // controller comes to rest wherever the stiffness balances the residual
-  // error, which can be well short of the goal.
-  const Eigen::Affine3d transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
-  const double position_error =
-      (traj_->getPosition(traj_->getDuration()) - transform.translation()).norm();
-  const Eigen::Quaterniond orientation(transform.rotation());
-  Eigen::Quaterniond orientation_goal(traj_->getOrientation(traj_->getDuration()));
-  if (orientation_goal.coeffs().dot(orientation.coeffs()) < 0.0) {
-    orientation_goal.coeffs() << -orientation_goal.coeffs();
-  }
-  const double orientation_error = orientation.angularDistance(orientation_goal);
-  const bool at_goal = position_error <= kSettlePositionTolerance &&
-                       orientation_error <= kSettleOrientationTolerance;
+  // Being at rest is not enough on its own: before the integral term has
+  // built up, the robot can rest short of the goal.
+  const Vector6d error = goalError(robot_state);
+  const bool at_goal = error.head<3>().norm() <= kSettlePositionTolerance &&
+                       error.tail<3>().norm() <= kSettleOrientationTolerance;
   return (at_rest && at_goal) || overrun >= kSettleTimeout;
 }
