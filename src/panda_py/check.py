@@ -132,19 +132,24 @@ class Checker:
     def loop_health(self, check, telemetry, controller):
         ticks = telemetry["tick"]
         durations = telemetry["duration"][1:]
+        # The robot reports a success rate of 0 as a motion starts, before it
+        # has a window of commands to rate: judge the rate after 100 ticks.
+        rate = telemetry["control_command_success_rate"][100:]
+        if not len(rate):
+            rate = telemetry["control_command_success_rate"]
         check.measurements.update(
             ticks=int(len(ticks)),
             telemetry_dropped=int(controller.telemetry_dropped),
             longest_tick_gap_ms=float(durations.max() * 1e3) if len(durations) else None,
             ticks_above_1ms=int((durations > 0.0015).sum()),
-            min_success_rate=float(telemetry["control_command_success_rate"].min()),
+            min_success_rate=float(rate.min()),
+            mean_success_rate=float(rate.mean()),
             guard=controller.guard_state,
         )
         self.expect(check, len(ticks) > 0, "no telemetry")
         self.expect(check, controller.telemetry_dropped == 0, "telemetry samples dropped")
         self.expect(check, np.all(np.diff(ticks) == 1), "ticks missing from the telemetry")
-        self.expect(check, telemetry["control_command_success_rate"].min() > 0.9,
-                    "command success rate below 0.9")
+        self.expect(check, rate.min() > 0.9, "command success rate below 0.9")
         self.expect(check, not controller.guard_state["tripped"],
                     f"guard tripped: {controller.guard_state['reason']}")
 
@@ -178,6 +183,9 @@ class Checker:
             robot=str(limits.type).split(".")[-1],
             envelope=limits.name,
             robot_mode=str(state.robot_mode),
+            end_effector_mass_kg=float(state.m_ee),
+            load_mass_kg=float(state.m_load),
+            F_T_EE=list(map(float, state.F_T_EE)),
             current_errors=str(state.current_errors),
             q=list(map(float, state.q)),
         )
@@ -237,9 +245,9 @@ class Checker:
 
     def move_to_start(self, check):
         ok = self.panda.move_to_start(speed_factor=0.2)
-        q = np.asarray(self.panda.q)
-        check.measurements["error_rad"] = float(
-            np.abs(q - np.asarray(constants.JOINT_POSITION_START)).max())
+        error = np.asarray(self.panda.q) - np.asarray(constants.JOINT_POSITION_START)
+        check.measurements.update(error_rad=float(np.abs(error).max()),
+                                  error_per_joint_rad=error.tolist())
         self.expect(check, ok, "move_to_start reported failure")
 
     def joint_impedance(self, check):
@@ -273,10 +281,12 @@ class Checker:
         ctrl = controllers.JointTorque(damping=np.full(7, 2.0), telemetry=TELEMETRY)
         t = self.controller_run(ctrl, [], 1.5)
         self.loop_health(check, t, ctrl)
-        drift = float(np.abs(t["q"][-1] - q0).max())
-        check.measurements["drift_rad"] = drift
-        self.expect(check, drift < 0.05,
-                    "drifted with zero torque: is the end effector's load set in Desk?")
+        drift = t["q"][-1] - q0
+        check.measurements.update(drift_rad=float(np.abs(drift).max()),
+                                  drift_per_joint_rad=drift.tolist())
+        self.expect(check, np.abs(drift).max() < 0.05,
+                    "drifted with zero torque: the robot's gravity compensation does not "
+                    "match what is mounted; check the end effector and load in Desk")
 
     def task_impedance(self, check):
         ctrl = controllers.TaskImpedance(telemetry=TELEMETRY)
@@ -299,9 +309,11 @@ class Checker:
         ctrl = controllers.TaskWrench(damping=np.full(7, 2.0), telemetry=TELEMETRY)
         t = self.controller_run(ctrl, [], 1.5)
         self.loop_health(check, t, ctrl)
-        drift = float(np.linalg.norm(self.panda.get_position() - p0))
-        check.measurements["drift_m"] = drift
-        self.expect(check, drift < 0.03, "drifted with zero wrench")
+        drift = self.panda.get_position() - p0
+        check.measurements.update(drift_m=float(np.linalg.norm(drift)), drift_xyz_m=drift.tolist())
+        self.expect(check, np.linalg.norm(drift) < 0.03,
+                    "drifted with zero wrench: the robot's gravity compensation does not "
+                    "match what is mounted; check the end effector and load in Desk")
 
     def task_force(self, check):
         ctrl = controllers.TaskForce(telemetry=TELEMETRY)
