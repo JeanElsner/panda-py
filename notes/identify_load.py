@@ -1,5 +1,9 @@
 """
-``panda-identify-load``: estimates a load that is mounted but not configured.
+Not part of panda-py: an experiment, kept for reference. It assumes gravity
+along the base's -z and was unreliable on GARMI's tilted arms (0.3-0.4 N m
+residuals even with the gravity direction fitted).
+
+Estimates a load that is mounted but not configured.
 
 Anything on the arm beyond the end effector configured in Desk, a camera or a
 mount say, adds weight the robot does not compensate. At rest it shows in the

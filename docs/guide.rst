@@ -173,19 +173,3 @@ report and a JSON file with every measurement, the robot's type and protocol
 version, and panda-py's and libfranka's versions: the first thing to attach
 to an issue. ``--desk-user`` unlocks the robot and activates FCI for the
 check; ``--no-motion`` runs only what does not move.
-
-Identifying a load
-------------------
-
-A camera, a mount or a tool that is not configured in Desk is weight the robot
-does not compensate: controllers with zero torque drift, and impedance
-controllers settle off their reference. ``panda-identify-load <robot-ip>``
-holds the arm still in 13 wrist orientations around the start pose and fits
-the load's mass and centre of mass (flange frame) to the external joint
-torques the robot estimates, on top of the end effector configured in Desk.
-It prints a ``set_load`` call for the load, with the uncertainties, and the
-values for the end effector in Desk with the load included, for keeping it
-there instead; the inertia, which cannot be identified at rest, is that of a
-small box. ``--out FILE`` writes the result, which ``panda-check --load FILE``
-sets before checking. A load already set is taken into account, so it can be
-run again to check the result.
