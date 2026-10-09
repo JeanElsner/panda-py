@@ -195,3 +195,21 @@ def test_the_minimum_speed_factor_computes_quickly():
     trajectory = motion.JointTrajectory([lower, upper], speed_factor=1e-3)
     assert trajectory.get_duration() > 1000
     motion.CartesianTrajectory(POSITIONS, ORIENTATIONS, speed_factor=1e-3)
+
+
+@pytest.mark.parametrize("kind", ["joint", "cartesian"])
+def test_a_trajectory_to_where_it_is_has_no_duration_and_is_quick(kind):
+    """Identical waypoints used to make the planner retry until the timeout."""
+    import time  # pylint: disable=import-outside-toplevel
+
+    start = time.monotonic()
+    if kind == "joint":
+        trajectory = motion.JointTrajectory([START, START], timeout=5)
+        np.testing.assert_array_equal(trajectory.get_joint_positions(0.5), START)
+        np.testing.assert_array_equal(trajectory.get_joint_velocities(0.5), 0)
+    else:
+        trajectory = motion.CartesianTrajectory([POSITIONS[0], POSITIONS[0]],
+                                                [ORIENTATIONS[0], ORIENTATIONS[0]], timeout=5)
+        np.testing.assert_allclose(trajectory.get_position(0.5), POSITIONS[0])
+    assert trajectory.get_duration() == 0.0
+    assert time.monotonic() - start < 1.0

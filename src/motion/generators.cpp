@@ -37,6 +37,11 @@ void PandaTrajectory::_validateSpeedFactor(double speed_factor) {
 bool PandaTrajectory::_computeTrajectory(
     const time_optimal::Path& path, const Eigen::VectorXd& max_velocity,
     const Eigen::VectorXd& max_acceleration, double timeout) {
+  if (path.getLength() < 1e-12) {
+    still_ = true;
+    still_point_ = path.getConfig(0.0);
+    return true;
+  }
   auto startTime = std::chrono::high_resolution_clock::now();
   bool success = false;
   int i = 0;
@@ -104,11 +109,11 @@ JointTrajectory::JointTrajectory(const std::vector<Vector7d>& waypoints,
   if (waypoints.size() == 2) {
     _log("info",
          "Computed joint trajectory: 1 waypoint, duration %.2f seconds.",
-         traj_->getDuration());
+         getDuration());
   } else {
     _log("info",
          "Computed joint trajectory: %d waypoints, duration %.2f seconds.",
-         waypoints.size() - 1, traj_->getDuration());
+         waypoints.size() - 1, getDuration());
   }
 }
 
@@ -122,15 +127,15 @@ time_optimal::Path JointTrajectory::_convertList(
 }
 
 Vector7d JointTrajectory::getJointPositions(double time) {
-  return traj_->getPosition(time);
+  return still_ ? Vector7d(still_point_) : Vector7d(traj_->getPosition(time));
 }
 
 Vector7d JointTrajectory::getJointVelocities(double time) {
-  return traj_->getVelocity(time);
+  return still_ ? Vector7d::Zero() : Vector7d(traj_->getVelocity(time));
 }
 
 Vector7d JointTrajectory::getJointAccelerations(double time) {
-  return traj_->getAcceleration(time);
+  return still_ ? Vector7d::Zero() : Vector7d(traj_->getAcceleration(time));
 }
 
 CartesianTrajectory::CartesianTrajectory(
@@ -220,34 +225,33 @@ void CartesianTrajectory::_init(
   if (orientations.size() == 2) {
     _log("info",
          "Computed Cartesian trajectory: 1 waypoint, duration %.2f seconds.",
-         traj_->getDuration());
+         getDuration());
   } else {
     _log("info",
          "Computed Cartesian trajectory: %d waypoints, duration %.2f seconds.",
-         orientations.size() - 1, traj_->getDuration());
+         orientations.size() - 1, getDuration());
   }
 }
 
 Eigen::Matrix<double, 4, 4> CartesianTrajectory::getPose(double time) {
-  auto pose = traj_->getPosition(time);
-  size_t idx = traj_->getTrajectorySegmentIndex(time);
-  double angle = pose.coeff(3) - angles_.at(idx);
-  Eigen::AngleAxisd aa(angle, axes_.at(idx));
-  Eigen::Quaterniond o = Eigen::Quaterniond(aa) * orientations_.at(idx);
-
   Eigen::Affine3d transform;
-  transform = o;
-  transform.translation() = pose.head(3);
-
+  transform = Eigen::Quaterniond(getOrientation(time));
+  transform.translation() = getPosition(time);
   return transform.matrix();
 }
 
 Eigen::Vector3d CartesianTrajectory::getPosition(double time) {
+  if (still_) {
+    return still_point_.head(3);
+  }
   auto pose = traj_->getPosition(time);
   return pose.head(3);
 }
 
 Eigen::Vector4d CartesianTrajectory::getOrientation(double time) {
+  if (still_) {
+    return orientations_.front().coeffs();
+  }
   auto pose = traj_->getPosition(time);
   size_t idx = traj_->getTrajectorySegmentIndex(time);
   double angle = pose.coeff(3) - angles_.at(idx);

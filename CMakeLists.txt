@@ -53,6 +53,15 @@ if(NOT DEFINED LIBFRANKA_VER)
   endif()
 endif()
 add_compile_definitions(LIBFRANKA_VER=${LIBFRANKA_VER})
+# What panda_py.libfranka.__version__ reports: the libfranka release, or,
+# given LIBFRANKA_DESCRIBE (the release pipeline sets it to the fork's git
+# describe), that.
+if(DEFINED ENV{LIBFRANKA_DESCRIBE})
+  set(LIBFRANKA_DESCRIBE "$ENV{LIBFRANKA_DESCRIBE}")
+else()
+  set(LIBFRANKA_DESCRIBE "${Franka_VERSION}")
+endif()
+add_compile_definitions(PANDA_PY_LIBFRANKA_DESCRIBE="${LIBFRANKA_DESCRIBE}")
 find_package(
   Python
   COMPONENTS Interpreter Development.Module

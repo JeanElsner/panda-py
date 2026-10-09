@@ -121,3 +121,27 @@ def test_move_to_joint_position_runs_and_reports_the_robot_did_not_follow(robot)
     # The fake robot does not move: the controller tracks, gives up after the
     # settle timeout and reports the goal as missed.
     assert panda.move_to_joint_position(q + 0.05, speed_factor=0.5) is False
+
+
+def test_panda_check_runs_without_motion(tmp_path):
+    """panda-check's non-moving checks against the fake robot, and its report."""
+    from panda_py import check  # pylint: disable=import-outside-toplevel
+
+    if not _port_free():
+        pytest.skip("127.0.0.1:1337 is in use")
+    process = subprocess.Popen(
+        [sys.executable, str(FAKE), "--version", "10", "--seconds", "30", "--still"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        assert process.stdout.readline().strip() == "ready"
+        check.main(["127.0.0.1", "--no-motion", "--out", str(tmp_path)])
+    finally:
+        process.kill()
+        process.wait()
+        process.stdout.close()
+    report = next(tmp_path.glob("panda-check-FR3-v10-*.md")).read_text()
+    assert "research interface protocol version 10" in report
+    for name in ("environment", "connect", "model", "settings", "recovery"):
+        assert f"| {name} |" in report
+    assert "| JointImpedance | skipped |" in report
+    assert next(tmp_path.glob("panda-check-FR3-v10-*.json")).stat().st_size > 0

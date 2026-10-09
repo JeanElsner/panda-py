@@ -25,7 +25,7 @@ const double kMinSpeedFactor = 1e-3;
 
 class PandaTrajectory {
  public:
-  double getDuration() { return traj_->getDuration(); }
+  double getDuration() { return still_ ? 0.0 : traj_->getDuration(); }
 
  protected:
   static void _validateWaypointCount(size_t count);
@@ -44,6 +44,10 @@ class PandaTrajectory {
 
   py::object logger_;
   std::shared_ptr<time_optimal::Trajectory> traj_;
+  /// Every waypoint the same: no motion, nothing to plan, which the
+  /// time-optimal planner cannot do (it retries until the timeout).
+  bool still_ = false;
+  Eigen::VectorXd still_point_;
 };
 
 class JointTrajectory : public PandaTrajectory {

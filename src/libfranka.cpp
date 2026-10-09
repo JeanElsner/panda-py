@@ -611,6 +611,7 @@ PYBIND11_MODULE(libfranka, m) {
                           const std::array<double, 7> &>(&franka::limitRate));
 
   m.attr("MAX_TORQUE_RATE") = franka::kMaxTorqueRate;
+  m.attr("__version__") = PANDA_PY_LIBFRANKA_DESCRIBE;
 
   // TODO: lowpass_filter.h
   // TODO: rate_limiting.h
