@@ -14,8 +14,9 @@ still in several wrist orientations and solving the stack by least squares
 gives m, c and b. The inertia cannot be identified at rest; for the small
 loads this is for, a solid box around the centre of mass is close enough.
 
-The result is relative to what the robot already knows: a load set in Desk
-or with ``set_load`` is combined with the estimate.
+The estimate is what the robot does not know about yet: the end effector
+configured in Desk (the Franka Hand, say) is already compensated, and a load
+already set with ``set_load`` is combined with the estimate.
 
     panda-identify-load <robot-ip> [--out FILE]
 """
@@ -119,6 +120,20 @@ def combine(m1, c1, m2, c2):
     return m, (m1 * np.asarray(c1) + m2 * np.asarray(c2)) / m
 
 
+def combine_inertia(parts):
+    """
+    Mass, centre of mass and inertia (about the centre of mass, column-major)
+    of rigid bodies given as (mass, centre of mass, inertia about it).
+    """
+    mass = sum(m for m, _, _ in parts)
+    com = sum(m * np.asarray(c) for m, c, _ in parts) / mass
+    inertia = np.zeros((3, 3))
+    for m, c, i in parts:
+        d = np.asarray(c) - com
+        inertia += np.asarray(i).reshape(3, 3, order="F") + m * (d @ d * np.eye(3) - np.outer(d, d))
+    return mass, com, inertia.reshape(-1, order="F")
+
+
 def collect(panda, samples=100, settle=1.5):
     """Holds each pose still and averages the external joint torques."""
     start = np.asarray(constants.JOINT_POSITION_START)
@@ -178,13 +193,24 @@ def main(argv=None):
               f"{mass * 1e3:.0f} g at {np.round(com * 1e3, 1).tolist()} mm")
     if result["mass"] < 2 * result["mass_std"] or result["mass"] < 0.02:
         print("  The estimate is within its uncertainty of no load: nothing worth setting.")
-    print("\n  For Desk's end-effector settings: load mass "
-          f"{mass:.3f} kg, centre of mass {np.round(com, 4).tolist()} m, inertia "
-          f"{result['inertia'][0]:.2e} kg m^2 on the diagonal.")
-    print("  or in Python, after connecting: panda.get_robot().set_load("
-          f"{mass:.3f}, {np.round(com, 4).tolist()}, "
-          f"[{result['inertia'][0]:.2e}, 0, 0, 0, {result['inertia'][4]:.2e}, 0, 0, 0, "
-          f"{result['inertia'][8]:.2e}])")
+    inertia = result["inertia"]
+    print("\n  Either set it as the load from your code, after connecting (flange frame;")
+    print("  the end effector in Desk stays as it is):")
+    print(f"    panda.get_robot().set_load({mass:.3f}, {np.round(com, 4).tolist()}, "
+          f"[{inertia[0]:.2e}, 0, 0, 0, {inertia[4]:.2e}, 0, 0, 0, {inertia[8]:.2e}])")
+    print("  or with panda-check --load FILE (write FILE with --out).")
+    m_ee, c_ee = float(state.m_ee), np.asarray(state.F_x_Cee)
+    if m_ee > 0:
+        m_all, c_all, i_all = combine_inertia(
+            [(m_ee, c_ee, state.I_ee), (mass, com, inertia)])
+        result.update(end_effector_with_load=dict(
+            mass=float(m_all), com=c_all.tolist(), inertia=i_all.tolist()))
+        i_all = i_all.reshape(3, 3, order="F")
+        print(f"\n  Or make it part of the end effector in Desk: the configured one "
+              f"({m_ee:.3f} kg at {np.round(c_ee, 4).tolist()} m) with the load is")
+        print(f"    mass {m_all:.3f} kg, centre of mass {np.round(c_all, 4).tolist()} m (flange frame),")
+        print(f"    inertia about it {np.round(i_all, 5).tolist()} kg m^2,")
+        print("  keeping the flange-to-end-effector transform as it is.")
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=1)

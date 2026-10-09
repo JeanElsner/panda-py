@@ -182,7 +182,10 @@ does not compensate: controllers with zero torque drift, and impedance
 controllers settle off their reference. ``panda-identify-load <robot-ip>``
 holds the arm still in 13 wrist orientations around the start pose and fits
 the load's mass and centre of mass (flange frame) to the external joint
-torques the robot estimates. It prints the values for Desk's end-effector
-settings and a ``set_load`` call, with their uncertainties; the inertia, which
-cannot be identified at rest, is that of a small box. A load already set is
-taken into account, so it can be run again to check the result.
+torques the robot estimates, on top of the end effector configured in Desk.
+It prints a ``set_load`` call for the load, with the uncertainties, and the
+values for the end effector in Desk with the load included, for keeping it
+there instead; the inertia, which cannot be identified at rest, is that of a
+small box. ``--out FILE`` writes the result, which ``panda-check --load FILE``
+sets before checking. A load already set is taken into account, so it can be
+run again to check the result.

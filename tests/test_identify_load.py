@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 
@@ -50,3 +52,47 @@ def test_no_load():
     result = identify_load.fit(qs, [np.full(7, 0.1) for _ in qs])
     assert result["mass"] < 1e-9
     assert result["com"] == [0, 0, 0]
+
+
+def test_combine_inertia():
+    # Two 1 kg points 0.2 m apart: 0.02 kg m^2 about the axes across them.
+    zero = [0] * 9
+    m, c, i = identify_load.combine_inertia(
+        [(1, [0.1, 0, 0], zero), (1, [-0.1, 0, 0], zero)])
+    assert m == 2
+    np.testing.assert_allclose(c, 0, atol=1e-15)
+    np.testing.assert_allclose(np.reshape(i, (3, 3)), np.diag([0, 0.02, 0.02]), atol=1e-15)
+
+
+def test_main_reports_the_load(monkeypatch, tmp_path, capsys):
+    # The Franka Hand configured; 0.3 kg the robot does not know about.
+    m, c = 0.3, np.array([0.0, 0.03, 0.04])
+    qs = poses()
+    taus = np.array([identify_load.regressor(q) @ np.hstack([m, m * c]) for q in qs])
+
+    class State:
+        m_ee, F_x_Cee = 0.73, [-0.01, 0, 0.03]
+        I_ee = [0.001, 0, 0, 0, 0.0025, 0, 0, 0, 0.0017]
+        m_load, F_x_Cload = 0.0, [0, 0, 0]
+
+    class FakePanda:
+        def __init__(self, hostname):
+            pass
+
+        def get_state(self):
+            return State()
+
+        def move_to_start(self, **kwargs):
+            pass
+
+    monkeypatch.setattr(panda_py, "Panda", FakePanda)
+    monkeypatch.setattr(identify_load, "collect", lambda panda: (qs, taus))
+    out = tmp_path / "load.json"
+    assert identify_load.main(["robot", "--yes", "--out", str(out)]) == 0
+    printed = capsys.readouterr().out
+    assert "set_load(0.300" in printed
+    result = json.loads(out.read_text())
+    np.testing.assert_allclose(result["total_load_com"], c, atol=1e-9)
+    total = result["end_effector_with_load"]
+    assert total["mass"] == pytest.approx(1.03)
+    np.testing.assert_allclose(total["com"], (0.73 * np.array(State.F_x_Cee) + m * c) / 1.03)

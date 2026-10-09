@@ -176,6 +176,10 @@ class Checker:
     def connect(self, check):
         self.panda = panda_py.Panda(self.args.hostname)
         robot = self.panda.get_robot()
+        if self.args.load:
+            with open(self.args.load, encoding="utf-8") as f:
+                load = json.load(f)
+            robot.set_load(load["total_load_mass"], load["total_load_com"], load["inertia"])
         limits = self.panda.limits
         state = self.panda.get_state()
         check.measurements.update(
@@ -464,6 +468,7 @@ def main(argv=None):
     parser.add_argument("--gripper", action="store_true", help="also check the Franka Hand (it moves)")
     parser.add_argument("--no-motion", action="store_true", help="only the checks that do not move")
     parser.add_argument("--yes", action="store_true", help="do not ask before moving")
+    parser.add_argument("--load", help="set the load panda-identify-load --out wrote first")
     parser.add_argument("--out", default=".", help="directory for the report")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.WARNING)
