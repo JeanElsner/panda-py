@@ -4,168 +4,136 @@ import numpy
 import numpy.typing
 import panda_py.libfranka
 import typing
-__all__: list[str] = ['AppliedForce', 'AppliedTorque', 'CartesianTrajectory', 'Force', 'IntegratedVelocity', 'JointPosition', 'JointTrajectory', 'Panda', 'PandaContext', 'TaskImpedance', 'TorqueController', 'fk', 'ik', 'ik_full', 'realtime_priority_available']
-class AppliedForce(TorqueController):
-    def __init__(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., filter_coeff: typing.SupportsFloat | typing.SupportsIndex = 1.0) -> None:
+__all__: list[str] = ['CartesianTrajectory', 'IKResult', 'JointImpedance', 'JointTorque', 'JointTrajectory', 'JointVelocity', 'Panda', 'PandaContext', 'RobotLimits', 'RobotType', 'TaskForce', 'TaskImpedance', 'TaskWrench', 'TorqueController', 'conservative_limits', 'fk', 'jacobian', 'limits', 'realtime_priority_available']
+class IKResult:
+    """
+          The outcome of :py:func:`ik`: ``success``, the joint positions ``q`` (the
+          best found if not), the remaining ``position_error`` (m) and
+          ``orientation_error`` (rad), the ``iterations`` of the start that gave
+          ``q`` and the number of ``starts`` tried.
+      
+    """
+    def __repr__(self) -> str:
         ...
-    def set_control(self, force: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"]) -> None:
+    @property
+    def iterations(self) -> int:
         ...
-    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+    @property
+    def orientation_error(self) -> float:
         ...
-    def set_filter(self, filter_coeff: typing.SupportsFloat | typing.SupportsIndex) -> None:
+    @property
+    def position_error(self) -> float:
         ...
-class AppliedTorque(TorqueController):
-    def __init__(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., filter_coeff: typing.SupportsFloat | typing.SupportsIndex = 1.0) -> None:
+    @property
+    def q(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         ...
-    def set_control(self, torque: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+    @property
+    def starts(self) -> int:
         ...
-    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+    @property
+    def success(self) -> bool:
         ...
-    def set_filter(self, filter_coeff: typing.SupportsFloat | typing.SupportsIndex) -> None:
-        ...
-class CartesianTrajectory:
+class RobotType:
+    """
+          The robot generation: the Franka Emika Robot (FER, also known as Panda)
+          or the Franka Research 3 (FR3).
+      
+    
+    Members:
+    
+      FER
+    
+      FR3
+    """
+    FER: typing.ClassVar[RobotType]
+    FR3: typing.ClassVar[RobotType]
+    __members__: typing.ClassVar[dict[str, RobotType]]
     @typing.overload
-    def __init__(self, positions: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]], orientations: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, max_deviation: typing.SupportsFloat | typing.SupportsIndex = 0, timeout: typing.SupportsFloat | typing.SupportsIndex = 30.0) -> None:
+    def __eq__(self, other: RobotType) -> bool:
         ...
     @typing.overload
-    def __init__(self, poses: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, max_deviation: typing.SupportsFloat | typing.SupportsIndex = 0, timeout: typing.SupportsFloat | typing.SupportsIndex = 30.0) -> None:
+    def __eq__(self, other: typing.Any) -> bool:
         ...
-    def get_duration(self) -> float:
+    def __getstate__(self) -> int:
         ...
-    def get_orientation(self, time: typing.SupportsFloat | typing.SupportsIndex) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 1]"]:
+    def __hash__(self) -> int:
         ...
-    def get_pose(self, time: typing.SupportsFloat | typing.SupportsIndex) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 4]"]:
+    def __index__(self) -> int:
         ...
-    def get_position(self, time: typing.SupportsFloat | typing.SupportsIndex) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[3, 1]"]:
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
-class Force(TorqueController):
-    def __init__(self, k_p: typing.SupportsFloat | typing.SupportsIndex = 1.0, k_i: typing.SupportsFloat | typing.SupportsIndex = 2.0, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., threshold: typing.SupportsFloat | typing.SupportsIndex = 0.01, filter_coeff: typing.SupportsFloat | typing.SupportsIndex = 0.001) -> None:
+    def __int__(self) -> int:
         ...
-    def set_control(self, force: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]) -> None:
+    @typing.overload
+    def __ne__(self, other: RobotType) -> bool:
         ...
-    def set_filter(self, filter_coeff: typing.SupportsFloat | typing.SupportsIndex) -> None:
+    @typing.overload
+    def __ne__(self, other: typing.Any) -> bool:
         ...
-    def set_integral_gain(self, k_i: typing.SupportsFloat | typing.SupportsIndex) -> None:
+    def __repr__(self) -> str:
         ...
-    def set_proportional_gain(self, k_p: typing.SupportsFloat | typing.SupportsIndex) -> None:
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __str__(self) -> str:
         ...
     @property
     def name(self) -> str:
         ...
-class IntegratedVelocity(TorqueController):
-    def __init__(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> None:
-        ...
-    def get_qd(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
-        ...
-    def set_control(self, velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
-        ...
-    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
-        ...
-    def set_stiffness(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
-        ...
-class JointPosition(TorqueController):
-    def __init__(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., telemetry: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
-        """
-                       Joint position servo,
-                       :math:`\\tau = K (q_d - q) + D (\\dot q_d - \\dot q)`. Targets are
-                       applied by the loop on its next tick, which never waits for
-                       them. On start it holds the current joint positions.
-        
-                       Args:
-                         stiffness: :math:`K`, Nm/rad per joint.
-                         damping: :math:`D`, Nm s/rad per joint.
-                         telemetry: Capacity of the telemetry buffer in samples; 0
-                           records none.
-        """
-    def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
-        ...
-    def get_guard(self) -> dict:
-        ...
-    def get_snapshot(self) -> dict:
-        """
-                       What the loop last did: ``time`` and ``q`` of the latest tick,
-                       ``applied_time`` and ``applied_q`` of the tick the latest target
-                       was applied at, the target ``q_d`` and ``applied``, the number of
-                       targets applied since start.
-        """
-    def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
-        ...
-    def read_telemetry(self) -> dict:
-        """
-                       The telemetry recorded since the last call, one row per 1 kHz
-                       tick: ``tick``, ``time``, ``duration``, ``reference_update``,
-                       ``control_command_success_rate``, ``q_d``, ``dq_d``,
-                       ``stiffness``, ``damping``, ``tau_active``
-                       (:math:`K (q_d - q) + D \\dot q_d`, zero while a guard is
-                       tripped), ``tau_passive`` (:math:`-D \\dot q`), ``tau_law``,
-                       ``tau_cmd`` (sent), the robot state's ``q``, ``dq``, ``tau_J``,
-                       ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE``,
-                       ``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard``. See
-                       :py:func:`TaskImpedance.read_telemetry`.
-        """
-    def rearm(self) -> None:
-        """
-                       Clears a trip on the loop's next tick; the target becomes the
-                       joint positions of that tick.
-        """
-    def set_control(self, position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> None:
-        ...
-    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
-        ...
-    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector') -> None:
-        """
-                      Guards evaluated in the 1 kHz loop. When one trips, the loop drops
-                      the controller's active term (the spring) on that same tick and
-                      keeps the damping, until :py:func:`rearm`. Infinite values disable
-                      a guard; calling this replaces every setting.
-        
-                      Args:
-                        force: External force norm, N, from ``O_F_ext_hat_K``.
-                        force_time: Seconds the force must stay above ``force``.
-                        saturation_time: Seconds any sent joint torque may stay at its
-                          limit.
-                        speed: Speed of the controller's frame (the control frame, or
-                          the flange for joint control), m/s.
-                        joint_velocity: Per-joint speed limits, rad/s.
-                        workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
-                          a 4x4 transform in the base frame; the guarded point must stay
-                          inside at least one. :py:func:`panda_py.safety.box_along_axis`
-                          builds one around an axis.
-                        workspace_point: ``"end_effector"`` (``O_T_EE``) or
-                          ``"control"``, the controller's frame.
-        """
-    def set_stiffness(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
-        ...
-    def step_control(self, delta: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
-        """
-                       :math:`q_d = q + \\delta`, :math:`\\dot q_d = 0`, with :math:`q` of
-                       the tick it is applied at: one policy step of the simulator's
-                       joint servo.
-        """
-    def trip(self) -> None:
-        """
-        Trips the guard from outside the loop, on its next tick.
-        """
     @property
-    def guard_state(self) -> dict:
-        """
-                      ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
-                      ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
-                      or ``"none"``), the robot ``time`` of the trip, the ``value`` that
-                      tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
-                      ``joint``, where one is at fault. Telemetry's ``guard`` column
-                      holds the reason as a number, 0 while armed, in this order.
-        """
-    @property
-    def telemetry_capacity(self) -> int:
+    def value(self) -> int:
+        ...
+class RobotLimits:
+    """
+          A robot's joint envelope and the motion limits panda-py plans with, all
+          read-only. :py:attr:`Panda.limits` holds the connected robot's;
+          :py:func:`limits` gives them for a protocol version and
+          :py:func:`conservative_limits` those valid on every robot.
+      
+    """
+    def __repr__(self) -> str:
         ...
     @property
-    def telemetry_dropped(self) -> int:
+    def ddq_max(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         """
-        Samples lost because the telemetry buffer was full.
+        Joint acceleration limits, rad/s^2.
+        """
+    @property
+    def ddx_max(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 1]"]:
+        """
+        Cartesian acceleration limits, the same layout as dx_max.
+        """
+    @property
+    def dq_max(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        """
+        Joint velocity limits, rad/s.
+        """
+    @property
+    def dx_max(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 1]"]:
+        """
+        Cartesian velocity limits: translation along x, y, z (m/s) and rotation (rad/s).
+        """
+    @property
+    def name(self) -> str:
+        """
+        A readable name of the robot and envelope.
+        """
+    @property
+    def q_lower(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        """
+        Lower joint position limits, rad.
+        """
+    @property
+    def q_upper(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        """
+        Upper joint position limits, rad.
+        """
+    @property
+    def type(self) -> RobotType:
+        """
+        The robot generation.
         """
 class JointTrajectory:
-    def __init__(self, waypoints: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, max_deviation: typing.SupportsFloat | typing.SupportsIndex = 0, timeout: typing.SupportsFloat | typing.SupportsIndex = 30.0) -> None:
+    def __init__(self, waypoints: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, max_deviation: typing.SupportsFloat | typing.SupportsIndex = 0, timeout: typing.SupportsFloat | typing.SupportsIndex = 30.0, limits: RobotLimits = ...) -> None:
         ...
     def get_duration(self) -> float:
         ...
@@ -175,9 +143,36 @@ class JointTrajectory:
         ...
     def get_joint_velocities(self, time: typing.SupportsFloat | typing.SupportsIndex) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         ...
+class CartesianTrajectory:
+    @typing.overload
+    def __init__(self, positions: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]], orientations: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, max_deviation: typing.SupportsFloat | typing.SupportsIndex = 0, timeout: typing.SupportsFloat | typing.SupportsIndex = 30.0, limits: RobotLimits = ...) -> None:
+        ...
+    @typing.overload
+    def __init__(self, poses: collections.abc.Sequence[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"]], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, max_deviation: typing.SupportsFloat | typing.SupportsIndex = 0, timeout: typing.SupportsFloat | typing.SupportsIndex = 30.0, limits: RobotLimits = ...) -> None:
+        ...
+    def get_duration(self) -> float:
+        ...
+    def get_orientation(self, time: typing.SupportsFloat | typing.SupportsIndex) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 1]"]:
+        ...
+    def get_pose(self, time: typing.SupportsFloat | typing.SupportsIndex) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 4]"]:
+        ...
+    def get_position(self, time: typing.SupportsFloat | typing.SupportsIndex) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[3, 1]"]:
+        ...
+class PandaContext:
+    def __enter__(self) -> PandaContext:
+        ...
+    def __exit__(self, arg0: typing.Any, arg1: typing.Any, arg2: typing.Any) -> bool:
+        ...
+    def ok(self) -> bool:
+        ...
+    @property
+    def num_ticks(self) -> int:
+        ...
+    @property
+    def time(self) -> float:
+        ...
 class Panda:
     """
-    
          The main interface of panda-py to control the robot.
       
     """
@@ -189,6 +184,10 @@ class Panda:
         ...
     def enable_logging(self, buffer_size: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
+    def get_control_options(self) -> dict:
+        """
+                  The options of :py:func:`set_control_options` in effect, as a dict.
+        """
     def get_joint_limits_lower(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         """
                   Lower joint position limits of the connected robot, selected from its
@@ -199,10 +198,6 @@ class Panda:
         """
                   Upper joint position limits of the connected robot (cf.
                   :py:func:`get_joint_limits_lower`).
-        """
-    def get_control_options(self) -> dict:
-        """
-                  The options of :py:func:`set_control_options` in effect, as a dict.
         """
     def get_joint_walls(self) -> bool:
         """
@@ -222,7 +217,7 @@ class Panda:
                        Args:
                          scalar_first: If True returns quaternion in scalar first
                            representation (default: False)
-                       
+        
                        Returns:
                          Vector of shape (4,) holding quaternion coefficients.
         """
@@ -259,6 +254,13 @@ class Panda:
                        :math:`\\in \\mathbb{R}^3` and orientations
                        :math:`\\mathbf q = (\\vec{v},\\ r),~~ \\mathbf q \\in \\mathbb{H},~~ \\vec{v}\\in \\mathbb{R}^3,~~ r \\in \\mathbb{R}`,
                        i.e. quaternions with scalar last. The computed trajectory is time-optimal.
+        
+                       Returns whether the motion finished within ``success_threshold``
+                       metres and ``orientation_threshold`` radians of the goal. The
+                       controller is an impedance controller without integral action, so it
+                       settles a few millimetres and degrees short of the goal wherever
+                       friction balances its spring; the defaults allow for that at the
+                       default impedance. Tighten them together with a higher impedance.
         """
     @typing.overload
     def move_to_pose(self, position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], speed_factor: typing.SupportsFloat | typing.SupportsIndex = 0.2, impedance: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 6]"] = ..., damping_ratio: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex = 15.0, dq_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.001, success_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.02, orientation_threshold: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> bool:
@@ -299,12 +301,10 @@ class Panda:
                   the control loop already refreshes the state at 1KHz and this is a
                   no-op.
         """
-    def set_default_behavior(self) -> None:
-        ...
     def set_control_options(self, torque_rate_limit: bool = True, limit_rate: bool = False, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
         """
                   The torque path between a controller and the robot.
-
+        
                   Args:
                     torque_rate_limit: panda-py's limit of the commanded torque's
                       change to 1 N m per tick and joint (on by default). Takes effect
@@ -312,10 +312,12 @@ class Panda:
                     limit_rate: libfranka's own rate limiter (off by default).
                     cutoff_frequency: libfranka's first-order low-pass on the
                       commanded torque, Hz; 1000 turns it off (default 100).
-
+        
                   ``limit_rate`` and ``cutoff_frequency`` take effect when the next
                   controller starts.
         """
+    def set_default_behavior(self) -> None:
+        ...
     def set_joint_walls(self, enabled: bool) -> None:
         """
                   Switches the virtual joint walls, the torques that push a joint back
@@ -333,33 +335,236 @@ class Panda:
     def teaching_mode(self, active: bool, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> None:
         ...
     @property
+    def limits(self) -> RobotLimits:
+        """
+                  The connected robot's type, joint envelope and motion limits
+                  (:py:class:`RobotLimits`), from its protocol version. The motion
+                  generators plan with them.
+        """
+    @property
     def name(self) -> str:
         ...
     @property
     def q(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         ...
-class PandaContext:
-    def __enter__(self) -> PandaContext:
+class TorqueController:
+    """
+              Base class for all torque controllers. Torque controllers
+              provide the robot with torques at 1KHz and the user with
+              an asynchronous interface to provide control signals.
+          
+    """
+    def get_time(self) -> float:
+        """
+                  Get time in seconds since this controller was started.
+        """
+class JointImpedance(TorqueController):
+    def __init__(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., telemetry: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+        """
+                       Joint impedance, a spring and damper per joint to a reference:
+        
+                       .. math::
+                         \\tau = K (q_d - q) + D (\\dot q_d - \\dot q)
+        
+                       On start it holds the current joint positions. While a guard is
+                       tripped the active part, :math:`K (q_d - q) + D \\dot q_d`, is
+                       dropped and only the damping remains.
+        
+                       Args:
+                         stiffness: :math:`K`, Nm/rad per joint.
+                         damping: :math:`D`, Nm s/rad per joint.
+                         telemetry: Capacity of the telemetry buffer in samples, one per
+                           1 kHz tick; 0 records none.
+        """
+    def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         ...
-    def __exit__(self, arg0: typing.Any, arg1: typing.Any, arg2: typing.Any) -> bool:
+    def get_guard(self) -> dict:
         ...
-    def ok(self) -> bool:
+    def get_snapshot(self) -> dict:
+        """
+                       What the loop last did: ``time`` and ``q`` of the latest tick,
+                       ``applied_time`` and ``applied_q`` of the tick the latest
+                       reference was applied at, the reference ``q_d`` and ``applied``,
+                       the number of references applied since start.
+        """
+    def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        ...
+    def read_telemetry(self) -> dict:
+        """
+        The telemetry recorded since the last call, a dict of arrays with one row per 1 kHz tick: ``tick`` (counts every tick since start, so a gap is a sample the buffer had no room for), ``time``, ``duration`` (s since the previous tick; above 1 ms the robot ticked without a command), ``reference_update`` (1 where a command was applied), ``control_command_success_rate``, ``tau_law`` (the law's torque), ``tau_cmd`` (sent, after the joint walls, rate limit and clipping), the robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major), ``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard`` (the trip reason as a number, 0 while armed), and ``q_d``, ``dq_d``, ``stiffness``, ``damping``, ``tau_active`` (zero while a guard is tripped) and ``tau_passive``.
+        """
+    def rearm(self) -> None:
+        """
+                       Clears a trip on the loop's next tick; the reference becomes the
+                       joint positions of that tick.
+        """
+    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector', force_bias: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"] | None = None) -> None:
+        """
+                      Guards evaluated in the 1 kHz loop. When one trips, the loop drops
+                      the controller's active term (the spring) on that same tick and
+                      keeps the damping, until :py:func:`rearm`. Infinite values disable
+                      a guard; calling this replaces every setting.
+        
+                      Args:
+                        force: External force norm, N, from ``O_F_ext_hat_K``.
+                        force_time: Seconds the force must stay above ``force``.
+                        saturation_time: Seconds any sent joint torque may stay at its
+                          limit.
+                        speed: Speed of the controller's frame (the control frame, or
+                          the flange for joint control), m/s.
+                        joint_velocity: Per-joint speed limits, rad/s.
+                        workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
+                          a 4x4 transform in the base frame; the guarded point must stay
+                          inside at least one. :py:func:`panda_py.safety.box_along_axis`
+                          builds one around an axis.
+                        workspace_point: ``"end_effector"`` (``O_T_EE``) or
+                          ``"control"``, the controller's frame.
+                        force_bias: Subtracted from the force estimate before the
+                          force guard compares it, N: its bias, tared in free space.
+        """
+    def set_reference(self, q_d: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq_d: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> None:
+        """
+                       Reference joint positions and velocities, applied by the loop on
+                       its next tick; replaces a reference not yet applied.
+        """
+    def set_stiffness(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def step_reference(self, delta: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        """
+                       :math:`q_d = q + \\delta`, :math:`\\dot q_d = 0`, with :math:`q` of
+                       the tick it is applied at: an increment relative to where the
+                       robot is, as a learned policy's action often is.
+        """
+    def trip(self) -> None:
+        """
+        Trips the guard from outside the loop, on its next tick.
+        """
+    @property
+    def guard_state(self) -> dict:
+        """
+                      ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
+                      ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
+                      or ``"none"``), the robot ``time`` of the trip, the ``value`` that
+                      tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
+                      ``joint``, where one is at fault. Telemetry's ``guard`` column
+                      holds the reason as a number, 0 while armed, in this order.
+        """
+    @property
+    def telemetry_capacity(self) -> int:
         ...
     @property
-    def num_ticks(self) -> int:
+    def telemetry_dropped(self) -> int:
+        """
+        Samples lost because the telemetry buffer was full.
+        """
+class JointVelocity(TorqueController):
+    def __init__(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., command_timeout: typing.SupportsFloat | typing.SupportsIndex = ..., telemetry: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+        """
+                       Joint velocity control. Every tick the reference velocity is
+                       integrated into a joint impedance reference, clamped to the
+                       connected robot's joint limits:
+        
+                       .. math::
+                         q_d \\mathrel{+}= \\dot q_d \\, \\Delta t, \\quad
+                         \\tau = K (q_d - q) + D (\\dot q_d - \\dot q)
+        
+                       so the joints follow the velocity and hold their position when
+                       it is zero. While a guard is tripped nothing is integrated and
+                       only the damping remains.
+        
+                       Args:
+                         stiffness: :math:`K`, Nm/rad per joint.
+                         damping: :math:`D`, Nm s/rad per joint.
+                         command_timeout: Seconds without a new reference after which
+                           the velocity falls to zero, for teleoperation; infinite (the
+                           default) never.
+                         telemetry: Capacity of the telemetry buffer; 0 records none.
+        """
+    def get_command_timeout(self) -> float:
+        ...
+    def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        ...
+    def get_guard(self) -> dict:
+        ...
+    def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        ...
+    def read_telemetry(self) -> dict:
+        """
+        The telemetry recorded since the last call, as :py:func:`JointImpedance.read_telemetry`.
+        """
+    def rearm(self) -> None:
+        """
+                       Clears a trip on the loop's next tick; the reference position
+                       becomes the joint positions of that tick and the velocity zero.
+        """
+    def set_command_timeout(self, timeout: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        ...
+    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector', force_bias: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"] | None = None) -> None:
+        """
+                      Guards evaluated in the 1 kHz loop. When one trips, the loop drops
+                      the controller's active term (the spring) on that same tick and
+                      keeps the damping, until :py:func:`rearm`. Infinite values disable
+                      a guard; calling this replaces every setting.
+        
+                      Args:
+                        force: External force norm, N, from ``O_F_ext_hat_K``.
+                        force_time: Seconds the force must stay above ``force``.
+                        saturation_time: Seconds any sent joint torque may stay at its
+                          limit.
+                        speed: Speed of the controller's frame (the control frame, or
+                          the flange for joint control), m/s.
+                        joint_velocity: Per-joint speed limits, rad/s.
+                        workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
+                          a 4x4 transform in the base frame; the guarded point must stay
+                          inside at least one. :py:func:`panda_py.safety.box_along_axis`
+                          builds one around an axis.
+                        workspace_point: ``"end_effector"`` (``O_T_EE``) or
+                          ``"control"``, the controller's frame.
+                        force_bias: Subtracted from the force estimate before the
+                          force guard compares it, N: its bias, tared in free space.
+        """
+    def set_reference(self, dq_d: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        """
+        The reference joint velocities, rad/s, from the loop's next tick.
+        """
+    def set_stiffness(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def trip(self) -> None:
+        """
+        Trips the guard from outside the loop, on its next tick.
+        """
+    @property
+    def guard_state(self) -> dict:
+        """
+                      ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
+                      ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
+                      or ``"none"``), the robot ``time`` of the trip, the ``value`` that
+                      tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
+                      ``joint``, where one is at fault. Telemetry's ``guard`` column
+                      holds the reason as a number, 0 while armed, in this order.
+        """
+    @property
+    def telemetry_capacity(self) -> int:
         ...
     @property
-    def time(self) -> float:
-        ...
+    def telemetry_dropped(self) -> int:
+        """
+        Samples lost because the telemetry buffer was full.
+        """
 class TaskImpedance(TorqueController):
     @staticmethod
-    def compute(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], mass: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 7]"], position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex, nullspace: str = 'dynamic', alpha: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, coriolis: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., nullspace_armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., joint_spring_stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., joint_spring_damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_joint_spring: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ...) -> dict:
+    def compute(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], dq: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], pose: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], jacobian: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 7]"], mass: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 7]"], position_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation_ref: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"], q_nullspace: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], nullspace_stiffness: typing.SupportsFloat | typing.SupportsIndex, nullspace: str = 'dynamic', alpha: typing.SupportsFloat | typing.SupportsIndex = 1.0, nullspace_damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, coriolis: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., nullspace_armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., joint_spring_stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., joint_spring_damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_joint_spring: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., friction: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., friction_deadband: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> dict:
         """
                        The control law alone, for a given state: what the controller
                        computes in one step. ``pose`` and ``jacobian`` are the control
                        frame's, ``orientation_ref`` a scalar-last quaternion. Returns a
                        dict of ``error``, ``velocity``, ``wrench_active`` (before
-                       alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace`` and
+                       alpha), ``wrench_passive``, ``tau_task``, ``tau_nullspace``,
+                       ``tau_joint_spring``, ``tau_friction`` and
                        ``tau``.
         """
     @staticmethod
@@ -433,9 +638,19 @@ class TaskImpedance(TorqueController):
         """
     def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
         ...
+    def get_friction_compensation(self) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], float]:
+        """
+        ``(friction, deadband)`` of :py:func:`set_friction_compensation`.
+        """
     def get_guard(self) -> dict:
         ...
+    def get_joint_spring(self) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]]:
+        """
+        ``(stiffness, damping, q)`` of :py:func:`set_joint_spring`.
+        """
     def get_leash(self) -> tuple[float, float]:
+        ...
+    def get_nullspace_armature(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
         ...
     def get_snapshot(self) -> dict:
         """
@@ -447,16 +662,6 @@ class TaskImpedance(TorqueController):
                        one), ``tank_drawn`` and gate ``alpha``. Times are the robot's,
                        in seconds.
         """
-    def get_friction_compensation(self) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], float]:
-        """
-        ``(friction, deadband)`` of :py:func:`set_friction_compensation`.
-        """
-    def get_joint_spring(self) -> tuple[typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"], typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]]:
-        """
-        ``(stiffness, damping, q)`` of :py:func:`set_joint_spring`.
-        """
-    def get_nullspace_armature(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
-        ...
     def get_stiffness(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 1]"]:
         ...
     def get_tank(self) -> typing.Any:
@@ -473,7 +678,7 @@ class TaskImpedance(TorqueController):
                        ``stiffness``, ``damping``, ``wrench_active`` (before alpha),
                        ``wrench_passive``, ``alpha`` (the tank's gate, 0 while a guard
                        is tripped), ``tank`` (its level, NaN without one),
-                       ``tank_drawn``, ``tau_task``, ``tau_nullspace``, ``tau_law``
+                       ``tank_drawn``, ``tau_task``, ``tau_nullspace``, ``tau_joint_spring``, ``tau_friction``, ``tau_law``
                        (the law's torque), ``tau_cmd`` (sent, after the joint walls,
                        rate limit and clipping), the robot state's ``q``, ``dq``,
                        ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``,
@@ -496,7 +701,18 @@ class TaskImpedance(TorqueController):
         """
     def set_damping_ratio(self, damping_ratio: typing.SupportsFloat | typing.SupportsIndex) -> None:
         ...
-    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector') -> None:
+    def set_friction_compensation(self, friction: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], deadband: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> None:
+        """
+                       Coulomb friction compensation: adds, per joint,
+                       ``friction * clip(tau / deadband, -1, 1)`` N m, with ``tau`` the
+                       law's torque without it (task, posture and joint spring), so a
+                       joint gets its breakaway torque in the direction it is pushed
+                       and a proportional share below the deadband (N m). Zero
+                       friction (the default) leaves it out; off while a guard is
+                       tripped. Takes effect on the next tick; logged as
+                       ``tau_friction``.
+        """
+    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector', force_bias: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"] | None = None) -> None:
         """
                       Guards evaluated in the 1 kHz loop. When one trips, the loop drops
                       the controller's active term (the spring) on that same tick and
@@ -517,33 +733,25 @@ class TaskImpedance(TorqueController):
                           builds one around an axis.
                         workspace_point: ``"end_effector"`` (``O_T_EE``) or
                           ``"control"``, the controller's frame.
-        """
-    def set_leash(self, position: typing.SupportsFloat | typing.SupportsIndex, rotation: typing.SupportsFloat | typing.SupportsIndex) -> None:
-        """
-                       Keeps every reference command within ``position`` (m) and
-                       ``rotation`` (rad) of the pose at the tick it is applied.
-                       ``float("inf")``, the default, disables it.
-        """
-    def set_friction_compensation(self, friction: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], deadband: typing.SupportsFloat | typing.SupportsIndex = 0.1) -> None:
-        """
-                       Coulomb friction compensation: adds, per joint,
-                       ``friction * clip(tau / deadband, -1, 1)`` N m, with ``tau`` the
-                       law's torque without it (task, posture and joint spring), so a
-                       joint gets its breakaway torque in the direction it is pushed
-                       and a proportional share below the deadband (N m). Zero
-                       friction (the default) leaves it out; off while a guard is
-                       tripped. Takes effect on the next tick; logged as
-                       ``tau_friction``.
+                        force_bias: Subtracted from the force estimate before the
+                          force guard compares it, N: its bias, tared in free space.
         """
     def set_joint_spring(self, stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
         """
                        A joint-space spring outside the task projector, added to the
                        torque after the posture term on every tick:
                        ``stiffness * (q - q_now) - damping * dq`` per joint, N m, with ``q``
-                       the spring's target. Zero stiffness and damping (the default) leave
-                       it out; a joint with both zero is untouched. It stays on when a
-                       guard trips. Takes effect on the next tick; logged as
+                       the spring's target.
+                       Zero stiffness and damping (the default) leave it out; a
+                       joint with both zero is untouched. It stays on when a guard
+                       trips. Takes effect on the next tick; logged as
                        ``tau_joint_spring``.
+        """
+    def set_leash(self, position: typing.SupportsFloat | typing.SupportsIndex, rotation: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        """
+                       Keeps every reference command within ``position`` (m) and
+                       ``rotation`` (rad) of the pose at the tick it is applied.
+                       ``float("inf")``, the default, disables it.
         """
     def set_nullspace_armature(self, armature: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
         """
@@ -571,8 +779,9 @@ class TaskImpedance(TorqueController):
         """
     def set_tank(self, E0: typing.SupportsFloat | typing.SupportsIndex | None, mode: str = 'power', smooth_fraction: typing.SupportsFloat | typing.SupportsIndex = 0.25) -> None:
         """
-                       The insertion simulator's tank, filled to ``E0`` on the loop's
-                       next tick. Every tick it meters the active wrench, power
+                       An energy budget for the active wrench (a passivity tank), filled
+                       to ``E0`` on the loop's next tick. Every tick it meters the active
+                       wrench, power
                        :math:`\\max(0, w_{act} \\cdot [v; \\omega])` in ``"power"`` mode
                        (``E0`` in J) or :math:`|w_{act,xyz}|` in ``"impulse"`` mode
                        (``E0`` in N s), and gates it with
@@ -583,8 +792,9 @@ class TaskImpedance(TorqueController):
         """
     def step_reference(self, translation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], rotation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], stiffness: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"] | None = None) -> None:
         """
-                       Moves the reference as one policy step does: by ``translation``
-                       and by ``rotation``, an axis-angle vector applied on the left,
+                       Moves the reference by ``translation`` and by ``rotation``, an
+                       axis-angle vector applied on the left, as an incremental action
+                       (a learned policy's, say) does,
                        both in the base frame. With ``stiffness``, sets it on the same
                        tick. Applied, and leashed, by the loop on its next tick; steps
                        not yet applied add up.
@@ -617,54 +827,307 @@ class TaskImpedance(TorqueController):
         """
         Samples lost because the telemetry buffer was full.
         """
-class TorqueController:
-    """
-              Base class for all torque controllers. Torque controllers
-              provide the robot with torques at 1KHz and the user with
-              an asynchronous interface to provide control signals.
-          
-    """
-    def get_time(self) -> float:
+class JointTorque(TorqueController):
+    def __init__(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., telemetry: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
         """
-                  Get time in seconds since this controller was started.
+                       Joint torque control, a feed-forward torque and viscous damping:
+        
+                       .. math::
+                         \\tau = \\tau_d - D \\dot q
+        
+                       The robot compensates gravity itself; :math:`\\tau_d` comes on
+                       top. Starts with :math:`\\tau_d = 0`; while a guard is tripped
+                       only the damping remains.
+        
+                       Args:
+                         damping: :math:`D`, Nm s/rad per joint.
+                         telemetry: Capacity of the telemetry buffer; 0 records none.
         """
-def fk(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 4]"]:
-    """
-         Computes end-effector pose in base frame from joint positions.
-    """
-@typing.overload
-def ik(O_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], q_init: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_7: typing.SupportsFloat | typing.SupportsIndex = 0.7853981633974483) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
-    """
-              Compute analytical inverse kinematics. 
-              Solution is case consistent with configuration  given in `q_init`.
-    
-              Args:
-                O_T_EE: Homogeneous transform :math:`\\mathbb{R}^{4\\times 4}` describing
-                  the end-effector pose.
-                q_init: Reference joint positions, the result will be consistent
-                  with this configuration.
-                q_7: Joint 7 is considered the redundant joint, use `q_7` to set the
-                  desired joint position (default: :math:`\\frac{\\pi}{4}`).
-    
-              Returns:
-                Vector of shape (7,) containing joint positions.
-    """
-@typing.overload
-def ik(position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], q_init: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_7: typing.SupportsFloat | typing.SupportsIndex = 0.7853981633974483) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
-    """
-              Same as :py:func:`ik` above, but takes position and orientation arguments.
-    """
-@typing.overload
-def ik_full(O_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], q_init: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_7: typing.SupportsFloat | typing.SupportsIndex = 0.7853981633974483) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 7]"]:
-    ...
-@typing.overload
-def ik_full(position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], q_init: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., q_7: typing.SupportsFloat | typing.SupportsIndex = 0.7853981633974483) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 7]"]:
+    def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        ...
+    def get_guard(self) -> dict:
+        ...
+    def read_telemetry(self) -> dict:
+        """
+        The telemetry recorded since the last call, a dict of arrays with one row per 1 kHz tick: ``tick`` (counts every tick since start, so a gap is a sample the buffer had no room for), ``time``, ``duration`` (s since the previous tick; above 1 ms the robot ticked without a command), ``reference_update`` (1 where a command was applied), ``control_command_success_rate``, ``tau_law`` (the law's torque), ``tau_cmd`` (sent, after the joint walls, rate limit and clipping), the robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major), ``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard`` (the trip reason as a number, 0 while armed), and ``tau_d`` and ``damping``.
+        """
+    def rearm(self) -> None:
+        """
+                       Clears a trip on the loop's next tick, with the feed-forward
+                       torque reset to zero.
+        """
+    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector', force_bias: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"] | None = None) -> None:
+        """
+                      Guards evaluated in the 1 kHz loop. When one trips, the loop drops
+                      the controller's active term (the spring) on that same tick and
+                      keeps the damping, until :py:func:`rearm`. Infinite values disable
+                      a guard; calling this replaces every setting.
+        
+                      Args:
+                        force: External force norm, N, from ``O_F_ext_hat_K``.
+                        force_time: Seconds the force must stay above ``force``.
+                        saturation_time: Seconds any sent joint torque may stay at its
+                          limit.
+                        speed: Speed of the controller's frame (the control frame, or
+                          the flange for joint control), m/s.
+                        joint_velocity: Per-joint speed limits, rad/s.
+                        workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
+                          a 4x4 transform in the base frame; the guarded point must stay
+                          inside at least one. :py:func:`panda_py.safety.box_along_axis`
+                          builds one around an axis.
+                        workspace_point: ``"end_effector"`` (``O_T_EE``) or
+                          ``"control"``, the controller's frame.
+                        force_bias: Subtracted from the force estimate before the
+                          force guard compares it, N: its bias, tared in free space.
+        """
+    def set_reference(self, tau_d: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        """
+        The feed-forward joint torques, Nm, from the loop's next tick.
+        """
+    def trip(self) -> None:
+        """
+        Trips the guard from outside the loop, on its next tick.
+        """
+    @property
+    def guard_state(self) -> dict:
+        """
+                      ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
+                      ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
+                      or ``"none"``), the robot ``time`` of the trip, the ``value`` that
+                      tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
+                      ``joint``, where one is at fault. Telemetry's ``guard`` column
+                      holds the reason as a number, 0 while armed, in this order.
+        """
+    @property
+    def telemetry_capacity(self) -> int:
+        ...
+    @property
+    def telemetry_dropped(self) -> int:
+        """
+        Samples lost because the telemetry buffer was full.
+        """
+class TaskWrench(TorqueController):
+    def __init__(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., telemetry: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+        """
+                       A feed-forward wrench at the end effector, in the base frame, and
+                       viscous joint damping:
+        
+                       .. math::
+                         \\tau = J^\\top w_d - D \\dot q
+        
+                       Starts with :math:`w_d = 0`; while a guard is tripped only the
+                       damping remains.
+        
+                       Args:
+                         damping: :math:`D`, Nm s/rad per joint.
+                         telemetry: Capacity of the telemetry buffer; 0 records none.
+        """
+    def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        ...
+    def get_guard(self) -> dict:
+        ...
+    def read_telemetry(self) -> dict:
+        """
+        The telemetry recorded since the last call, a dict of arrays with one row per 1 kHz tick: ``tick`` (counts every tick since start, so a gap is a sample the buffer had no room for), ``time``, ``duration`` (s since the previous tick; above 1 ms the robot ticked without a command), ``reference_update`` (1 where a command was applied), ``control_command_success_rate``, ``tau_law`` (the law's torque), ``tau_cmd`` (sent, after the joint walls, rate limit and clipping), the robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major), ``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard`` (the trip reason as a number, 0 while armed), and ``wrench_d`` and ``damping``.
+        """
+    def rearm(self) -> None:
+        """
+                       Clears a trip on the loop's next tick, with the wrench reset to
+                       zero.
+        """
+    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector', force_bias: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"] | None = None) -> None:
+        """
+                      Guards evaluated in the 1 kHz loop. When one trips, the loop drops
+                      the controller's active term (the spring) on that same tick and
+                      keeps the damping, until :py:func:`rearm`. Infinite values disable
+                      a guard; calling this replaces every setting.
+        
+                      Args:
+                        force: External force norm, N, from ``O_F_ext_hat_K``.
+                        force_time: Seconds the force must stay above ``force``.
+                        saturation_time: Seconds any sent joint torque may stay at its
+                          limit.
+                        speed: Speed of the controller's frame (the control frame, or
+                          the flange for joint control), m/s.
+                        joint_velocity: Per-joint speed limits, rad/s.
+                        workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
+                          a 4x4 transform in the base frame; the guarded point must stay
+                          inside at least one. :py:func:`panda_py.safety.box_along_axis`
+                          builds one around an axis.
+                        workspace_point: ``"end_effector"`` (``O_T_EE``) or
+                          ``"control"``, the controller's frame.
+                        force_bias: Subtracted from the force estimate before the
+                          force guard compares it, N: its bias, tared in free space.
+        """
+    def set_reference(self, wrench: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"]) -> None:
+        """
+                       The wrench at the end effector, base frame: force (N), then
+                       torque (Nm). Applied from the loop's next tick.
+        """
+    def trip(self) -> None:
+        """
+        Trips the guard from outside the loop, on its next tick.
+        """
+    @property
+    def guard_state(self) -> dict:
+        """
+                      ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
+                      ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
+                      or ``"none"``), the robot ``time`` of the trip, the ``value`` that
+                      tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
+                      ``joint``, where one is at fault. Telemetry's ``guard`` column
+                      holds the reason as a number, 0 while armed, in this order.
+        """
+    @property
+    def telemetry_capacity(self) -> int:
+        ...
+    @property
+    def telemetry_dropped(self) -> int:
+        """
+        Samples lost because the telemetry buffer was full.
+        """
+class TaskForce(TorqueController):
+    def __init__(self, k_p: typing.SupportsFloat | typing.SupportsIndex = 1.0, k_i: typing.SupportsFloat | typing.SupportsIndex = 2.0, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] = ..., max_displacement: typing.SupportsFloat | typing.SupportsIndex = 0.01, telemetry: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+        """
+                       Regulates the wrench the end effector exerts, in the base frame,
+                       with feed-forward and a PI loop on the joint torques it maps to,
+                       as in libfranka's force control example:
+        
+                       .. math::
+                         \\tau_d = J^\\top w_d, \\quad
+                         \\tau = \\tau_d + k_p (\\tau_d - \\tau_{ext})
+                                + k_i \\int (\\tau_d - \\tau_{ext}) - D \\dot q
+        
+                       with :math:`\\tau_{ext} = \\tau_J - g(q)` relative to its value at
+                       start: start the controller in free space, or at rest on the
+                       surface, with :math:`w_d = 0`. If the end effector moves more than
+                       ``max_displacement`` from where it started, the guard trips
+                       (``"workspace"``); while tripped only the damping remains and the
+                       integral is reset.
+        
+                       Args:
+                         k_p: Proportional gain.
+                         k_i: Integral gain, 1/s.
+                         damping: :math:`D`, Nm s/rad per joint.
+                         max_displacement: m from the start position.
+                         telemetry: Capacity of the telemetry buffer; 0 records none.
+        """
+    def get_damping(self) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[7, 1]"]:
+        ...
+    def get_gains(self) -> tuple[float, float]:
+        """
+        ``(k_p, k_i)``.
+        """
+    def get_guard(self) -> dict:
+        ...
+    def get_max_displacement(self) -> float:
+        ...
+    def read_telemetry(self) -> dict:
+        """
+        The telemetry recorded since the last call, a dict of arrays with one row per 1 kHz tick: ``tick`` (counts every tick since start, so a gap is a sample the buffer had no room for), ``time``, ``duration`` (s since the previous tick; above 1 ms the robot ticked without a command), ``reference_update`` (1 where a command was applied), ``control_command_success_rate``, ``tau_law`` (the law's torque), ``tau_cmd`` (sent, after the joint walls, rate limit and clipping), the robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major), ``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard`` (the trip reason as a number, 0 while armed), and ``wrench_d``, ``tau_ext``, ``tau_error_integral``, ``gains`` (k_p, k_i) and ``displacement`` (m from the start).
+        """
+    def rearm(self) -> None:
+        """
+                       Clears a trip on the loop's next tick: the wrench and the
+                       integral are reset to zero, and the displacement is measured from
+                       the position of that tick.
+        """
+    def set_damping(self, damping: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"]) -> None:
+        ...
+    def set_gains(self, k_p: typing.SupportsFloat | typing.SupportsIndex, k_i: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        ...
+    def set_guard(self, force: typing.SupportsFloat | typing.SupportsIndex = ..., force_time: typing.SupportsFloat | typing.SupportsIndex = 0.05, saturation_time: typing.SupportsFloat | typing.SupportsIndex = ..., speed: typing.SupportsFloat | typing.SupportsIndex = ..., joint_velocity: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, workspace: collections.abc.Sequence[tuple[typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"]]] = [], workspace_point: str = 'end_effector', force_bias: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"] | None = None) -> None:
+        """
+                      Guards evaluated in the 1 kHz loop. When one trips, the loop drops
+                      the controller's active term (the spring) on that same tick and
+                      keeps the damping, until :py:func:`rearm`. Infinite values disable
+                      a guard; calling this replaces every setting.
+        
+                      Args:
+                        force: External force norm, N, from ``O_F_ext_hat_K``.
+                        force_time: Seconds the force must stay above ``force``.
+                        saturation_time: Seconds any sent joint torque may stay at its
+                          limit.
+                        speed: Speed of the controller's frame (the control frame, or
+                          the flange for joint control), m/s.
+                        joint_velocity: Per-joint speed limits, rad/s.
+                        workspace: Up to eight ``(pose, half_extents)`` boxes, ``pose``
+                          a 4x4 transform in the base frame; the guarded point must stay
+                          inside at least one. :py:func:`panda_py.safety.box_along_axis`
+                          builds one around an axis.
+                        workspace_point: ``"end_effector"`` (``O_T_EE``) or
+                          ``"control"``, the controller's frame.
+                        force_bias: Subtracted from the force estimate before the
+                          force guard compares it, N: its bias, tared in free space.
+        """
+    def set_max_displacement(self, max_displacement: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        ...
+    def set_reference(self, wrench: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[6, 1]"]) -> None:
+        """
+                       The wrench to exert at the end effector, base frame: force (N),
+                       then torque (Nm). Applied from the loop's next tick.
+        """
+    def trip(self) -> None:
+        """
+        Trips the guard from outside the loop, on its next tick.
+        """
+    @property
+    def guard_state(self) -> dict:
+        """
+                      ``tripped``, ``reason`` (``"force"``, ``"saturation"``,
+                      ``"speed"``, ``"joint_velocity"``, ``"workspace"``, ``"manual"``
+                      or ``"none"``), the robot ``time`` of the trip, the ``value`` that
+                      tripped it (N, s, m/s, rad/s, or m outside the workspace) and the
+                      ``joint``, where one is at fault. Telemetry's ``guard`` column
+                      holds the reason as a number, 0 while armed, in this order.
+        """
+    @property
+    def telemetry_capacity(self) -> int:
+        ...
+    @property
+    def telemetry_dropped(self) -> int:
+        """
+        Samples lost because the telemetry buffer was full.
+        """
+def _ik(O_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"], q_init: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"] | None = None, limits: RobotLimits | None = None, F_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"] | None = None, position_tolerance: typing.SupportsFloat | typing.SupportsIndex = 1e-05, orientation_tolerance: typing.SupportsFloat | typing.SupportsIndex = 0.0001, max_iterations: typing.SupportsInt | typing.SupportsIndex = 200, restarts: typing.SupportsInt | typing.SupportsIndex = 20) -> IKResult:
     ...
 def _pose_error(goal_position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], goal_orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"], position: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[3, 1]"], orientation: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 1]"]) -> tuple[float, float]:
     """
          Distance in metres and rotation angle in radians between a pose and the
          goal of a move_to_pose, as its success check computes them. Quaternions
          are scalar last. Exposed for the tests.
+    """
+def conservative_limits() -> RobotLimits:
+    """
+          Per joint the tighter of the FER's and the FR3's limits: what the
+          trajectory generators plan with when no robot is given.
+    """
+def fk(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], F_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"] | None = None) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[4, 4]"]:
+    """
+              Forward kinematics: the end effector's pose, a 4x4 transform in the
+              base frame, for joint positions ``q``. The FER and the FR3 share their
+              link geometry.
+    
+              Args:
+                q: Joint positions, rad.
+                F_T_EE: The end effector relative to the flange; by default the
+                  Franka Hand's (0.1034 m along z, turned by -45 deg about it).
+    """
+def jacobian(q: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[7, 1]"], F_T_EE: typing.Annotated[numpy.typing.ArrayLike, numpy.float64, "[4, 4]"] | None = None) -> typing.Annotated[numpy.typing.NDArray[numpy.float64], "[6, 7]"]:
+    """
+              The end effector's geometric Jacobian, 6x7: its linear then angular
+              velocity in the base frame per joint velocity. ``F_T_EE`` as for
+              :py:func:`fk`.
+    """
+def limits(server_version: typing.SupportsInt | typing.SupportsIndex) -> RobotLimits:
+    """
+          The limits of a robot speaking a research interface protocol version:
+          up to 5 the FER, from 6 the FR3 (with the envelope Franka widened in
+          robot system 5.9.0, protocol version 10).
     """
 def realtime_priority_available() -> tuple[bool, str]:
     """
@@ -677,15 +1140,14 @@ def realtime_priority_available() -> tuple[bool, str]:
          :py:func:`panda_py.libfranka.has_realtime_kernel`, which reports the
          other half of what realtime control needs.
     """
-_DTAU_J_MAX: numpy.ndarray  # value = array([1000., 1000., 1000., 1000., 1000., 1000., 1000.])
-_JOINT_LIMITS_LOWER: numpy.ndarray  # value = array([-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973])
-_JOINT_LIMITS_LOWER_FR3: numpy.ndarray  # value = array([-2.7437, -1.7837, -2.9007, -3.0421, -2.8065,  0.5445, -3.0159])
-_JOINT_LIMITS_LOWER_FR3_5_9: numpy.ndarray  # value = array([-2.9007, -1.8361, -2.9007, -3.077 , -2.8763,  0.4398, -3.0508])
-_JOINT_LIMITS_UPPER: numpy.ndarray  # value = array([ 2.8973,  1.7628,  2.8973, -0.0698,  2.8973,  3.7525,  2.8973])
-_JOINT_LIMITS_UPPER_FR3: numpy.ndarray  # value = array([ 2.7437,  1.7837,  2.9007, -0.1518,  2.8065,  4.5169,  3.0159])
-_JOINT_LIMITS_UPPER_FR3_5_9: numpy.ndarray  # value = array([ 2.9007,  1.8361,  2.9007, -0.1169,  2.8763,  4.6216,  3.0508])
-_JOINT_POSITION_START: numpy.ndarray  # value = array([ 0.        , -0.78539816,  0.        , -2.35619449,  0.        ,...
-_MOVE_TO_POSE_ORIENTATION_THRESHOLD: float  # value = 0.1
-_MOVE_TO_POSE_POSITION_THRESHOLD: float  # value = 0.02
-_TAU_J_MAX: numpy.ndarray  # value = array([87., 87., 87., 87., 12., 12., 12.])
-_Q_MAX_VELOCITY: numpy.ndarray
+_DTAU_J_MAX: numpy.ndarray
+_JOINT_LIMITS_LOWER: numpy.ndarray
+_JOINT_LIMITS_LOWER_FR3: numpy.ndarray
+_JOINT_LIMITS_LOWER_FR3_5_9: numpy.ndarray
+_JOINT_LIMITS_UPPER: numpy.ndarray
+_JOINT_LIMITS_UPPER_FR3: numpy.ndarray
+_JOINT_LIMITS_UPPER_FR3_5_9: numpy.ndarray
+_JOINT_POSITION_START: numpy.ndarray
+_MOVE_TO_POSE_ORIENTATION_THRESHOLD: float = 0.1
+_MOVE_TO_POSE_POSITION_THRESHOLD: float = 0.02
+_TAU_J_MAX: numpy.ndarray

@@ -41,9 +41,9 @@ if __name__ == "__main__":
     input("Press enter to replay trajectory")
     panda.move_to_joint_position(q[0])
     i = 0
-    ctrl = controllers.JointPosition()
+    ctrl = controllers.JointImpedance()
     panda.start_controller(ctrl)
     with panda.create_context(frequency=1000, max_runtime=LEN) as ctx:
         while ctx.ok():
-            ctrl.set_control(q[i], dq[i])
+            ctrl.set_reference(q[i], dq[i])
             i += 1

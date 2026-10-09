@@ -9,12 +9,31 @@ Releases before 1.0.0 are documented in the
 
 ## [Unreleased]
 
+panda-py 2 is one build for every robot, its controllers share one 1 kHz loop
+with guards and telemetry, and its kinematics are numerical. See the
+[migration guide](https://jeanelsner.github.io/panda-py/migration.html).
+
 ### Changed
 
+- **Breaking:** panda-py is built with
+  [libfranka-universal](https://github.com/JeanElsner/libfranka/tree/universal),
+  a libfranka 0.21.3 that speaks every research interface protocol version
+  from 3 to 10 and connects in the one the robot speaks: one build for the
+  Franka Emika Robot and the Franka Research 3 on any system version. The
+  per-libfranka-version builds are gone. `IncompatibleVersionError` is only
+  raised for robots outside protocols 3 to 10;
+  `exceptions.LIBFRANKA_FOR_SERVER_VERSION` gives way to
+  `SUPPORTED_PROTOCOL_VERSIONS`.
+- **Breaking:** the controllers are named after the space they act in and
+  share one loop (see Added): `JointPosition` is `JointImpedance`,
+  `IntegratedVelocity` `JointVelocity`, `AppliedTorque` `JointTorque`,
+  `AppliedForce` `TaskWrench` and `Force` `TaskForce`. Every controller takes
+  its command with `set_reference` (and `step_reference` where it applies)
+  instead of `set_control`, and the input filters (`filter_coeff`,
+  `set_filter()`) are gone.
 - **Breaking:** `controllers.CartesianImpedance` is replaced by
   `controllers.TaskImpedance`. Its law is
-  `tau = J^T (alpha K e - D J dq) + N M u`, `u = k (q0 - q) - 2 sqrt(k) dq`,
-  the same as the insertion simulator's controller:
+  `tau = J^T (alpha K e - D J dq) + N M u`, `u = k (q0 - q) - 2 sqrt(k) dq`:
   - The control frame is selectable: `frame="flange"` or `"end_effector"`
     (the default), plus a fixed `frame_transform` relative to it. Pose,
     velocity and Jacobian are all taken at that frame.
@@ -32,77 +51,82 @@ Releases before 1.0.0 are documented in the
   - No Coriolis torque by default (`coriolis=True` adds it), and no input
     filter: the reference is applied as set.
   - `set_control(position, orientation, q_nullspace)` is now
-    `set_reference(position, orientation)` and `set_nullspace_target(q)`. The
-    nullspace target defaults to the joint positions at start, and is no longer
-    reset by setting the reference.
-- **Breaking:** `JointPosition` and `JointTrajectory` lose their input filter
-  (`filter_coeff`, `set_filter()`), which defaulted to off.
-- `move_to_pose` runs on TaskImpedance at the end-effector frame, with the
-  kinematic projection and Coriolis compensation as before. Its default
-  rotational stiffness is 20 instead of 40, which keeps the same stiffness under
-  the new orientation error. The `impedance` argument must be diagonal.
-
-  - Reference commands are applied by the control loop rather than by the
-    caller: `set_reference()` and the new `step_reference()` take effect on
-    the loop's next tick, against the pose of that tick, and the loop never
-    waits for a setter.
+    `set_reference(position, orientation)` and `set_nullspace_target(q)`.
   - The pose of the control frame comes from the robot state (`O_T_EE`, and
     `O_T_EE F_T_EE^-1` for the flange); only the Jacobian and mass matrix
     come from the model.
+- **Breaking:** `panda_py.ik` is numerical (see Added); `ik_full` and the
+  `q_7` argument are gone, and `ik` raises `IKError` instead of returning NaN.
+  `panda_py.fk` places the Franka Hand 0.1034 m from the flange, as libfranka
+  does (0.103 m before), and takes another end effector as `F_T_EE`.
+- `TaskForce` takes a wrench (force and torque), trips its guard rather than
+  raising when the end effector leaves `max_displacement` (`threshold`
+  before), and resets its integral while tripped.
+- `JointVelocity` adds the reference velocity as feed-forward and clamps its
+  integrated reference to the connected robot's joint limits, not the FER's.
+- The motion generators plan with the connected robot's limits: on an FR3 they
+  used the FER's joint accelerations, above the FR3's 10 rad/s^2.
+- `move_to_pose` runs on TaskImpedance (`TaskTrajectory`) at the end-effector
+  frame, with the kinematic projection and Coriolis compensation as before.
+  Its default rotational stiffness is 20 instead of 40, the same stiffness
+  under the new orientation error. The `impedance` argument must be diagonal.
 
 ### Added
 
+- One 1 kHz loop for every controller: setters that only take a mutex the
+  loop try-locks, so a command takes effect on the next tick and the loop
+  never waits; guards; telemetry; and `TorqueController.commanded()`, called
+  with the torque actually sent.
+- Guards in every controller, `set_guard()`: external force above a threshold
+  for a time, a joint torque at its limit for a time, the controller frame's
+  speed, joint speeds, and a workspace of up to eight oriented boxes. When one
+  trips the loop drops the controller's active term on that tick and keeps the
+  damping until `rearm()`; `trip()` raises it from Python and `guard_state`
+  says why. `panda_py.safety` has `set_collision_thresholds()` and
+  `box_along_axis()`.
+- 1 kHz telemetry in every controller: `telemetry=<capacity>` records one
+  sample per tick into a lock-free buffer, with the robot state's main fields,
+  the controller's reference, gains and terms, the law's torque and the torque
+  sent. `read_telemetry()` drains it; `panda_py.telemetry` has a background
+  `Recorder`, `check()` for gaps and npz `save()`/`load()`.
+- `TaskImpedance`: `step_reference()` for incremental references, `set_leash()`
+  to keep the reference near the current pose, `get_snapshot()`, an energy (or
+  impulse) tank that gates the active wrench (`set_tank()`), a joint-space
+  spring and damper per joint (`set_joint_spring()`), Coulomb friction
+  compensation (`set_friction_compensation()`), rotor inertia in the posture
+  term (`set_nullspace_armature()`), and `compute()`, `tank_step()` and
+  `step_reference_update()` to replay a law offline.
+- `JointImpedance.step_reference()`; `JointVelocity(command_timeout=)`, which
+  zeroes the velocity when commands stop arriving.
+- `Panda.limits`, `panda_py.limits(server_version)` and
+  `panda_py.conservative_limits()`: a robot's type (`RobotType.FER` or `FR3`),
+  joint envelope and joint and Cartesian velocity and acceleration limits. The
+  trajectory generators take `limits=`.
+- Numerical inverse kinematics, `panda_py.ik(pose, q_init, limits=, F_T_EE=)`:
+  damped least squares within the joint limits, the redundancy drawn toward
+  `q_init`, deterministic restarts; `IKError` carries the best `IKResult`.
+  `panda_py.jacobian(q, F_T_EE)`.
+- `panda-check <robot-ip>`: exercises panda-py on a robot with small motions
+  and writes a Markdown and JSON report with the robot, its protocol version,
+  panda-py's and libfranka's versions and every measurement.
+- `panda_py.libfranka.__version__`, the libfranka panda-py was built with.
 - `Panda.set_joint_walls()` and `Panda.get_joint_walls()`: the virtual joint
   walls can be switched off, also while a controller runs; on by default.
-- `TaskImpedance.set_joint_spring()`: a joint-space spring outside the task
-  projector, logged as `tau_joint_spring`.
-- `TaskImpedance.set_friction_compensation(friction, deadband)`: Coulomb
-  friction compensation, `friction o clip(tau / deadband, -1, 1)` per joint
-  in the direction of the law's torque, off while a guard is tripped, logged
-  as `tau_friction`.
-- `TaskImpedance.set_nullspace_armature()`: rotor inertia added to the mass
-  matrix of the dynamic posture term only (`compute()` takes it as
-  `nullspace_armature`).
 - `Panda.set_control_options()` and `Panda.get_control_options()`: panda-py's
   torque rate limit on or off, and libfranka's `limit_rate` and low-pass
   cutoff for the next controller.
-- `TaskImpedance.compute()`, the control law alone for a given state, and
-  `TaskImpedance.step_reference_update()`, the loop's reference update.
-- `TaskImpedance.step_reference(translation, rotation, stiffness=None)`: one
-  policy step's reference change, base frame, rotation applied on the left,
-  optionally with a new stiffness on the same tick. `set_leash()` keeps the
-  reference within a distance and angle of the pose at the tick it is applied,
-  as the insertion simulator does. `get_snapshot()` returns what the loop last
-  applied, with the pose and robot time of that tick.
-- 1 kHz telemetry: `TaskImpedance(telemetry=<capacity>)` records one sample
-  per control tick into a lock-free buffer, with the controller's reference,
-  gains, wrenches and torques (the law's and the one sent after the joint
-  walls, rate limit and clipping) next to the robot state. `read_telemetry()`
-  drains it; `panda_py.telemetry` has a background `Recorder`, `check()` for
-  gaps (buffer overruns and robot cycles without a command) and npz
-  `save()`/`load()`.
-- `TorqueController.commanded()`, called with the torque actually sent.
-- Guards in TaskImpedance's 1 kHz loop, `set_guard()`: external force above
-  a threshold for a time, a joint torque at its limit for a time, control
-  frame speed, joint speed, and a workspace of up to eight oriented boxes.
-  When one trips, the loop drops the active (spring) wrench on that same
-  tick and keeps the damping and posture terms until `rearm()`, which
-  resumes from the pose of the next tick. `trip()` raises it from outside
-  the loop; `guard_state` says why it tripped, and telemetry logs it per
-  tick.
-- The insertion simulator's energy and impulse tank in TaskImpedance,
-  `set_tank(E0, mode, smooth_fraction)`, metered and gated at 1 kHz on the
-  active wrench only; `reset_tank()` refills it, the snapshot and telemetry
-  carry its level, draw and gate, and `TaskImpedance.tank_step()` is the
-  loop's update for replaying logs.
-- `JointPosition` is a joint servo with the same loop as TaskImpedance:
-  targets applied on the next tick without the loop ever waiting,
-  `step_control(delta)` for q_d = q + delta at that tick, gains readable with
-  `get_stiffness()`/`get_damping()`, the same guards (the spring term drops,
-  damping stays) and 1 kHz telemetry.
-- `panda_py.safety`: `set_collision_thresholds()` for the robot's own
-  collision reflex, and `box_along_axis()` for workspace boxes around an
-  axis such as a bore.
+- Tests that run every controller, `move_to_joint_position` and `panda-check`
+  against a fake control unit as an FER and an FR3.
+
+### Fixed
+
+- Destroying a `Panda` after the robot went away aborted the process: the
+  destructor read the robot state, which threw inside a destructor.
+- `move_to_joint_position` reported success short of the goal: it compared
+  relative to the size of the joint vector instead of the largest joint
+  error, as its warning said.
+- A motion to where the robot already is, all waypoints the same, made the
+  trajectory planner retry until its timeout (30 s) and fail.
 
 ## [1.1.1] - 2026-10-01
 

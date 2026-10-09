@@ -1,20 +1,17 @@
-.. panda-py documentation master file, created by
-   sphinx-quickstart on Sat Jun 17 19:27:33 2023.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+panda-py
+========
 
-Welcome to panda-py's documentation!
-====================================
+Python bindings for the Franka Emika Robot (Panda) and the Franka Research 3:
+real-time torque controllers that run in a 1 kHz loop, motion generation,
+kinematics, the Desk web interface and the full libfranka API, from one
+``pip install panda-python`` for every robot and system version.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
+   guide
+   migration
    panda_py
-
-Indices and tables
-==================
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`

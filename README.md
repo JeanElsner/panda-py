@@ -10,15 +10,7 @@
   <a href="https://jeanelsner.github.io/panda-py"><img alt="Documentation" src="https://shields.io/badge/-Documentation-informational" /><a/>
 </p>
 
-Finally, Python bindings for the Panda. These will increase your productivity by 1000%, guaranteed[^1]!
-
-## Getting started
-
-To get started, check out the [tutorial paper](https://www.sciencedirect.com/science/article/pii/S2352711023002285), Jupyter [notebooks](https://github.com/JeanElsner/panda-py/tree/main/examples/notebooks) and other examples you can run directly on your robot. For more details on the API, please refer to the [documentation](https://jeanelsner.github.io/panda-py/).
-
-## Extensions
-
-* [franka_desk](https://github.com/geriatronics/franka_desk) Client for the Desk REST API, with a ROS 2 wrapper. Requires an FR3 with robot system version 5.8.0 or newer.
+Finally, Python bindings for the Franka Emika Robot (Panda) and the Franka Research 3. These will increase your productivity by 1000%, guaranteed[^1]!
 
 ## Install
 
@@ -26,31 +18,92 @@ To get started, check out the [tutorial paper](https://www.sciencedirect.com/sci
 pip install panda-python
 ```
 
-This will install panda-py and all its requirements. The pip version ships with libfranka 0.9.2, the newest version for the Franka Emika Robot. Please refer to the section below if you use an older system version or the more recent Franka Research 3 robot.
+One install for every robot: panda-py 2 is built with
+[libfranka-universal](https://github.com/JeanElsner/libfranka/tree/universal),
+a libfranka that speaks every research interface protocol version, so it
+connects to a Franka Emika Robot (FER, formerly Panda) or a Franka Research 3
+(FR3) on any system version below and adapts to it: joint limits, motion
+limits and the robot's dynamics model follow the robot connected.
 
-## libfranka Version
+| Robot | Robot system version | Protocol version |
+| ---- | ---- | ---- |
+| FR3 | >= 5.9.0 | 10 |
+| FR3 | >= 5.7.2 | 9 |
+| FR3 | >= 5.7.0 | 8 |
+| FR3 | >= 5.5.0 | 7 |
+| FR3 | >= 5.2.0 | 6 |
+| FER | >= 4.2.1 | 5 |
+| FER | >= 4.0.0 | 4 |
+| FER | >= 3.0.0 | 3 |
 
-There are currently two robot models available from Franka Robotics: the Franka Emika Robot (FER, formerly known as Panda) and the Franka Research 3 (FR3). Depending on the installed firmware, the FER supports libfranka version <0.10 while the FR3 requires version >=0.10. For details, refer to [this](https://frankarobotics.github.io/docs/compatibility.html) compatibility matrix. If you need a libfranka version different from the default 0.9.2, download the respective zip archive from the table below. Extract the archive and install the wheel for your Python version with pip, e.g., run
+Protocol versions 5 and 10 are confirmed on hardware; the others are tested
+against a simulated control unit. If panda-py misbehaves with your robot,
+please [open an issue](https://github.com/JeanElsner/panda-py/issues) with the
+report of `panda-check` (below).
+
+## Getting started
+
+```python
+import panda_py
+from panda_py import controllers
+
+panda = panda_py.Panda("172.16.0.2")    # the robot's address
+panda.move_to_start()
+
+# Move the end effector 10 cm down, then hold it there compliantly.
+pose = panda.get_pose()
+pose[2, 3] -= 0.1
+panda.move_to_joint_position(panda_py.ik(pose, q_init=panda.q, limits=panda.limits))
+
+ctrl = controllers.TaskImpedance()
+panda.start_controller(ctrl)
+ctrl.set_reference(panda.get_position(), panda.get_orientation())
 ```
-pip install panda_python-*libfranka.0.7.1-cp310*.whl
+
+The [tutorial paper](https://www.sciencedirect.com/science/article/pii/S2352711023002285),
+the Jupyter [notebooks](https://github.com/JeanElsner/panda-py/tree/main/examples/notebooks)
+and the [examples](https://github.com/JeanElsner/panda-py/tree/main/examples) run
+directly on your robot. The [documentation](https://jeanelsner.github.io/panda-py/)
+has a guide and the full API.
+
+### Controllers
+
+Every controller runs in panda-py's 1 kHz loop, takes its commands
+(`set_reference`) on the next tick without ever making the loop wait, and has
+the same guards (force, speed, workspace, joint velocity, torque saturation)
+and 1 kHz telemetry.
+
+| Joint space | Task space |
+| ---- | ---- |
+| `JointImpedance`: spring and damper per joint | `TaskImpedance`: Cartesian impedance with a posture term |
+| `JointVelocity`: joint velocities | `TaskWrench`: a feed-forward wrench |
+| `JointTorque`: feed-forward joint torques | `TaskForce`: wrench regulation |
+
+`move_to_joint_position`, `move_to_pose` and `move_to_start` plan time-optimal
+trajectories within the connected robot's limits. `panda_py.fk`, `jacobian` and
+`ik` are the robots' kinematics with any end effector; `ik` is numerical,
+respects the joint limits and stays near the configuration it starts from.
+
+### Checking a robot
+
 ```
-to install the binary wheel for libfranka 0.7.1 and Python 3.10.
+panda-check <robot-ip> --desk-user <user>
+```
 
-There is one archive per research-interface protocol version, which is what
-determines whether libfranka can talk to your robot at all. Pick the row
-matching your robot's system version; later libfranka releases in the same row
-would not add compatibility, only bugs already fixed.
+exercises everything above on the robot, with small motions around its start
+pose, and writes a report: the robot, its protocol version, panda-py's and
+libfranka's versions, and every measurement.
 
-| Robot System Version | Robot | Server | libfranka Version of panda-py |
-| ---- | ---- | ---- | ---- |
-| >= 5.9.0 | FR3 | 10 | [panda_py_1.1.1_libfranka_0.21.3.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.21.3.zip) |
-| >= 5.7.2 | FR3 | 9 | [panda_py_1.1.1_libfranka_0.17.0.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.17.0.zip) |
-| >= 5.7.0 | FR3 | 8 | [panda_py_1.1.1_libfranka_0.14.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.14.2.zip) |
-| >= 5.5.0 | FR3 | 7 | [panda_py_1.1.1_libfranka_0.13.6.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.13.6.zip) |
-| >= 5.2.0 | FR3 | 6 | [panda_py_1.1.1_libfranka_0.13.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.13.2.zip) |
-| >= 4.2.1 | FER | 5 | [panda_py_1.1.1_libfranka_0.9.2.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.9.2.zip) |
-| >= 4.0.0 | FER | 4 | [panda_py_1.1.1_libfranka_0.8.0.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.8.0.zip) |
-| >= 3.0.0 | FER | 3 | [panda_py_1.1.1_libfranka_0.7.1.zip](https://github.com/JeanElsner/panda-py/releases/download/v1.1.1/panda_py_1.1.1_libfranka_0.7.1.zip) |
+### Upgrading from panda-py 1
+
+panda-py 2 renames the controllers into joint and task space, replaces
+`CartesianImpedance` with `TaskImpedance` and the analytic IK with a numerical
+one; see the [migration guide](https://jeanelsner.github.io/panda-py/migration.html)
+and the [changelog](CHANGELOG.md).
+
+## Extensions
+
+* [franka_desk](https://github.com/geriatronics/franka_desk) Client for the Desk REST API, with a ROS 2 wrapper. Requires an FR3 with robot system version 5.8.0 or newer.
 
 # Citation
 

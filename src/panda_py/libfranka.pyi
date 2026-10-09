@@ -3,105 +3,6 @@ import collections.abc
 import datetime
 import typing
 __all__: list[str] = ['CartesianPose', 'CartesianVelocities', 'ControllerMode', 'Duration', 'Errors', 'Frame', 'Gripper', 'GripperState', 'JointPositions', 'JointVelocities', 'MAX_TORQUE_RATE', 'Model', 'RealtimeConfig', 'Robot', 'RobotMode', 'RobotState', 'Torques', 'VacuumGripper', 'VacuumGripperDeviceStatus', 'VacuumGripperProductionSetupProfile', 'VacuumGripperState', 'has_realtime_kernel', 'is_homogeneous_transformation', 'is_valid_elbow', 'limit_rate', 'motion_finished', 'set_current_thread_to_highest_scheduler_priority']
-class CartesianPose:
-    motion_finished: bool
-    @typing.overload
-    def __init__(self, cartesian_pose: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
-        ...
-    @typing.overload
-    def __init__(self, cartesian_pose: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], elbow: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
-        ...
-    @property
-    def O_T_EE(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
-        ...
-    @O_T_EE.setter
-    def O_T_EE(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
-        ...
-    @property
-    def elbow(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
-        ...
-    @elbow.setter
-    def elbow(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
-        ...
-class CartesianVelocities:
-    motion_finished: bool
-    @typing.overload
-    def __init__(self, cartesian_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
-        ...
-    @typing.overload
-    def __init__(self, cartesian_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], elbow: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
-        ...
-    @property
-    def O_dP_EE(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
-        ...
-    @O_dP_EE.setter
-    def O_dP_EE(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
-        ...
-    @property
-    def elbow(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
-        ...
-    @elbow.setter
-    def elbow(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
-        ...
-class ControllerMode:
-    """
-    Members:
-    
-      kCartesianImpedance
-    
-      kJointImpedance
-    """
-    __members__: typing.ClassVar[dict[str, ControllerMode]]  # value = {'kCartesianImpedance': <ControllerMode.kCartesianImpedance: 1>, 'kJointImpedance': <ControllerMode.kJointImpedance: 0>}
-    kCartesianImpedance: typing.ClassVar[ControllerMode]  # value = <ControllerMode.kCartesianImpedance: 1>
-    kJointImpedance: typing.ClassVar[ControllerMode]  # value = <ControllerMode.kJointImpedance: 0>
-    @typing.overload
-    def __eq__(self, other: ControllerMode) -> bool:
-        ...
-    @typing.overload
-    def __eq__(self, other: typing.Any) -> bool:
-        ...
-    def __getstate__(self) -> int:
-        ...
-    def __hash__(self) -> int:
-        ...
-    def __index__(self) -> int:
-        ...
-    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __int__(self) -> int:
-        ...
-    @typing.overload
-    def __ne__(self, other: ControllerMode) -> bool:
-        ...
-    @typing.overload
-    def __ne__(self, other: typing.Any) -> bool:
-        ...
-    def __repr__(self) -> str:
-        ...
-    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __str__(self) -> str:
-        ...
-    @property
-    def name(self) -> str:
-        ...
-    @property
-    def value(self) -> int:
-        ...
-class Duration:
-    @typing.overload
-    def __init__(self) -> None:
-        ...
-    @typing.overload
-    def __init__(self, milliseconds: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    @typing.overload
-    def __init__(self, duration: datetime.timedelta) -> None:
-        ...
-    def to_msec(self) -> int:
-        ...
-    def to_sec(self) -> float:
-        ...
 class Errors:
     def __bool__(self) -> bool:
         ...
@@ -220,259 +121,6 @@ class Errors:
     @property
     def tau_j_range_violation(self) -> bool:
         ...
-class Frame:
-    """
-    Members:
-    
-      kJoint1
-    
-      kJoint2
-    
-      kJoint3
-    
-      kJoint4
-    
-      kJoint5
-    
-      kJoint6
-    
-      kJoint7
-    
-      kFlange
-    
-      kEndEffector
-    
-      kStiffness
-    """
-    __members__: typing.ClassVar[dict[str, Frame]]  # value = {'kJoint1': <Frame.kJoint1: 0>, 'kJoint2': <Frame.kJoint2: 1>, 'kJoint3': <Frame.kJoint3: 2>, 'kJoint4': <Frame.kJoint4: 3>, 'kJoint5': <Frame.kJoint5: 4>, 'kJoint6': <Frame.kJoint6: 5>, 'kJoint7': <Frame.kJoint7: 6>, 'kFlange': <Frame.kFlange: 7>, 'kEndEffector': <Frame.kEndEffector: 8>, 'kStiffness': <Frame.kStiffness: 9>}
-    kEndEffector: typing.ClassVar[Frame]  # value = <Frame.kEndEffector: 8>
-    kFlange: typing.ClassVar[Frame]  # value = <Frame.kFlange: 7>
-    kJoint1: typing.ClassVar[Frame]  # value = <Frame.kJoint1: 0>
-    kJoint2: typing.ClassVar[Frame]  # value = <Frame.kJoint2: 1>
-    kJoint3: typing.ClassVar[Frame]  # value = <Frame.kJoint3: 2>
-    kJoint4: typing.ClassVar[Frame]  # value = <Frame.kJoint4: 3>
-    kJoint5: typing.ClassVar[Frame]  # value = <Frame.kJoint5: 4>
-    kJoint6: typing.ClassVar[Frame]  # value = <Frame.kJoint6: 5>
-    kJoint7: typing.ClassVar[Frame]  # value = <Frame.kJoint7: 6>
-    kStiffness: typing.ClassVar[Frame]  # value = <Frame.kStiffness: 9>
-    @typing.overload
-    def __eq__(self, other: Frame) -> bool:
-        ...
-    @typing.overload
-    def __eq__(self, other: typing.Any) -> bool:
-        ...
-    def __getstate__(self) -> int:
-        ...
-    def __hash__(self) -> int:
-        ...
-    def __index__(self) -> int:
-        ...
-    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __int__(self) -> int:
-        ...
-    @typing.overload
-    def __ne__(self, other: Frame) -> bool:
-        ...
-    @typing.overload
-    def __ne__(self, other: typing.Any) -> bool:
-        ...
-    def __repr__(self) -> str:
-        ...
-    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __str__(self) -> str:
-        ...
-    @property
-    def name(self) -> str:
-        ...
-    @property
-    def value(self) -> int:
-        ...
-class Gripper:
-    def __init__(self, franka_address: str) -> None:
-        ...
-    def grasp(self, width: typing.SupportsFloat | typing.SupportsIndex, speed: typing.SupportsFloat | typing.SupportsIndex, force: typing.SupportsFloat | typing.SupportsIndex, epsilon_inner: typing.SupportsFloat | typing.SupportsIndex = 0.005, epsilon_outer: typing.SupportsFloat | typing.SupportsIndex = 0.005) -> bool:
-        ...
-    def homing(self) -> bool:
-        ...
-    def move(self, width: typing.SupportsFloat | typing.SupportsIndex, speed: typing.SupportsFloat | typing.SupportsIndex) -> bool:
-        ...
-    def read_once(self) -> GripperState:
-        ...
-    def server_version(self) -> int:
-        ...
-    def stop(self) -> bool:
-        ...
-class GripperState:
-    @property
-    def is_grasped(self) -> bool:
-        ...
-    @property
-    def max_width(self) -> float:
-        ...
-    @property
-    def temperature(self) -> int:
-        ...
-    @property
-    def time(self) -> Duration:
-        ...
-    @property
-    def width(self) -> float:
-        ...
-class JointPositions:
-    motion_finished: bool
-    def __init__(self, joint_positions: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
-        ...
-    @property
-    def q(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
-        ...
-    @q.setter
-    def q(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
-        ...
-class JointVelocities:
-    motion_finished: bool
-    def __init__(self, joint_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
-        ...
-    @property
-    def dq(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
-        ...
-    @dq.setter
-    def dq(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
-        ...
-class Model:
-    @typing.overload
-    def body_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(42)"]:
-        ...
-    @typing.overload
-    def body_jacobian(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(42)"]:
-        ...
-    @typing.overload
-    def coriolis(self, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(7)"]:
-        ...
-    @typing.overload
-    def coriolis(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], dq: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], I_total: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"]) -> typing.Annotated[list[float], "FixedSize(7)"]:
-        ...
-    @typing.overload
-    def gravity(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"], gravity_earth: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], "FixedSize(7)"]:
-        ...
-    @typing.overload
-    def gravity(self, robot_state: RobotState, gravity_earth: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], "FixedSize(7)"]:
-        ...
-    @typing.overload
-    def mass(self, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(49)"]:
-        ...
-    @typing.overload
-    def mass(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], I_total: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"]) -> typing.Annotated[list[float], "FixedSize(49)"]:
-        ...
-    @typing.overload
-    def pose(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(16)"]:
-        ...
-    @typing.overload
-    def pose(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(16)"]:
-        ...
-    @typing.overload
-    def zero_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(42)"]:
-        ...
-    @typing.overload
-    def zero_jacobian(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(42)"]:
-        ...
-class RealtimeConfig:
-    """
-    Members:
-    
-      kEnforce
-    
-      kIgnore
-    """
-    __members__: typing.ClassVar[dict[str, RealtimeConfig]]  # value = {'kEnforce': <RealtimeConfig.kEnforce: 0>, 'kIgnore': <RealtimeConfig.kIgnore: 1>}
-    kEnforce: typing.ClassVar[RealtimeConfig]  # value = <RealtimeConfig.kEnforce: 0>
-    kIgnore: typing.ClassVar[RealtimeConfig]  # value = <RealtimeConfig.kIgnore: 1>
-    @typing.overload
-    def __eq__(self, other: RealtimeConfig) -> bool:
-        ...
-    @typing.overload
-    def __eq__(self, other: typing.Any) -> bool:
-        ...
-    def __getstate__(self) -> int:
-        ...
-    def __hash__(self) -> int:
-        ...
-    def __index__(self) -> int:
-        ...
-    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __int__(self) -> int:
-        ...
-    @typing.overload
-    def __ne__(self, other: RealtimeConfig) -> bool:
-        ...
-    @typing.overload
-    def __ne__(self, other: typing.Any) -> bool:
-        ...
-    def __repr__(self) -> str:
-        ...
-    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __str__(self) -> str:
-        ...
-    @property
-    def name(self) -> str:
-        ...
-    @property
-    def value(self) -> int:
-        ...
-class Robot:
-    def __init__(self, franka_address: str, realtime_config: RealtimeConfig = RealtimeConfig.kIgnore, log_size: typing.SupportsInt | typing.SupportsIndex = 50) -> None:
-        ...
-    def automatic_error_recovery(self) -> None:
-        ...
-    def control(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_cartesian_pose(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianPose], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_cartesian_velocity(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianVelocities], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_joint_position(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointPositions], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_joint_velocity(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointVelocities], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_torque_cartesian_pose(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianPose], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_torque_cartesian_velocity(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianVelocities], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_torque_joint_position(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointPositions], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def control_torque_joint_velocity(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointVelocities], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
-        ...
-    def load_model(self) -> Model:
-        ...
-    def read(self, arg0: collections.abc.Callable[[RobotState], bool]) -> None:
-        ...
-    def read_once(self) -> RobotState:
-        ...
-    def server_version(self) -> int:
-        ...
-    def set_cartesian_impedance(self, K_x: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
-        ...
-    @typing.overload
-    def set_collision_behavior(self, lower_torque_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_torque_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_force_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], lower_force_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
-        ...
-    @typing.overload
-    def set_collision_behavior(self, lower_torque_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_force_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
-        ...
-    def set_ee(self, NE_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
-        ...
-    def set_guiding_mode(self, guiding_mode: typing.Annotated[collections.abc.Sequence[bool], "FixedSize(6)"], elbow: bool) -> None:
-        ...
-    def set_joint_impedance(self, K_theta: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
-        ...
-    def set_k(self, EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
-        ...
-    def set_load(self, load_mass: typing.SupportsFloat | typing.SupportsIndex, F_x_Cload: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"], load_inertia: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"]) -> None:
-        ...
-    def stop(self) -> None:
-        ...
 class RobotMode:
     """
     Members:
@@ -491,14 +139,14 @@ class RobotMode:
     
       kAutomaticErrorRecovery
     """
-    __members__: typing.ClassVar[dict[str, RobotMode]]  # value = {'kOther': <RobotMode.kOther: 0>, 'kIdle': <RobotMode.kIdle: 1>, 'kMove': <RobotMode.kMove: 2>, 'kGuiding': <RobotMode.kGuiding: 3>, 'kReflex': <RobotMode.kReflex: 4>, 'kUserStopped': <RobotMode.kUserStopped: 5>, 'kAutomaticErrorRecovery': <RobotMode.kAutomaticErrorRecovery: 6>}
-    kAutomaticErrorRecovery: typing.ClassVar[RobotMode]  # value = <RobotMode.kAutomaticErrorRecovery: 6>
-    kGuiding: typing.ClassVar[RobotMode]  # value = <RobotMode.kGuiding: 3>
-    kIdle: typing.ClassVar[RobotMode]  # value = <RobotMode.kIdle: 1>
-    kMove: typing.ClassVar[RobotMode]  # value = <RobotMode.kMove: 2>
-    kOther: typing.ClassVar[RobotMode]  # value = <RobotMode.kOther: 0>
-    kReflex: typing.ClassVar[RobotMode]  # value = <RobotMode.kReflex: 4>
-    kUserStopped: typing.ClassVar[RobotMode]  # value = <RobotMode.kUserStopped: 5>
+    __members__: typing.ClassVar[dict[str, RobotMode]]
+    kAutomaticErrorRecovery: typing.ClassVar[RobotMode]
+    kGuiding: typing.ClassVar[RobotMode]
+    kIdle: typing.ClassVar[RobotMode]
+    kMove: typing.ClassVar[RobotMode]
+    kOther: typing.ClassVar[RobotMode]
+    kReflex: typing.ClassVar[RobotMode]
+    kUserStopped: typing.ClassVar[RobotMode]
     @typing.overload
     def __eq__(self, other: RobotMode) -> bool:
         ...
@@ -532,6 +180,20 @@ class RobotMode:
         ...
     @property
     def value(self) -> int:
+        ...
+class Duration:
+    @typing.overload
+    def __init__(self) -> None:
+        ...
+    @typing.overload
+    def __init__(self, milliseconds: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    @typing.overload
+    def __init__(self, duration: datetime.timedelta) -> None:
+        ...
+    def to_msec(self) -> int:
+        ...
+    def to_sec(self) -> float:
         ...
 class RobotState:
     def __repr__(self) -> str:
@@ -668,6 +330,202 @@ class RobotState:
     @property
     def time(self) -> Duration:
         ...
+class Frame:
+    """
+    Members:
+    
+      kJoint1
+    
+      kJoint2
+    
+      kJoint3
+    
+      kJoint4
+    
+      kJoint5
+    
+      kJoint6
+    
+      kJoint7
+    
+      kFlange
+    
+      kEndEffector
+    
+      kStiffness
+    """
+    __members__: typing.ClassVar[dict[str, Frame]]
+    kEndEffector: typing.ClassVar[Frame]
+    kFlange: typing.ClassVar[Frame]
+    kJoint1: typing.ClassVar[Frame]
+    kJoint2: typing.ClassVar[Frame]
+    kJoint3: typing.ClassVar[Frame]
+    kJoint4: typing.ClassVar[Frame]
+    kJoint5: typing.ClassVar[Frame]
+    kJoint6: typing.ClassVar[Frame]
+    kJoint7: typing.ClassVar[Frame]
+    kStiffness: typing.ClassVar[Frame]
+    @typing.overload
+    def __eq__(self, other: Frame) -> bool:
+        ...
+    @typing.overload
+    def __eq__(self, other: typing.Any) -> bool:
+        ...
+    def __getstate__(self) -> int:
+        ...
+    def __hash__(self) -> int:
+        ...
+    def __index__(self) -> int:
+        ...
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __int__(self) -> int:
+        ...
+    @typing.overload
+    def __ne__(self, other: Frame) -> bool:
+        ...
+    @typing.overload
+    def __ne__(self, other: typing.Any) -> bool:
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __str__(self) -> str:
+        ...
+    @property
+    def name(self) -> str:
+        ...
+    @property
+    def value(self) -> int:
+        ...
+class Model:
+    @typing.overload
+    def body_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(42)"]:
+        ...
+    @typing.overload
+    def body_jacobian(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(42)"]:
+        ...
+    @typing.overload
+    def coriolis(self, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @typing.overload
+    def coriolis(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], dq: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], I_total: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"], gravity_earth: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @typing.overload
+    def gravity(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"], gravity_earth: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @typing.overload
+    def gravity(self, robot_state: RobotState, gravity_earth: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"] = [0.0, 0.0, -9.81]) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @typing.overload
+    def mass(self, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(49)"]:
+        ...
+    @typing.overload
+    def mass(self, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], I_total: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"], m_total: typing.SupportsFloat | typing.SupportsIndex, F_x_Ctotal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"]) -> typing.Annotated[list[float], "FixedSize(49)"]:
+        ...
+    @typing.overload
+    def pose(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(16)"]:
+        ...
+    @typing.overload
+    def pose(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(16)"]:
+        ...
+    @typing.overload
+    def zero_jacobian(self, frame: Frame, robot_state: RobotState) -> typing.Annotated[list[float], "FixedSize(42)"]:
+        ...
+    @typing.overload
+    def zero_jacobian(self, frame: Frame, q: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], F_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> typing.Annotated[list[float], "FixedSize(42)"]:
+        ...
+class RealtimeConfig:
+    """
+    Members:
+    
+      kEnforce
+    
+      kIgnore
+    """
+    __members__: typing.ClassVar[dict[str, RealtimeConfig]]
+    kEnforce: typing.ClassVar[RealtimeConfig]
+    kIgnore: typing.ClassVar[RealtimeConfig]
+    @typing.overload
+    def __eq__(self, other: RealtimeConfig) -> bool:
+        ...
+    @typing.overload
+    def __eq__(self, other: typing.Any) -> bool:
+        ...
+    def __getstate__(self) -> int:
+        ...
+    def __hash__(self) -> int:
+        ...
+    def __index__(self) -> int:
+        ...
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __int__(self) -> int:
+        ...
+    @typing.overload
+    def __ne__(self, other: RealtimeConfig) -> bool:
+        ...
+    @typing.overload
+    def __ne__(self, other: typing.Any) -> bool:
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __str__(self) -> str:
+        ...
+    @property
+    def name(self) -> str:
+        ...
+    @property
+    def value(self) -> int:
+        ...
+class ControllerMode:
+    """
+    Members:
+    
+      kCartesianImpedance
+    
+      kJointImpedance
+    """
+    __members__: typing.ClassVar[dict[str, ControllerMode]]
+    kCartesianImpedance: typing.ClassVar[ControllerMode]
+    kJointImpedance: typing.ClassVar[ControllerMode]
+    @typing.overload
+    def __eq__(self, other: ControllerMode) -> bool:
+        ...
+    @typing.overload
+    def __eq__(self, other: typing.Any) -> bool:
+        ...
+    def __getstate__(self) -> int:
+        ...
+    def __hash__(self) -> int:
+        ...
+    def __index__(self) -> int:
+        ...
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __int__(self) -> int:
+        ...
+    @typing.overload
+    def __ne__(self, other: ControllerMode) -> bool:
+        ...
+    @typing.overload
+    def __ne__(self, other: typing.Any) -> bool:
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __str__(self) -> str:
+        ...
+    @property
+    def name(self) -> str:
+        ...
+    @property
+    def value(self) -> int:
+        ...
 class Torques:
     motion_finished: bool
     def __init__(self, torques: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
@@ -678,18 +536,147 @@ class Torques:
     @tau_J.setter
     def tau_J(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
         ...
-class VacuumGripper:
+class JointPositions:
+    motion_finished: bool
+    def __init__(self, joint_positions: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+    @property
+    def q(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @q.setter
+    def q(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+class JointVelocities:
+    motion_finished: bool
+    def __init__(self, joint_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+    @property
+    def dq(self) -> typing.Annotated[list[float], "FixedSize(7)"]:
+        ...
+    @dq.setter
+    def dq(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+class CartesianPose:
+    motion_finished: bool
+    @typing.overload
+    def __init__(self, cartesian_pose: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
+        ...
+    @typing.overload
+    def __init__(self, cartesian_pose: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"], elbow: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
+        ...
+    @property
+    def O_T_EE(self) -> typing.Annotated[list[float], "FixedSize(16)"]:
+        ...
+    @O_T_EE.setter
+    def O_T_EE(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
+        ...
+    @property
+    def elbow(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
+        ...
+    @elbow.setter
+    def elbow(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
+        ...
+class CartesianVelocities:
+    motion_finished: bool
+    @typing.overload
+    def __init__(self, cartesian_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
+        ...
+    @typing.overload
+    def __init__(self, cartesian_velocities: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], elbow: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
+        ...
+    @property
+    def O_dP_EE(self) -> typing.Annotated[list[float], "FixedSize(6)"]:
+        ...
+    @O_dP_EE.setter
+    def O_dP_EE(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
+        ...
+    @property
+    def elbow(self) -> typing.Annotated[list[float], "FixedSize(2)"]:
+        ...
+    @elbow.setter
+    def elbow(self, arg0: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(2)"]) -> None:
+        ...
+class Robot:
+    def __init__(self, franka_address: str, realtime_config: RealtimeConfig = RealtimeConfig.kIgnore, log_size: typing.SupportsInt | typing.SupportsIndex = 50) -> None:
+        ...
+    def automatic_error_recovery(self) -> None:
+        ...
+    def control(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_cartesian_pose(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianPose], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_cartesian_velocity(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianVelocities], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_joint_position(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointPositions], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_joint_velocity(self, motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointVelocities], controller_mode: ControllerMode = ..., limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_cartesian_pose(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianPose], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_cartesian_velocity(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], CartesianVelocities], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_joint_position(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointPositions], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def control_torque_joint_velocity(self, control_callback: collections.abc.Callable[[RobotState, Duration], Torques], motion_generator_callback: collections.abc.Callable[[RobotState, Duration], JointVelocities], limit_rate: bool = True, cutoff_frequency: typing.SupportsFloat | typing.SupportsIndex = 100.0) -> None:
+        ...
+    def load_model(self) -> Model:
+        ...
+    def read(self, arg0: collections.abc.Callable[[RobotState], bool]) -> None:
+        ...
+    def read_once(self) -> RobotState:
+        ...
+    def server_version(self) -> int:
+        ...
+    def set_cartesian_impedance(self, K_x: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
+        ...
+    @typing.overload
+    def set_collision_behavior(self, lower_torque_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_torque_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_force_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds_acceleration: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], lower_force_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds_nominal: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
+        ...
+    @typing.overload
+    def set_collision_behavior(self, lower_torque_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], upper_torque_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"], lower_force_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"], upper_force_thresholds: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(6)"]) -> None:
+        ...
+    def set_ee(self, NE_T_EE: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
+        ...
+    def set_guiding_mode(self, guiding_mode: typing.Annotated[collections.abc.Sequence[bool], "FixedSize(6)"], elbow: bool) -> None:
+        ...
+    def set_joint_impedance(self, K_theta: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(7)"]) -> None:
+        ...
+    def set_k(self, EE_T_K: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> None:
+        ...
+    def set_load(self, load_mass: typing.SupportsFloat | typing.SupportsIndex, F_x_Cload: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(3)"], load_inertia: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(9)"]) -> None:
+        ...
+    def stop(self) -> None:
+        ...
+class GripperState:
+    @property
+    def is_grasped(self) -> bool:
+        ...
+    @property
+    def max_width(self) -> float:
+        ...
+    @property
+    def temperature(self) -> int:
+        ...
+    @property
+    def time(self) -> Duration:
+        ...
+    @property
+    def width(self) -> float:
+        ...
+class Gripper:
     def __init__(self, franka_address: str) -> None:
         ...
-    def drop_off(self, timeout: datetime.timedelta) -> bool:
+    def grasp(self, width: typing.SupportsFloat | typing.SupportsIndex, speed: typing.SupportsFloat | typing.SupportsIndex, force: typing.SupportsFloat | typing.SupportsIndex, epsilon_inner: typing.SupportsFloat | typing.SupportsIndex = 0.005, epsilon_outer: typing.SupportsFloat | typing.SupportsIndex = 0.005) -> bool:
         ...
-    def read_once(self) -> VacuumGripperState:
+    def homing(self) -> bool:
+        ...
+    def move(self, width: typing.SupportsFloat | typing.SupportsIndex, speed: typing.SupportsFloat | typing.SupportsIndex) -> bool:
+        ...
+    def read_once(self) -> GripperState:
         ...
     def server_version(self) -> int:
         ...
     def stop(self) -> bool:
-        ...
-    def vacuum(self, vacuum: typing.SupportsInt | typing.SupportsIndex, timeout: datetime.timedelta, profile: VacuumGripperProductionSetupProfile = VacuumGripperProductionSetupProfile.kP0) -> bool:
         ...
 class VacuumGripperDeviceStatus:
     """
@@ -703,11 +690,11 @@ class VacuumGripperDeviceStatus:
     
       kRed
     """
-    __members__: typing.ClassVar[dict[str, VacuumGripperDeviceStatus]]  # value = {'kGreen': <VacuumGripperDeviceStatus.kGreen: 0>, 'kYellow': <VacuumGripperDeviceStatus.kYellow: 1>, 'kOrange': <VacuumGripperDeviceStatus.kOrange: 2>, 'kRed': <VacuumGripperDeviceStatus.kRed: 3>}
-    kGreen: typing.ClassVar[VacuumGripperDeviceStatus]  # value = <VacuumGripperDeviceStatus.kGreen: 0>
-    kOrange: typing.ClassVar[VacuumGripperDeviceStatus]  # value = <VacuumGripperDeviceStatus.kOrange: 2>
-    kRed: typing.ClassVar[VacuumGripperDeviceStatus]  # value = <VacuumGripperDeviceStatus.kRed: 3>
-    kYellow: typing.ClassVar[VacuumGripperDeviceStatus]  # value = <VacuumGripperDeviceStatus.kYellow: 1>
+    __members__: typing.ClassVar[dict[str, VacuumGripperDeviceStatus]]
+    kGreen: typing.ClassVar[VacuumGripperDeviceStatus]
+    kOrange: typing.ClassVar[VacuumGripperDeviceStatus]
+    kRed: typing.ClassVar[VacuumGripperDeviceStatus]
+    kYellow: typing.ClassVar[VacuumGripperDeviceStatus]
     @typing.overload
     def __eq__(self, other: VacuumGripperDeviceStatus) -> bool:
         ...
@@ -726,57 +713,6 @@ class VacuumGripperDeviceStatus:
         ...
     @typing.overload
     def __ne__(self, other: VacuumGripperDeviceStatus) -> bool:
-        ...
-    @typing.overload
-    def __ne__(self, other: typing.Any) -> bool:
-        ...
-    def __repr__(self) -> str:
-        ...
-    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __str__(self) -> str:
-        ...
-    @property
-    def name(self) -> str:
-        ...
-    @property
-    def value(self) -> int:
-        ...
-class VacuumGripperProductionSetupProfile:
-    """
-    Members:
-    
-      kP0
-    
-      kP1
-    
-      kP2
-    
-      kP3
-    """
-    __members__: typing.ClassVar[dict[str, VacuumGripperProductionSetupProfile]]  # value = {'kP0': <VacuumGripperProductionSetupProfile.kP0: 0>, 'kP1': <VacuumGripperProductionSetupProfile.kP1: 1>, 'kP2': <VacuumGripperProductionSetupProfile.kP2: 2>, 'kP3': <VacuumGripperProductionSetupProfile.kP3: 3>}
-    kP0: typing.ClassVar[VacuumGripperProductionSetupProfile]  # value = <VacuumGripperProductionSetupProfile.kP0: 0>
-    kP1: typing.ClassVar[VacuumGripperProductionSetupProfile]  # value = <VacuumGripperProductionSetupProfile.kP1: 1>
-    kP2: typing.ClassVar[VacuumGripperProductionSetupProfile]  # value = <VacuumGripperProductionSetupProfile.kP2: 2>
-    kP3: typing.ClassVar[VacuumGripperProductionSetupProfile]  # value = <VacuumGripperProductionSetupProfile.kP3: 3>
-    @typing.overload
-    def __eq__(self, other: VacuumGripperProductionSetupProfile) -> bool:
-        ...
-    @typing.overload
-    def __eq__(self, other: typing.Any) -> bool:
-        ...
-    def __getstate__(self) -> int:
-        ...
-    def __hash__(self) -> int:
-        ...
-    def __index__(self) -> int:
-        ...
-    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
-        ...
-    def __int__(self) -> int:
-        ...
-    @typing.overload
-    def __ne__(self, other: VacuumGripperProductionSetupProfile) -> bool:
         ...
     @typing.overload
     def __ne__(self, other: typing.Any) -> bool:
@@ -815,6 +751,70 @@ class VacuumGripperState:
     @property
     def vacuum(self) -> int:
         ...
+class VacuumGripperProductionSetupProfile:
+    """
+    Members:
+    
+      kP0
+    
+      kP1
+    
+      kP2
+    
+      kP3
+    """
+    __members__: typing.ClassVar[dict[str, VacuumGripperProductionSetupProfile]]
+    kP0: typing.ClassVar[VacuumGripperProductionSetupProfile]
+    kP1: typing.ClassVar[VacuumGripperProductionSetupProfile]
+    kP2: typing.ClassVar[VacuumGripperProductionSetupProfile]
+    kP3: typing.ClassVar[VacuumGripperProductionSetupProfile]
+    @typing.overload
+    def __eq__(self, other: VacuumGripperProductionSetupProfile) -> bool:
+        ...
+    @typing.overload
+    def __eq__(self, other: typing.Any) -> bool:
+        ...
+    def __getstate__(self) -> int:
+        ...
+    def __hash__(self) -> int:
+        ...
+    def __index__(self) -> int:
+        ...
+    def __init__(self, value: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __int__(self) -> int:
+        ...
+    @typing.overload
+    def __ne__(self, other: VacuumGripperProductionSetupProfile) -> bool:
+        ...
+    @typing.overload
+    def __ne__(self, other: typing.Any) -> bool:
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setstate__(self, state: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    def __str__(self) -> str:
+        ...
+    @property
+    def name(self) -> str:
+        ...
+    @property
+    def value(self) -> int:
+        ...
+class VacuumGripper:
+    def __init__(self, franka_address: str) -> None:
+        ...
+    def drop_off(self, timeout: datetime.timedelta) -> bool:
+        ...
+    def read_once(self) -> VacuumGripperState:
+        ...
+    def server_version(self) -> int:
+        ...
+    def stop(self) -> bool:
+        ...
+    def vacuum(self, vacuum: typing.SupportsInt | typing.SupportsIndex, timeout: datetime.timedelta, profile: VacuumGripperProductionSetupProfile = VacuumGripperProductionSetupProfile.kP0) -> bool:
+        ...
 def has_realtime_kernel() -> bool:
     ...
 def is_homogeneous_transformation(transform: typing.Annotated[collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex], "FixedSize(16)"]) -> bool:
@@ -841,3 +841,4 @@ def motion_finished(command: CartesianVelocities) -> CartesianVelocities:
 def set_current_thread_to_highest_scheduler_priority(error_message: str) -> bool:
     ...
 MAX_TORQUE_RATE: list = [999.999, 999.999, 999.999, 999.999, 999.999, 999.999, 999.999]
+__version__: str = 'universal-0.21.3-6-g132400c'

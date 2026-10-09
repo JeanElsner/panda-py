@@ -37,11 +37,7 @@ Paper = "https://www.sciencedirect.com/science/article/pii/S2352711023002285"
 
 [project.optional-dependencies]
 examples = [
-    "roboticstoolbox-python",
     "matplotlib",
-    "spatialmath-python",
-    "ansitable",
-    "qpsolvers",
 ]
 docs = [
     "furo",
