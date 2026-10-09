@@ -6,7 +6,7 @@
 #include <tuple>
 
 #include "constants.h"
-#include "controllers/controller.h"
+#include "controllers/loop.h"
 #include "controllers/guard.h"
 #include "telemetry.h"
 #include "utils.h"
@@ -103,14 +103,14 @@ Eigen::Matrix<double, 6, 7> shiftJacobian(
 Vector6d criticalDamping(const Vector6d& stiffness, double damping_ratio);
 
 /// Limits a reference to within `leash_position` (m) and `leash_rotation`
-/// (rad) of the current pose, as the simulator does after every policy step:
-/// x_ref = x + d min(1, l / |d|), and the orientation error clipped to l.
+/// (rad) of the current pose: x_ref = x + d min(1, l / |d|), and the
+/// orientation error clipped to l.
 void leash(Eigen::Vector3d& position_ref, Eigen::Quaterniond& orientation_ref,
            const Eigen::Vector3d& position,
            const Eigen::Quaterniond& orientation, double leash_position,
            double leash_rotation);
 
-/// One policy step's reference update: x_ref += translation,
+/// An incremental reference update: x_ref += translation,
 /// q_ref = rotation q_ref, then the leash against the current pose.
 void stepReference(Eigen::Vector3d& position_ref,
                    Eigen::Quaterniond& orientation_ref,
@@ -130,8 +130,9 @@ using GuardConfig = guard::Config;
 using GuardState = guard::State;
 using guard::tripName;
 
-/// The energy or impulse tank of the insertion simulator. It meters the
-/// active wrench only and gates it with alpha; damping is never scaled.
+/// An energy budget for the active wrench (a passivity tank), or an impulse
+/// budget. It meters the active wrench only and gates it with alpha; the
+/// damping is never scaled.
 enum class TankMode {
   kPower,    // P = max(0, w_act . [v; omega]), W; E0 in J
   kImpulse,  // P = |w_act[0:3]|, N; E0 in N s
@@ -161,11 +162,7 @@ double tankStep(const TankConfig& config, TankState& state,
 /// One telemetry sample per control tick. Every field is a block of doubles,
 /// so a table of fields is all the Python side needs to unpack it.
 #define TASK_IMPEDANCE_SAMPLE_FIELDS(X) \
-  X(tick, 1)                            \
-  X(time, 1)                            \
-  X(duration, 1)                        \
-  X(reference_update, 1)                \
-  X(control_command_success_rate, 1)    \
+  LOOP_SAMPLE_FIELDS(X)                 \
   X(position, 3)                        \
   X(orientation, 4)                     \
   X(position_ref, 3)                    \
@@ -181,25 +178,11 @@ double tankStep(const TankConfig& config, TankState& state,
   X(tau_nullspace, 7)                   \
   X(tau_joint_spring, 7)                \
   X(tau_friction, 7)                    \
-  X(tau_law, 7)                         \
-  X(tau_cmd, 7)                         \
-  X(q, 7)                               \
-  X(dq, 7)                              \
-  X(tau_J, 7)                           \
-  X(tau_J_d, 7)                         \
-  X(tau_ext_hat_filtered, 7)            \
-  X(O_T_EE, 16)                         \
-  X(F_T_EE, 16)                         \
-  X(O_F_ext_hat_K, 6)                   \
-  X(K_F_ext_hat_K, 6)                   \
-  X(guard, 1)                           \
   X(jacobian, 42)                       \
   X(mass, 49)
 
 struct Sample {
-#define TASK_IMPEDANCE_DECLARE(name, size) double name[size];
-  TASK_IMPEDANCE_SAMPLE_FIELDS(TASK_IMPEDANCE_DECLARE)
-#undef TASK_IMPEDANCE_DECLARE
+  TASK_IMPEDANCE_SAMPLE_FIELDS(LOOP_DECLARE_FIELD)
 };
 
 /// What the loop last applied, for the 50 Hz side to read.
@@ -224,7 +207,7 @@ struct Snapshot {
 ///
 /// with e the position error and the axis-angle orientation error at the
 /// control frame. No gravity term: the robot compensates gravity itself.
-class TaskImpedance : public TorqueController {
+class TaskImpedance : public controllers::Loop<task_impedance::Sample> {
  public:
   /// The libfranka frame the control frame is attached to.
   enum class Frame { kFlange, kEndEffector };
@@ -245,16 +228,7 @@ class TaskImpedance : public TorqueController {
       bool coriolis = false, double nullspace_damping = 0.0,
       size_t telemetry_capacity = 0);
 
-  franka::Torques step(const franka::RobotState& robot_state,
-                       franka::Duration& duration) override;
-  void start(const franka::RobotState& robot_state,
-             std::shared_ptr<franka::Model> model) override;
-  void stop(const franka::RobotState& robot_state,
-            std::shared_ptr<franka::Model> model) override;
-  bool isRunning() override;
   const std::string name() override;
-  void commanded(const franka::RobotState& robot_state,
-                 const franka::Torques& torques) override;
 
   /// Position and scalar-last quaternion of the control frame, base frame.
   /// Applied, and leashed, by the control loop on its next tick, against
@@ -262,7 +236,7 @@ class TaskImpedance : public TorqueController {
   void setReference(const Eigen::Vector3d& position,
                     const Eigen::Vector4d& orientation);
   /// Moves the reference by a translation and a rotation (axis-angle,
-  /// applied on the left), both in the base frame, as one policy step does;
+  /// applied on the left), both in the base frame, as an incremental action;
   /// with a stiffness, sets it on the same tick. Applied and leashed by the
   /// loop on its next tick; steps not yet applied add up.
   void stepReference(const Eigen::Vector3d& translation,
@@ -270,17 +244,6 @@ class TaskImpedance : public TorqueController {
   void stepReference(const Eigen::Vector3d& translation,
                      const Eigen::Vector3d& rotation,
                      const Vector6d& stiffness);
-  /// Sets the guards. When one trips, the loop drops the active (spring)
-  /// wrench on that tick and keeps the damping and the nullspace term, until
-  /// rearm(). Replaces the previous configuration.
-  void setGuard(const task_impedance::GuardConfig& config);
-  task_impedance::GuardConfig getGuard();
-  task_impedance::GuardState getGuardState();
-  /// Trips the guard from outside the loop, e.g. on missed policy deadlines.
-  void trip();
-  /// Clears a trip on the loop's next tick, with the reference reset to the
-  /// pose of that tick, so the active wrench resumes from zero.
-  void rearm();
   /// Enables the tank, full at E0 from the loop's next tick; the gate scales
   /// the active wrench only. A config with enabled = false removes it.
   void setTank(const task_impedance::TankConfig& config);
@@ -312,15 +275,33 @@ class TaskImpedance : public TorqueController {
   Eigen::Matrix4d getFrameTransform() const;
   Frame getFrame() const;
 
-  /// Appends the telemetry recorded since the last call.
-  size_t readTelemetry(std::vector<task_impedance::Sample>& out);
-  uint64_t telemetryDropped() const;
-  size_t telemetryCapacity() const;
-
   /// The control frame's pose and Jacobian for a robot state.
   void controlFrame(const franka::RobotState& robot_state,
                     franka::Model& model, Eigen::Matrix4d& pose,
                     Eigen::Matrix<double, 6, 7>& jacobian) const;
+
+ protected:
+  // The loop (controllers::Loop). While a guard is tripped the active wrench
+  // is dropped (the tank's gate is 0) and the damping, the posture term and
+  // the joint spring remain; a rearm resets the reference to the pose of
+  // that tick, so the active wrench resumes from zero.
+  void prepare(const franka::RobotState& robot_state) override;
+  void begin(const franka::RobotState& robot_state) override;
+  bool sync(const franka::RobotState& robot_state, double time) override;
+  void publish(const franka::RobotState& robot_state, double time) override;
+  void onRearm(const franka::RobotState& robot_state) override;
+  void guardFrame(const franka::RobotState& robot_state, Eigen::Vector3d& position,
+                  Eigen::Vector3d& velocity) override;
+  Vector7d law(const franka::RobotState& robot_state, double dt,
+               bool tripped) override;
+  void record(task_impedance::Sample& sample,
+              const franka::RobotState& robot_state) override;
+
+  /// Loop thread only: the reference and nullspace target for this tick,
+  /// bypassing the leash, for controllers that compute it every tick.
+  void holdReference(const Eigen::Vector3d& position,
+                     const Eigen::Quaterniond& orientation);
+  void holdNullspaceTarget(const Vector7d& q_nullspace);
 
  private:
   const Frame frame_;
@@ -345,44 +326,32 @@ class TaskImpedance : public TorqueController {
     double leash_rotation = std::numeric_limits<double>::infinity();
   };
   struct Command {
-    bool absolute = false, step = false, stiffness = false, rearm = false,
-         trip = false, tank_reset = false;
+    bool absolute = false, step = false, stiffness = false, tank_reset = false;
     Eigen::Vector3d position = Eigen::Vector3d::Zero();
     Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
     Eigen::Vector3d translation = Eigen::Vector3d::Zero();
     Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
     Vector6d stiffness_value = Vector6d::Zero();
-    bool pending() const {
-      return absolute || step || stiffness || rearm || trip || tank_reset;
-    }
+    bool pending() const { return absolute || step || stiffness || tank_reset; }
   };
 
-  std::mutex mux_;
   Parameters shared_;
   Command command_;
   task_impedance::Snapshot snapshot_;
   double damping_ratio_;
 
-  task_impedance::GuardConfig guard_shared_;
-  task_impedance::GuardState guard_state_shared_;
   task_impedance::TankConfig tank_shared_;
 
   // Loop thread only.
   Parameters loop_;
-  task_impedance::GuardConfig guard_;
-  guard::Monitor monitor_;
   task_impedance::TankConfig tank_;
   task_impedance::TankState tank_state_;
   Eigen::Vector3d position_ref_;
   Eigen::Quaterniond orientation_ref_;
-  uint64_t tick_ = 0;
   uint64_t applied_ = 0;
+  // This tick's inputs and outputs of the law.
+  task_impedance::Inputs in_;
+  task_impedance::Outputs out_;
 
-  std::atomic<bool> motion_finished_;
-  std::shared_ptr<franka::Model> model_;
-  TelemetryRing<task_impedance::Sample> telemetry_;
-  task_impedance::Sample* sample_ = nullptr;
-
-  void applyCommand(const Command& command, const Eigen::Matrix4d& pose,
-                    double time);
+  void applyCommand(const Command& command, const Eigen::Matrix4d& pose);
 };

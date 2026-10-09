@@ -195,16 +195,15 @@ TaskImpedance::TaskImpedance(const Vector6d& stiffness, double damping_ratio,
                              const Eigen::Matrix4d& frame_transform,
                              bool coriolis, double nullspace_damping,
                              size_t telemetry_capacity)
-    : frame_(frame),
+    : Loop(telemetry_capacity),
+      frame_(frame),
       frame_transform_(frame_transform),
       coriolis_(coriolis),
       nullspace_(nullspace),
       nullspace_damping_(nullspace_damping),
       damping_ratio_(damping_ratio),
       position_ref_(Eigen::Vector3d::Zero()),
-      orientation_ref_(Eigen::Quaterniond::Identity()),
-      motion_finished_(false),
-      telemetry_(telemetry_capacity) {
+      orientation_ref_(Eigen::Quaterniond::Identity()) {
   if (!frame_transform.allFinite() ||
       !frame_transform.row(3).isApprox(Eigen::RowVector4d(0, 0, 0, 1)) ||
       !(frame_transform.topLeftCorner<3, 3>() *
@@ -246,20 +245,10 @@ void TaskImpedance::controlFrame(const franka::RobotState& robot_state,
 }
 
 void TaskImpedance::applyCommand(const Command& command,
-                                 const Eigen::Matrix4d& pose, double time) {
+                                 const Eigen::Matrix4d& pose) {
   if (command.tank_reset) {
     tank_state_ = task_impedance::TankState();
     tank_state_.level = tank_.enabled ? tank_.E0 : 0.0;
-  }
-  if (command.rearm) {
-    monitor_.reset();
-    // Resume from zero active wrench, unless a reference came with it.
-    const Eigen::Affine3d transform(pose);
-    position_ref_ = transform.translation();
-    orientation_ref_ = Eigen::Quaterniond(transform.rotation());
-  }
-  if (command.trip) {
-    monitor_.trip(task_impedance::Trip::kManual, time);
   }
   if (command.stiffness) {
     loop_.stiffness = command.stiffness_value;
@@ -282,61 +271,110 @@ void TaskImpedance::applyCommand(const Command& command,
   applied_++;
 }
 
-franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
-                                    franka::Duration& duration) {
-  task_impedance::Inputs in;
-  in.q = Eigen::Map<const Vector7d>(robot_state.q.data());
-  in.dq = Eigen::Map<const Vector7d>(robot_state.dq.data());
-  controlFrame(robot_state, *model_, in.pose, in.jacobian);
+void TaskImpedance::prepare(const franka::RobotState& robot_state) {
+  in_ = task_impedance::Inputs();
+  in_.q = Eigen::Map<const Vector7d>(robot_state.q.data());
+  in_.dq = Eigen::Map<const Vector7d>(robot_state.dq.data());
+  controlFrame(robot_state, *model_, in_.pose, in_.jacobian);
   if (nullspace_ == Nullspace::kDynamic) {
-    in.mass = Eigen::Map<const Eigen::Matrix<double, 7, 7>>(
+    in_.mass = Eigen::Map<const Eigen::Matrix<double, 7, 7>>(
         model_->mass(robot_state).data());
   }
   if (coriolis_) {
-    in.coriolis =
+    in_.coriolis =
         Eigen::Map<const Vector7d>(model_->coriolis(robot_state).data());
   }
+}
 
-  // The loop never waits for a setter: if one holds the lock, this tick runs
-  // on the previous tick's parameters and any command waits for the next.
-  const double time = robot_state.time.toSec();
-  bool updated = false;
-  std::unique_lock<std::mutex> lock(mux_, std::try_to_lock);
-  if (lock.owns_lock()) {
-    const Vector6d stiffness = loop_.stiffness, damping = loop_.damping;
-    loop_ = shared_;
-    guard_ = guard_shared_;
-    tank_ = tank_shared_;
-    // A stiffness set by a command lives in loop_ until the setters see it.
-    loop_.stiffness = stiffness;
-    loop_.damping = damping;
-    if (command_.pending()) {
-      applyCommand(command_, in.pose, time);
-      command_ = Command();
-      updated = true;
-      snapshot_.applied_time = time;
-      snapshot_.applied_pose = in.pose;
-    }
-    shared_.stiffness = loop_.stiffness;
-    shared_.damping = loop_.damping;
-    guard_state_shared_ = monitor_.state();
-    snapshot_.time = time;
-    snapshot_.pose = in.pose;
-    snapshot_.position_ref = position_ref_;
-    snapshot_.orientation_ref = orientation_ref_;
-    snapshot_.stiffness = loop_.stiffness;
-    snapshot_.applied = applied_;
-    snapshot_.tank = tank_state_;
-    if (!tank_.enabled) {
-      snapshot_.tank.level = std::numeric_limits<double>::quiet_NaN();
-    }
-    lock.unlock();
+void TaskImpedance::begin(const franka::RobotState& robot_state) {
+  Eigen::Matrix4d pose;
+  Eigen::Matrix<double, 6, 7> jacobian;
+  controlFrame(robot_state, *model_, pose, jacobian);
+  const Eigen::Affine3d transform(pose);
+  // Hold where the robot is, with zero active wrench.
+  position_ref_ = transform.translation();
+  orientation_ref_ = Eigen::Quaterniond(transform.rotation());
+  shared_.q_nullspace = Eigen::Map<const Vector7d>(robot_state.q.data());
+  loop_ = shared_;
+  command_ = Command();
+  applied_ = 0;
+  tank_ = tank_shared_;
+  tank_state_ = task_impedance::TankState();
+  tank_state_.level = tank_.enabled ? tank_.E0 : 0.0;
+  snapshot_ = task_impedance::Snapshot();
+  snapshot_.time = robot_state.time.toSec();
+  snapshot_.applied_time = snapshot_.time;
+  snapshot_.pose = pose;
+  snapshot_.applied_pose = pose;
+  snapshot_.position_ref = position_ref_;
+  snapshot_.orientation_ref = orientation_ref_;
+  snapshot_.stiffness = shared_.stiffness;
+  snapshot_.tank = tank_state_;
+  if (!tank_.enabled) {
+    snapshot_.tank.level = std::numeric_limits<double>::quiet_NaN();
   }
+}
 
-  const double dt = duration.toSec();
-  monitor_.evaluate(guard_, robot_state, in.pose.topRightCorner<3, 1>(),
-                    in.jacobian.topRows<3>() * in.dq, dt);
+bool TaskImpedance::sync(const franka::RobotState& robot_state, double time) {
+  const Vector6d stiffness = loop_.stiffness, damping = loop_.damping;
+  loop_ = shared_;
+  tank_ = tank_shared_;
+  // A stiffness set by a command lives in loop_ until the setters see it.
+  loop_.stiffness = stiffness;
+  loop_.damping = damping;
+  bool updated = false;
+  if (command_.pending()) {
+    applyCommand(command_, in_.pose);
+    command_ = Command();
+    updated = true;
+    snapshot_.applied_time = time;
+    snapshot_.applied_pose = in_.pose;
+  }
+  shared_.stiffness = loop_.stiffness;
+  shared_.damping = loop_.damping;
+  return updated;
+}
 
+void TaskImpedance::publish(const franka::RobotState& robot_state, double time) {
+  snapshot_.time = time;
+  snapshot_.pose = in_.pose;
+  snapshot_.position_ref = position_ref_;
+  snapshot_.orientation_ref = orientation_ref_;
+  snapshot_.stiffness = loop_.stiffness;
+  snapshot_.applied = applied_;
+  snapshot_.tank = tank_state_;
+  if (!tank_.enabled) {
+    snapshot_.tank.level = std::numeric_limits<double>::quiet_NaN();
+  }
+}
+
+void TaskImpedance::holdReference(const Eigen::Vector3d& position,
+                                  const Eigen::Quaterniond& orientation) {
+  position_ref_ = position;
+  orientation_ref_ = orientation.normalized();
+}
+
+void TaskImpedance::holdNullspaceTarget(const Vector7d& q_nullspace) {
+  loop_.q_nullspace = q_nullspace;
+}
+
+void TaskImpedance::onRearm(const franka::RobotState& robot_state) {
+  // Resume from zero active wrench, unless a reference comes with it.
+  const Eigen::Affine3d transform(in_.pose);
+  position_ref_ = transform.translation();
+  orientation_ref_ = Eigen::Quaterniond(transform.rotation());
+}
+
+void TaskImpedance::guardFrame(const franka::RobotState& robot_state,
+                               Eigen::Vector3d& position,
+                               Eigen::Vector3d& velocity) {
+  position = in_.pose.topRightCorner<3, 1>();
+  velocity = in_.jacobian.topRows<3>() * in_.dq;
+}
+
+Vector7d TaskImpedance::law(const franka::RobotState& robot_state, double dt,
+                            bool tripped) {
+  task_impedance::Inputs& in = in_;
   in.position_ref = position_ref_;
   in.orientation_ref = orientation_ref_;
   in.stiffness = loop_.stiffness;
@@ -351,11 +389,12 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
   in.q_joint_spring = loop_.q_joint_spring;
   in.friction = loop_.friction;
   in.friction_deadband = loop_.friction_deadband;
-  auto out = task_impedance::compute(in);
+  task_impedance::Outputs& out = out_;
+  out = task_impedance::compute(in);
   // The gate needs the active wrench, so it is applied to the law's output:
   // tau_task = J^T (alpha w_act + w_pas).
   double alpha = 1.0;
-  if (monitor_.state().tripped()) {
+  if (tripped) {
     // Tripped: no spring, damping and posture only, from this very tick. The
     // tank draws nothing while nothing is applied.
     alpha = 0.0;
@@ -375,130 +414,46 @@ franka::Torques TaskImpedance::step(const franka::RobotState& robot_state,
   // guard is tripped.
   if (!in.friction.isZero()) {
     const Vector7d friction =
-        monitor_.state().tripped()
-            ? Vector7d::Zero()
-            : task_impedance::frictionCompensation(
-                  in.friction, in.friction_deadband,
-                  out.tau_task + out.tau_nullspace + out.tau_joint_spring);
+        tripped ? Vector7d::Zero()
+                : task_impedance::frictionCompensation(
+                      in.friction, in.friction_deadband,
+                      out.tau_task + out.tau_nullspace + out.tau_joint_spring);
     out.tau += friction - out.tau_friction;
     out.tau_friction = friction;
   }
+  return out.tau;
+}
 
-  sample_ = telemetry_.claim();
-  if (sample_) {
-    auto& s = *sample_;
-    auto put = [](double* to, const auto& from) {
-      Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>(to, from.size()) =
-          Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-              from.data(), from.size());
-    };
-    const Eigen::Affine3d transform(in.pose);
-    s.tick[0] = static_cast<double>(tick_);
-    s.time[0] = time;
-    s.duration[0] = duration.toSec();
-    s.reference_update[0] = updated ? 1.0 : 0.0;
-    s.control_command_success_rate[0] = robot_state.control_command_success_rate;
-    put(s.position, Eigen::Vector3d(transform.translation()));
-    put(s.orientation, Eigen::Quaterniond(transform.rotation()).coeffs());
-    put(s.position_ref, in.position_ref);
-    put(s.orientation_ref, in.orientation_ref.coeffs());
-    put(s.stiffness, in.stiffness);
-    put(s.damping, in.damping);
-    put(s.wrench_active, out.wrench_active);
-    put(s.wrench_passive, out.wrench_passive);
-    s.alpha[0] = in.alpha;
-    s.tank[0] = tank_.enabled ? tank_state_.level
-                              : std::numeric_limits<double>::quiet_NaN();
-    s.tank_drawn[0] = tank_state_.drawn;
-    put(s.tau_task, out.tau_task);
-    put(s.tau_nullspace, out.tau_nullspace);
-    put(s.tau_joint_spring, out.tau_joint_spring);
-    put(s.tau_friction, out.tau_friction);
-    put(s.tau_law, out.tau);
-    put(s.q, robot_state.q);
-    put(s.dq, robot_state.dq);
-    put(s.tau_J, robot_state.tau_J);
-    put(s.tau_J_d, robot_state.tau_J_d);
-    put(s.tau_ext_hat_filtered, robot_state.tau_ext_hat_filtered);
-    put(s.O_T_EE, robot_state.O_T_EE);
-    put(s.F_T_EE, robot_state.F_T_EE);
-    put(s.O_F_ext_hat_K, robot_state.O_F_ext_hat_K);
-    put(s.K_F_ext_hat_K, robot_state.K_F_ext_hat_K);
-    s.guard[0] = static_cast<double>(monitor_.state().trip);
-    put(s.jacobian, in.jacobian);
-    if (nullspace_ == Nullspace::kDynamic) {
-      put(s.mass, in.mass);
-    } else {
-      std::fill(std::begin(s.mass), std::end(s.mass),
-                std::numeric_limits<double>::quiet_NaN());
-    }
-    // tau_cmd: filled in by commanded(), once the torque is final.
-    std::fill(std::begin(s.tau_cmd), std::end(s.tau_cmd),
+void TaskImpedance::record(task_impedance::Sample& s,
+                           const franka::RobotState& robot_state) {
+  using controllers::putField;
+  const Eigen::Affine3d transform(in_.pose);
+  putField(s.position, Eigen::Vector3d(transform.translation()));
+  putField(s.orientation, Eigen::Quaterniond(transform.rotation()).coeffs());
+  putField(s.position_ref, in_.position_ref);
+  putField(s.orientation_ref, in_.orientation_ref.coeffs());
+  putField(s.stiffness, in_.stiffness);
+  putField(s.damping, in_.damping);
+  putField(s.wrench_active, out_.wrench_active);
+  putField(s.wrench_passive, out_.wrench_passive);
+  s.alpha[0] = in_.alpha;
+  s.tank[0] = tank_.enabled ? tank_state_.level
+                            : std::numeric_limits<double>::quiet_NaN();
+  s.tank_drawn[0] = tank_state_.drawn;
+  putField(s.tau_task, out_.tau_task);
+  putField(s.tau_nullspace, out_.tau_nullspace);
+  putField(s.tau_joint_spring, out_.tau_joint_spring);
+  putField(s.tau_friction, out_.tau_friction);
+  putField(s.jacobian, in_.jacobian);
+  if (nullspace_ == Nullspace::kDynamic) {
+    putField(s.mass, in_.mass);
+  } else {
+    std::fill(std::begin(s.mass), std::end(s.mass),
               std::numeric_limits<double>::quiet_NaN());
   }
-  tick_++;
-
-  franka::Torques torques = VectorToArray<7>(out.tau);
-  torques.motion_finished = motion_finished_;
-  return torques;
 }
 
-void TaskImpedance::commanded(const franka::RobotState& robot_state,
-                              const franka::Torques& torques) {
-  monitor_.commanded(torques);
-  if (sample_) {
-    std::copy(torques.tau_J.begin(), torques.tau_J.end(), sample_->tau_cmd);
-    telemetry_.publish();
-    sample_ = nullptr;
-  }
-}
-
-void TaskImpedance::start(const franka::RobotState& robot_state,
-                          std::shared_ptr<franka::Model> model) {
-  motion_finished_ = false;
-  model_ = model;
-  Eigen::Matrix4d pose;
-  Eigen::Matrix<double, 6, 7> jacobian;
-  controlFrame(robot_state, *model_, pose, jacobian);
-  const Eigen::Affine3d transform(pose);
-  std::lock_guard<std::mutex> lock(mux_);
-  // Hold where the robot is, with zero active wrench.
-  position_ref_ = transform.translation();
-  orientation_ref_ = Eigen::Quaterniond(transform.rotation());
-  shared_.q_nullspace = Eigen::Map<const Vector7d>(robot_state.q.data());
-  loop_ = shared_;
-  command_ = Command();
-  tick_ = 0;
-  applied_ = 0;
-  guard_ = guard_shared_;
-  monitor_.reset();
-  guard_state_shared_ = task_impedance::GuardState();
-  tank_ = tank_shared_;
-  tank_state_ = task_impedance::TankState();
-  tank_state_.level = tank_.enabled ? tank_.E0 : 0.0;
-  sample_ = nullptr;
-  snapshot_ = task_impedance::Snapshot();
-  snapshot_.time = robot_state.time.toSec();
-  snapshot_.applied_time = snapshot_.time;
-  snapshot_.pose = pose;
-  snapshot_.applied_pose = pose;
-  snapshot_.position_ref = position_ref_;
-  snapshot_.orientation_ref = orientation_ref_;
-  snapshot_.stiffness = shared_.stiffness;
-  snapshot_.tank = tank_state_;
-  if (!tank_.enabled) {
-    snapshot_.tank.level = std::numeric_limits<double>::quiet_NaN();
-  }
-}
-
-void TaskImpedance::stop(const franka::RobotState& robot_state,
-                         std::shared_ptr<franka::Model> model) {
-  motion_finished_ = true;
-}
-
-bool TaskImpedance::isRunning() { return !motion_finished_; }
-
-const std::string TaskImpedance::name() { return "Task Impedance"; }
+const std::string TaskImpedance::name() { return "TaskImpedance"; }
 
 void TaskImpedance::setReference(const Eigen::Vector3d& position,
                                  const Eigen::Vector4d& orientation) {
@@ -550,7 +505,7 @@ task_impedance::Snapshot TaskImpedance::getSnapshot() {
 
 void TaskImpedance::setStiffness(const Vector6d& stiffness) {
   std::lock_guard<std::mutex> lock(mux_);
-  // Through the command, so that the loop takes it like a policy step's.
+  // Through the command, so that the loop takes it like a stepped one.
   command_.stiffness = true;
   command_.stiffness_value = stiffness;
   shared_.stiffness = stiffness;
@@ -643,43 +598,6 @@ Eigen::Matrix4d TaskImpedance::getFrameTransform() const {
 }
 
 TaskImpedance::Frame TaskImpedance::getFrame() const { return frame_; }
-
-size_t TaskImpedance::readTelemetry(std::vector<task_impedance::Sample>& out) {
-  return telemetry_.drain(out);
-}
-
-uint64_t TaskImpedance::telemetryDropped() const { return telemetry_.dropped(); }
-
-size_t TaskImpedance::telemetryCapacity() const { return telemetry_.capacity(); }
-
-void TaskImpedance::setGuard(const task_impedance::GuardConfig& config) {
-  if (config.workspace_size > task_impedance::GuardConfig::kMaxBoxes) {
-    throw std::invalid_argument("Too many workspace boxes.");
-  }
-  std::lock_guard<std::mutex> lock(mux_);
-  guard_shared_ = config;
-}
-
-task_impedance::GuardConfig TaskImpedance::getGuard() {
-  std::lock_guard<std::mutex> lock(mux_);
-  return guard_shared_;
-}
-
-task_impedance::GuardState TaskImpedance::getGuardState() {
-  std::lock_guard<std::mutex> lock(mux_);
-  return guard_state_shared_;
-}
-
-void TaskImpedance::trip() {
-  std::lock_guard<std::mutex> lock(mux_);
-  command_.trip = true;
-}
-
-void TaskImpedance::rearm() {
-  std::lock_guard<std::mutex> lock(mux_);
-  command_.rearm = true;
-  command_.trip = false;
-}
 
 void TaskImpedance::setTank(const task_impedance::TankConfig& config) {
   if (config.enabled && !(config.E0 > 0.0)) {

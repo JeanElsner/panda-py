@@ -567,19 +567,19 @@ def test_tank_configuration():
 # -- joint servo -------------------------------------------------------------------
 
 
-def test_joint_position_api():
-    from panda_py.controllers import JointPosition  # pylint: disable=import-outside-toplevel
+def test_joint_impedance_api():
+    from panda_py.controllers import JointImpedance  # pylint: disable=import-outside-toplevel
 
     stiffness = np.array([600, 600, 600, 600, 250, 150, 50], float)
     damping = np.array([30, 30, 30, 30, 10, 10, 5], float)
-    ctrl = JointPosition(stiffness, damping, telemetry=1000)
+    ctrl = JointImpedance(stiffness, damping, telemetry=1000)
     np.testing.assert_array_equal(ctrl.get_stiffness(), stiffness)
     np.testing.assert_array_equal(ctrl.get_damping(), damping)
     ctrl.set_stiffness(stiffness / 2)
     np.testing.assert_array_equal(ctrl.get_stiffness(), stiffness / 2)
     assert ctrl.telemetry_capacity == 1000
     assert len(ctrl.read_telemetry()["tick"]) == 0
-    ctrl.step_control(np.full(7, 0.01))
+    ctrl.step_reference(np.full(7, 0.01))
     ctrl.set_guard(force=150, force_time=0.02)
     assert ctrl.get_guard()["force"] == 150
     assert not ctrl.guard_state["tripped"]

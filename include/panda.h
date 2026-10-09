@@ -15,9 +15,9 @@
 #include <utility>
 
 #include "constants.h"
-#include "controllers/applied_torque.h"
-#include "controllers/cartesian_trajectory.h"
+#include "controllers/task_trajectory.h"
 #include "controllers/controller.h"
+#include "controllers/joint_torque.h"
 #include "controllers/joint_limits/virtual_wall_controller.h"
 #include "controllers/joint_trajectory.h"
 #include "utils.h"
@@ -105,13 +105,13 @@ class Panda {
       std::vector<Eigen::Matrix<double, 4, 1>>& orientations,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
       const Eigen::Matrix<double, 6, 6>& impedance =
-          controllers::CartesianTrajectory::kDefaultImpedance,
+          controllers::TaskTrajectory::kDefaultImpedance,
       const double& damping_ratio =
-          controllers::CartesianTrajectory::kDefaultDampingRatio,
+          controllers::TaskTrajectory::kDefaultDampingRatio,
       const double& nullspace_stiffness =
-          controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+          controllers::TaskTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
-          controllers::CartesianTrajectory::kDefaultDqThreshold,
+          controllers::TaskTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToPosePositionThreshold,
       double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToPose(
@@ -119,39 +119,39 @@ class Panda {
       const Eigen::Matrix<double, 4, 1>& orientation,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
       const Eigen::Matrix<double, 6, 6>& impedance =
-          controllers::CartesianTrajectory::kDefaultImpedance,
+          controllers::TaskTrajectory::kDefaultImpedance,
       const double& damping_ratio =
-          controllers::CartesianTrajectory::kDefaultDampingRatio,
+          controllers::TaskTrajectory::kDefaultDampingRatio,
       const double& nullspace_stiffness =
-          controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+          controllers::TaskTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
-          controllers::CartesianTrajectory::kDefaultDqThreshold,
+          controllers::TaskTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToPosePositionThreshold,
       double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToPose(
       const std::vector<Eigen::Matrix<double, 4, 4>>& poses,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
       const Eigen::Matrix<double, 6, 6>& impedance =
-          controllers::CartesianTrajectory::kDefaultImpedance,
+          controllers::TaskTrajectory::kDefaultImpedance,
       const double& damping_ratio =
-          controllers::CartesianTrajectory::kDefaultDampingRatio,
+          controllers::TaskTrajectory::kDefaultDampingRatio,
       const double& nullspace_stiffness =
-          controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+          controllers::TaskTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
-          controllers::CartesianTrajectory::kDefaultDqThreshold,
+          controllers::TaskTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToPosePositionThreshold,
       double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToPose(
       const Eigen::Matrix<double, 4, 4>& pose,
       double speed_factor = motion::kDefaultCartesianSpeedFactor,
       const Eigen::Matrix<double, 6, 6>& impedance =
-          controllers::CartesianTrajectory::kDefaultImpedance,
+          controllers::TaskTrajectory::kDefaultImpedance,
       const double& damping_ratio =
-          controllers::CartesianTrajectory::kDefaultDampingRatio,
+          controllers::TaskTrajectory::kDefaultDampingRatio,
       const double& nullspace_stiffness =
-          controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+          controllers::TaskTrajectory::kDefaultNullspaceStiffness,
       double dq_threshold =
-          controllers::CartesianTrajectory::kDefaultDqThreshold,
+          controllers::TaskTrajectory::kDefaultDqThreshold,
       double success_threshold = kMoveToPosePositionThreshold,
       double orientation_threshold = kMoveToPoseOrientationThreshold);
   bool moveToStart(

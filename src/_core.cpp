@@ -8,13 +8,13 @@
 
 #include <optional>
 
-#include "controllers/applied_force.h"
-#include "controllers/applied_torque.h"
-#include "controllers/task_impedance.h"
-#include "controllers/force.h"
-#include "controllers/integrated_velocity.h"
-#include "controllers/joint_position.h"
 #include "controllers/guard.h"
+#include "controllers/joint_impedance.h"
+#include "controllers/joint_torque.h"
+#include "controllers/joint_velocity.h"
+#include "controllers/task_force.h"
+#include "controllers/task_impedance.h"
+#include "controllers/task_wrench.h"
 #include "kinematics/fk.h"
 #include "kinematics/ik.h"
 #include "motion/generators.h"
@@ -57,20 +57,33 @@ task_impedance::TankMode parseTankMode(const std::string &name) {
     d[#name] = a;                                                          \
   }
 
-py::dict unpackTaskImpedance(const std::vector<task_impedance::Sample> &samples) {
-  const py::ssize_t n = static_cast<py::ssize_t>(samples.size());
-  py::dict d;
-  TASK_IMPEDANCE_SAMPLE_FIELDS(UNPACK_FIELD)
-  return d;
-}
+#define DEFINE_UNPACK(function, Sample, FIELDS)                     \
+  py::dict function(const std::vector<Sample> &samples) {           \
+    const py::ssize_t n = static_cast<py::ssize_t>(samples.size()); \
+    py::dict d;                                                     \
+    FIELDS(UNPACK_FIELD)                                            \
+    return d;                                                       \
+  }
 
-py::dict unpackJointPosition(const std::vector<joint_position::Sample> &samples) {
-  const py::ssize_t n = static_cast<py::ssize_t>(samples.size());
-  py::dict d;
-  JOINT_POSITION_SAMPLE_FIELDS(UNPACK_FIELD)
-  return d;
-}
+DEFINE_UNPACK(unpackTaskImpedance, task_impedance::Sample, TASK_IMPEDANCE_SAMPLE_FIELDS)
+DEFINE_UNPACK(unpackJointImpedance, joint_impedance::Sample, JOINT_IMPEDANCE_SAMPLE_FIELDS)
+DEFINE_UNPACK(unpackJointTorque, joint_torque::Sample, JOINT_TORQUE_SAMPLE_FIELDS)
+DEFINE_UNPACK(unpackTaskWrench, task_wrench::Sample, TASK_WRENCH_SAMPLE_FIELDS)
+DEFINE_UNPACK(unpackTaskForce, task_force::Sample, TASK_FORCE_SAMPLE_FIELDS)
+#undef DEFINE_UNPACK
 #undef UNPACK_FIELD
+
+/// The fields every controller's telemetry has, for the docstrings.
+#define COMMON_TELEMETRY_DOC                                                     \
+  "``tick`` (counts every tick since start, so a gap is a sample the buffer "  \
+  "had no room for), ``time``, ``duration`` (s since the previous tick; above " \
+  "1 ms the robot ticked without a command), ``reference_update`` (1 where a " \
+  "command was applied), ``control_command_success_rate``, ``tau_law`` (the "  \
+  "law's torque), ``tau_cmd`` (sent, after the joint walls, rate limit and "   \
+  "clipping), the robot state's ``q``, ``dq``, ``tau_J``, ``tau_J_d``, "       \
+  "``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE`` (column-major), "          \
+  "``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard`` (the trip reason as a " \
+  "number, 0 while armed)"
 
 /// read_telemetry and the telemetry properties of a controller with a ring.
 template <typename Controller, typename Sample, typename Class>
@@ -518,9 +531,9 @@ PYBIND11_MODULE(_core, m) {
           py::call_guard<py::gil_scoped_release>(), py::arg("positions"),
           py::arg("orientations"),
           py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-          py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
-          py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
-          py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+          py::arg("impedance") = controllers::TaskTrajectory::kDefaultImpedance,
+          py::arg("damping_ratio") = controllers::TaskTrajectory::kDefaultDampingRatio,
+          py::arg("nullspace_stiffness") = controllers::TaskTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
               controllers::JointTrajectory::kDefaultDqThreshold,
           py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
@@ -550,9 +563,9 @@ PYBIND11_MODULE(_core, m) {
           py::call_guard<py::gil_scoped_release>(), py::arg("position"),
           py::arg("orientation"),
           py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-          py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
-          py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
-          py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+          py::arg("impedance") = controllers::TaskTrajectory::kDefaultImpedance,
+          py::arg("damping_ratio") = controllers::TaskTrajectory::kDefaultDampingRatio,
+          py::arg("nullspace_stiffness") = controllers::TaskTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
               controllers::JointTrajectory::kDefaultDqThreshold,
           py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
@@ -569,9 +582,9 @@ PYBIND11_MODULE(_core, m) {
                              const double &, double, double, double>(&Panda::moveToPose),
            py::call_guard<py::gil_scoped_release>(), py::arg("pose"),
            py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-           py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
-           py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
-           py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+           py::arg("impedance") = controllers::TaskTrajectory::kDefaultImpedance,
+           py::arg("damping_ratio") = controllers::TaskTrajectory::kDefaultDampingRatio,
+           py::arg("nullspace_stiffness") = controllers::TaskTrajectory::kDefaultNullspaceStiffness,
            py::arg("dq_threshold") =
                controllers::JointTrajectory::kDefaultDqThreshold,
            py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
@@ -589,9 +602,9 @@ PYBIND11_MODULE(_core, m) {
               &Panda::moveToPose),
           py::call_guard<py::gil_scoped_release>(), py::arg("pose"),
           py::arg("speed_factor") = motion::kDefaultCartesianSpeedFactor,
-          py::arg("impedance") = controllers::CartesianTrajectory::kDefaultImpedance,
-          py::arg("damping_ratio") = controllers::CartesianTrajectory::kDefaultDampingRatio,
-          py::arg("nullspace_stiffness") = controllers::CartesianTrajectory::kDefaultNullspaceStiffness,
+          py::arg("impedance") = controllers::TaskTrajectory::kDefaultImpedance,
+          py::arg("damping_ratio") = controllers::TaskTrajectory::kDefaultDampingRatio,
+          py::arg("nullspace_stiffness") = controllers::TaskTrajectory::kDefaultNullspaceStiffness,
           py::arg("dq_threshold") =
               controllers::JointTrajectory::kDefaultDqThreshold,
           py::arg("success_threshold") = Panda::kMoveToPosePositionThreshold,
@@ -631,60 +644,54 @@ PYBIND11_MODULE(_core, m) {
           Get time in seconds since this controller was started.
       )delim");
 
-  py::class_<IntegratedVelocity, TorqueController,
-             std::shared_ptr<IntegratedVelocity>>(m, "IntegratedVelocity")
-      .def(py::init<const Vector7d &,
-                    const Vector7d &>(), /*py::keep_alive<1, 0>(),*/
-           py::arg("stiffness") = IntegratedVelocity::kDefaultStiffness,
-           py::arg("damping") = IntegratedVelocity::kDefaultDamping)
-      .def("get_qd", &IntegratedVelocity::getQd, py::call_guard<py::gil_scoped_release>())
-      .def("set_control", &IntegratedVelocity::setControl,
-           py::call_guard<py::gil_scoped_release>(), py::arg("velocity"))
-      .def("set_stiffness", &IntegratedVelocity::setStiffness,
-           py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"))
-      .def("set_damping", &IntegratedVelocity::setDamping,
-           py::call_guard<py::gil_scoped_release>(), py::arg("damping"));
-
-  py::class_<JointPosition, TorqueController, std::shared_ptr<JointPosition>>
-      joint_position_class(m, "JointPosition");
-  joint_position_class
+  py::class_<JointImpedance, TorqueController, std::shared_ptr<JointImpedance>>
+      joint_impedance_class(m, "JointImpedance");
+  joint_impedance_class
       .def(py::init<const Vector7d &, const Vector7d &, size_t>(),
-           py::arg("stiffness") = JointPosition::kDefaultStiffness,
-           py::arg("damping") = JointPosition::kDefaultDamping,
+           py::arg("stiffness") = JointImpedance::kDefaultStiffness,
+           py::arg("damping") = JointImpedance::kDefaultDamping,
            py::arg("telemetry") = 0,
            R"delim(
-               Joint position servo,
-               :math:`\tau = K (q_d - q) + D (\dot q_d - \dot q)`. Targets are
-               applied by the loop on its next tick, which never waits for
-               them. On start it holds the current joint positions.
+               Joint impedance, a spring and damper per joint to a reference:
+
+               .. math::
+                 \tau = K (q_d - q) + D (\dot q_d - \dot q)
+
+               On start it holds the current joint positions. While a guard is
+               tripped the active part, :math:`K (q_d - q) + D \dot q_d`, is
+               dropped and only the damping remains.
 
                Args:
                  stiffness: :math:`K`, Nm/rad per joint.
                  damping: :math:`D`, Nm s/rad per joint.
-                 telemetry: Capacity of the telemetry buffer in samples; 0
-                   records none.
+                 telemetry: Capacity of the telemetry buffer in samples, one per
+                   1 kHz tick; 0 records none.
            )delim")
-      .def("set_control", &JointPosition::setControl,
-           py::call_guard<py::gil_scoped_release>(), py::arg("position"),
-           py::arg("velocity") = JointPosition::kDefaultDqd)
-      .def("step_control", &JointPosition::stepControl,
+      .def("set_reference", &JointImpedance::setReference,
+           py::call_guard<py::gil_scoped_release>(), py::arg("q_d"),
+           py::arg("dq_d") = Vector7d::Zero(),
+           R"delim(
+               Reference joint positions and velocities, applied by the loop on
+               its next tick; replaces a reference not yet applied.
+           )delim")
+      .def("step_reference", &JointImpedance::stepReference,
            py::call_guard<py::gil_scoped_release>(), py::arg("delta"),
            R"delim(
                :math:`q_d = q + \delta`, :math:`\dot q_d = 0`, with :math:`q` of
-               the tick it is applied at: one policy step of the simulator's
-               joint servo.
+               the tick it is applied at: an increment relative to where the
+               robot is, as a learned policy's action often is.
            )delim")
-      .def("set_stiffness", &JointPosition::setStiffness,
+      .def("set_stiffness", &JointImpedance::setStiffness,
            py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"))
-      .def("set_damping", &JointPosition::setDamping,
+      .def("set_damping", &JointImpedance::setDamping,
            py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
-      .def("get_stiffness", &JointPosition::getStiffness,
+      .def("get_stiffness", &JointImpedance::getStiffness,
            py::call_guard<py::gil_scoped_release>())
-      .def("get_damping", &JointPosition::getDamping,
+      .def("get_damping", &JointImpedance::getDamping,
            py::call_guard<py::gil_scoped_release>())
       .def("get_snapshot",
-           [](JointPosition &c) {
-             joint_position::Snapshot snap;
+           [](JointImpedance &c) {
+             joint_impedance::Snapshot snap;
              {
                py::gil_scoped_release release;
                snap = c.getSnapshot();
@@ -700,26 +707,71 @@ PYBIND11_MODULE(_core, m) {
            },
            R"delim(
                What the loop last did: ``time`` and ``q`` of the latest tick,
-               ``applied_time`` and ``applied_q`` of the tick the latest target
-               was applied at, the target ``q_d`` and ``applied``, the number of
-               targets applied since start.
+               ``applied_time`` and ``applied_q`` of the tick the latest
+               reference was applied at, the reference ``q_d`` and ``applied``,
+               the number of references applied since start.
            )delim");
-  bindGuard(joint_position_class, R"delim(
-               Clears a trip on the loop's next tick; the target becomes the
+  bindGuard(joint_impedance_class, R"delim(
+               Clears a trip on the loop's next tick; the reference becomes the
                joint positions of that tick.
            )delim");
-  bindTelemetry<JointPosition>(joint_position_class, unpackJointPosition, R"delim(
-               The telemetry recorded since the last call, one row per 1 kHz
-               tick: ``tick``, ``time``, ``duration``, ``reference_update``,
-               ``control_command_success_rate``, ``q_d``, ``dq_d``,
-               ``stiffness``, ``damping``, ``tau_active``
-               (:math:`K (q_d - q) + D \dot q_d`, zero while a guard is
-               tripped), ``tau_passive`` (:math:`-D \dot q`), ``tau_law``,
-               ``tau_cmd`` (sent), the robot state's ``q``, ``dq``, ``tau_J``,
-               ``tau_J_d``, ``tau_ext_hat_filtered``, ``O_T_EE``, ``F_T_EE``,
-               ``O_F_ext_hat_K``, ``K_F_ext_hat_K``, and ``guard``. See
-               :py:func:`TaskImpedance.read_telemetry`.
+  bindTelemetry<JointImpedance>(joint_impedance_class, unpackJointImpedance,
+           "The telemetry recorded since the last call, a dict of arrays with one "
+           "row per 1 kHz tick: " COMMON_TELEMETRY_DOC ", and ``q_d``, ``dq_d``, "
+           "``stiffness``, ``damping``, ``tau_active`` (zero while a guard is "
+           "tripped) and ``tau_passive``.");
+
+  py::class_<JointVelocity, TorqueController, std::shared_ptr<JointVelocity>>
+      joint_velocity_class(m, "JointVelocity");
+  joint_velocity_class
+      .def(py::init<const Vector7d &, const Vector7d &, double, size_t>(),
+           py::arg("stiffness") = JointImpedance::kDefaultStiffness,
+           py::arg("damping") = JointImpedance::kDefaultDamping,
+           py::arg("command_timeout") = std::numeric_limits<double>::infinity(),
+           py::arg("telemetry") = 0,
+           R"delim(
+               Joint velocity control. Every tick the reference velocity is
+               integrated into a joint impedance reference, clamped to the
+               connected robot's joint limits:
+
+               .. math::
+                 q_d \mathrel{+}= \dot q_d \, \Delta t, \quad
+                 \tau = K (q_d - q) + D (\dot q_d - \dot q)
+
+               so the joints follow the velocity and hold their position when
+               it is zero. While a guard is tripped nothing is integrated and
+               only the damping remains.
+
+               Args:
+                 stiffness: :math:`K`, Nm/rad per joint.
+                 damping: :math:`D`, Nm s/rad per joint.
+                 command_timeout: Seconds without a new reference after which
+                   the velocity falls to zero, for teleoperation; infinite (the
+                   default) never.
+                 telemetry: Capacity of the telemetry buffer; 0 records none.
+           )delim")
+      .def("set_reference", &JointVelocity::setReference,
+           py::call_guard<py::gil_scoped_release>(), py::arg("dq_d"),
+           "The reference joint velocities, rad/s, from the loop's next tick.")
+      .def("set_command_timeout", &JointVelocity::setCommandTimeout,
+           py::call_guard<py::gil_scoped_release>(), py::arg("timeout"))
+      .def("get_command_timeout", &JointVelocity::getCommandTimeout,
+           py::call_guard<py::gil_scoped_release>())
+      .def("set_stiffness", &JointVelocity::setStiffness,
+           py::call_guard<py::gil_scoped_release>(), py::arg("stiffness"))
+      .def("set_damping", &JointVelocity::setDamping,
+           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
+      .def("get_stiffness", &JointVelocity::getStiffness,
+           py::call_guard<py::gil_scoped_release>())
+      .def("get_damping", &JointVelocity::getDamping,
+           py::call_guard<py::gil_scoped_release>());
+  bindGuard(joint_velocity_class, R"delim(
+               Clears a trip on the loop's next tick; the reference position
+               becomes the joint positions of that tick and the velocity zero.
            )delim");
+  bindTelemetry<JointVelocity>(joint_velocity_class, unpackJointImpedance,
+           "The telemetry recorded since the last call, as "
+           ":py:func:`JointImpedance.read_telemetry`.");
 
   py::class_<TaskImpedance, TorqueController, std::shared_ptr<TaskImpedance>>
       task_impedance_class(m, "TaskImpedance");
@@ -809,8 +861,9 @@ PYBIND11_MODULE(_core, m) {
            py::arg("translation"), py::arg("rotation"),
            py::arg("stiffness") = py::none(),
            R"delim(
-               Moves the reference as one policy step does: by ``translation``
-               and by ``rotation``, an axis-angle vector applied on the left,
+               Moves the reference by ``translation`` and by ``rotation``, an
+               axis-angle vector applied on the left, as an incremental action
+               (a learned policy's, say) does,
                both in the base frame. With ``stiffness``, sets it on the same
                tick. Applied, and leashed, by the loop on its next tick; steps
                not yet applied add up.
@@ -1069,8 +1122,9 @@ PYBIND11_MODULE(_core, m) {
            py::arg("E0"), py::arg("mode") = "power",
            py::arg("smooth_fraction") = 0.25,
            R"delim(
-               The insertion simulator's tank, filled to ``E0`` on the loop's
-               next tick. Every tick it meters the active wrench, power
+               An energy budget for the active wrench (a passivity tank), filled
+               to ``E0`` on the loop's next tick. Every tick it meters the active
+               wrench, power
                :math:`\max(0, w_{act} \cdot [v; \omega])` in ``"power"`` mode
                (``E0`` in J) or :math:`|w_{act,xyz}|` in ``"impulse"`` mode
                (``E0`` in N s), and gates it with
@@ -1119,49 +1173,141 @@ PYBIND11_MODULE(_core, m) {
            py::arg("mode") = "power", py::arg("smooth_fraction") = 0.25,
            "One tick of the tank, as the loop runs it: returns (alpha, level, drawn).");
 
-  py::class_<AppliedTorque, TorqueController, std::shared_ptr<AppliedTorque>>(
-      m, "AppliedTorque")
-      .def(py::init<const Vector7d &,
-                    const double>(), /*py::keep_alive<1, 0>(),*/
-           py::arg("damping") = AppliedTorque::kDefaultDamping,
-           py::arg("filter_coeff") = AppliedTorque::kDefaultFilterCoeff)
-      .def("set_control", &AppliedTorque::setControl,
-           py::call_guard<py::gil_scoped_release>(), py::arg("torque"))
-      .def("set_damping", &AppliedTorque::setDamping,
-           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
-      .def("set_filter", &AppliedTorque::setFilter,
-           py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"));
+  py::class_<JointTorque, TorqueController, std::shared_ptr<JointTorque>>
+      joint_torque_class(m, "JointTorque");
+  joint_torque_class
+      .def(py::init<const Vector7d &, size_t>(),
+           py::arg("damping") = JointTorque::kDefaultDamping,
+           py::arg("telemetry") = 0,
+           R"delim(
+               Joint torque control, a feed-forward torque and viscous damping:
 
-  py::class_<AppliedForce, TorqueController, std::shared_ptr<AppliedForce>>(
-      m, "AppliedForce")
-      .def(py::init<const Vector7d &,
-                    const double>(), /*py::keep_alive<1, 0>(),*/
-           py::arg("damping") = AppliedForce::kDefaultDamping,
-           py::arg("filter_coeff") = AppliedForce::kDefaultFilterCoeff)
-      .def("set_control", &AppliedForce::setControl,
-           py::call_guard<py::gil_scoped_release>(), py::arg("force"))
-      .def("set_damping", &AppliedForce::setDamping,
-           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
-      .def("set_filter", &AppliedForce::setFilter,
-           py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"));
+               .. math::
+                 \tau = \tau_d - D \dot q
 
-  py::class_<Force, TorqueController, std::shared_ptr<Force>>(m, "Force")
-      .def(py::init<const double &, const double &, const Vector7d &,
-                    const double &,
-                    const double &>(), /*py::keep_alive<1, 0>(),*/
-           py::arg("k_p") = Force::kDefaultProportionalGain,
-           py::arg("k_i") = Force::kDefaultIntegralGain,
-           py::arg("damping") = Force::kDefaultDamping,
-           py::arg("threshold") = Force::kDefaultThreshold,
-           py::arg("filter_coeff") = Force::kDefaultFilterCoeff)
-      .def("set_control", &Force::setControl,
-           py::call_guard<py::gil_scoped_release>(), py::arg("force"))
-      .def("set_proportional_gain", &Force::setProportionalGain,
-           py::call_guard<py::gil_scoped_release>(), py::arg("k_p"))
-      .def("set_integral_gain", &Force::setIntegralGain,
-           py::call_guard<py::gil_scoped_release>(), py::arg("k_i"))
-      .def("set_filter", &Force::setFilter,
-           py::call_guard<py::gil_scoped_release>(), py::arg("filter_coeff"))
-      .def_property_readonly("name", &Force::name);
+               The robot compensates gravity itself; :math:`\tau_d` comes on
+               top. Starts with :math:`\tau_d = 0`; while a guard is tripped
+               only the damping remains.
+
+               Args:
+                 damping: :math:`D`, Nm s/rad per joint.
+                 telemetry: Capacity of the telemetry buffer; 0 records none.
+           )delim")
+      .def("set_reference", &JointTorque::setReference,
+           py::call_guard<py::gil_scoped_release>(), py::arg("tau_d"),
+           "The feed-forward joint torques, Nm, from the loop's next tick.")
+      .def("set_damping", &JointTorque::setDamping,
+           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
+      .def("get_damping", &JointTorque::getDamping,
+           py::call_guard<py::gil_scoped_release>());
+  bindGuard(joint_torque_class, R"delim(
+               Clears a trip on the loop's next tick, with the feed-forward
+               torque reset to zero.
+           )delim");
+  bindTelemetry<JointTorque>(joint_torque_class, unpackJointTorque,
+           "The telemetry recorded since the last call, a dict of arrays with one "
+           "row per 1 kHz tick: " COMMON_TELEMETRY_DOC ", and ``tau_d`` and "
+           "``damping``.");
+
+  py::class_<TaskWrench, TorqueController, std::shared_ptr<TaskWrench>>
+      task_wrench_class(m, "TaskWrench");
+  task_wrench_class
+      .def(py::init<const Vector7d &, size_t>(),
+           py::arg("damping") = TaskWrench::kDefaultDamping,
+           py::arg("telemetry") = 0,
+           R"delim(
+               A feed-forward wrench at the end effector, in the base frame, and
+               viscous joint damping:
+
+               .. math::
+                 \tau = J^\top w_d - D \dot q
+
+               Starts with :math:`w_d = 0`; while a guard is tripped only the
+               damping remains.
+
+               Args:
+                 damping: :math:`D`, Nm s/rad per joint.
+                 telemetry: Capacity of the telemetry buffer; 0 records none.
+           )delim")
+      .def("set_reference", &TaskWrench::setReference,
+           py::call_guard<py::gil_scoped_release>(), py::arg("wrench"),
+           R"delim(
+               The wrench at the end effector, base frame: force (N), then
+               torque (Nm). Applied from the loop's next tick.
+           )delim")
+      .def("set_damping", &TaskWrench::setDamping,
+           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
+      .def("get_damping", &TaskWrench::getDamping,
+           py::call_guard<py::gil_scoped_release>());
+  bindGuard(task_wrench_class, R"delim(
+               Clears a trip on the loop's next tick, with the wrench reset to
+               zero.
+           )delim");
+  bindTelemetry<TaskWrench>(task_wrench_class, unpackTaskWrench,
+           "The telemetry recorded since the last call, a dict of arrays with one "
+           "row per 1 kHz tick: " COMMON_TELEMETRY_DOC ", and ``wrench_d`` and "
+           "``damping``.");
+
+  py::class_<TaskForce, TorqueController, std::shared_ptr<TaskForce>>
+      task_force_class(m, "TaskForce");
+  task_force_class
+      .def(py::init<double, double, const Vector7d &, double, size_t>(),
+           py::arg("k_p") = TaskForce::kDefaultProportionalGain,
+           py::arg("k_i") = TaskForce::kDefaultIntegralGain,
+           py::arg("damping") = TaskForce::kDefaultDamping,
+           py::arg("max_displacement") = TaskForce::kDefaultMaxDisplacement,
+           py::arg("telemetry") = 0,
+           R"delim(
+               Regulates the wrench the end effector exerts, in the base frame,
+               with feed-forward and a PI loop on the joint torques it maps to,
+               as in libfranka's force control example:
+
+               .. math::
+                 \tau_d = J^\top w_d, \quad
+                 \tau = \tau_d + k_p (\tau_d - \tau_{ext})
+                        + k_i \int (\tau_d - \tau_{ext}) - D \dot q
+
+               with :math:`\tau_{ext} = \tau_J - g(q)` relative to its value at
+               start: start the controller in free space, or at rest on the
+               surface, with :math:`w_d = 0`. If the end effector moves more than
+               ``max_displacement`` from where it started, the guard trips
+               (``"workspace"``); while tripped only the damping remains and the
+               integral is reset.
+
+               Args:
+                 k_p: Proportional gain.
+                 k_i: Integral gain, 1/s.
+                 damping: :math:`D`, Nm s/rad per joint.
+                 max_displacement: m from the start position.
+                 telemetry: Capacity of the telemetry buffer; 0 records none.
+           )delim")
+      .def("set_reference", &TaskForce::setReference,
+           py::call_guard<py::gil_scoped_release>(), py::arg("wrench"),
+           R"delim(
+               The wrench to exert at the end effector, base frame: force (N),
+               then torque (Nm). Applied from the loop's next tick.
+           )delim")
+      .def("set_gains", &TaskForce::setGains,
+           py::call_guard<py::gil_scoped_release>(), py::arg("k_p"), py::arg("k_i"))
+      .def("get_gains", &TaskForce::getGains,
+           py::call_guard<py::gil_scoped_release>(), "``(k_p, k_i)``.")
+      .def("set_damping", &TaskForce::setDamping,
+           py::call_guard<py::gil_scoped_release>(), py::arg("damping"))
+      .def("get_damping", &TaskForce::getDamping,
+           py::call_guard<py::gil_scoped_release>())
+      .def("set_max_displacement", &TaskForce::setMaxDisplacement,
+           py::call_guard<py::gil_scoped_release>(), py::arg("max_displacement"))
+      .def("get_max_displacement", &TaskForce::getMaxDisplacement,
+           py::call_guard<py::gil_scoped_release>());
+  bindGuard(task_force_class, R"delim(
+               Clears a trip on the loop's next tick: the wrench and the
+               integral are reset to zero, and the displacement is measured from
+               the position of that tick.
+           )delim");
+  bindTelemetry<TaskForce>(task_force_class, unpackTaskForce,
+           "The telemetry recorded since the last call, a dict of arrays with one "
+           "row per 1 kHz tick: " COMMON_TELEMETRY_DOC ", and ``wrench_d``, "
+           "``tau_ext``, ``tau_error_integral``, ``gains`` (k_p, k_i) and "
+           "``displacement`` (m from the start).");
   // clang-format on
 }

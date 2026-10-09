@@ -151,16 +151,16 @@ def run(panda, out, fake=False):
     print("    servo: joint 4 +20 mrad and back", flush=True)
     state = panda.get_state()
     mass = np.array(panda.get_model().mass(state)).reshape(7, 7, order="F")
-    servo = controllers.JointPosition(SERVO_K, SERVO_D, telemetry=6000)
+    servo = controllers.JointImpedance(SERVO_K, SERVO_D, telemetry=6000)
     meta["servo"] = {"stiffness": servo.get_stiffness().tolist(),
                      "damping": servo.get_damping().tolist(),
                      "inertia": float(mass[3, 3])}
 
     def steps(ctrl, ctx):
         wait(ctx, 0.5)
-        ctrl.set_control(np.array(panda.q) + np.r_[0, 0, 0, 0.02, 0, 0, 0])
+        ctrl.set_reference(np.array(panda.q) + np.r_[0, 0, 0, 0.02, 0, 0, 0])
         wait(ctx, 1.5)
-        ctrl.set_control(np.array(panda.q) - np.r_[0, 0, 0, 0.02, 0, 0, 0])
+        ctrl.set_reference(np.array(panda.q) - np.r_[0, 0, 0, 0.02, 0, 0, 0])
         wait(ctx, 1.5)
 
     logs["servo"] = record(panda, servo, steps)

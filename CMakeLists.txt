@@ -64,15 +64,15 @@ pybind11_add_module(_core
   src/_core.cpp
   src/panda.cpp
   src/controllers/joint_limits/virtual_wall.cpp
-  src/controllers/integrated_velocity.cpp
-  src/controllers/joint_position.cpp
-  src/controllers/task_impedance.cpp
   src/controllers/guard.cpp
-  src/controllers/applied_torque.cpp
-  src/controllers/applied_force.cpp
-  src/controllers/force.cpp
+  src/controllers/joint_impedance.cpp
+  src/controllers/joint_torque.cpp
   src/controllers/joint_trajectory.cpp
-  src/controllers/cartesian_trajectory.cpp
+  src/controllers/joint_velocity.cpp
+  src/controllers/task_force.cpp
+  src/controllers/task_impedance.cpp
+  src/controllers/task_trajectory.cpp
+  src/controllers/task_wrench.cpp
   src/motion/generators.cpp
   src/motion/time_optimal/trajectory.cpp
   src/motion/time_optimal/path.cpp

@@ -1,10 +1,13 @@
 #pragma once
-#include "controllers/joint_position.h"
+#include "controllers/joint_impedance.h"
 #include "motion/generators.h"
 
 namespace controllers {
 
-class JointTrajectory : public JointPosition {
+/// Follows a joint trajectory with JointImpedance, the reference taken from
+/// the trajectory on every tick, and ends the motion once the robot has
+/// settled at the goal.
+class JointTrajectory : public JointImpedance {
  public:
   static const double kDefaultDqThreshold;
   // Impedance control has no integral term, so the robot settles a little short
@@ -20,10 +23,11 @@ class JointTrajectory : public JointPosition {
                   const Vector7d& damping = kDefaultDamping,
                   const double dq_threshold = kDefaultDqThreshold);
 
-  franka::Torques step(const franka::RobotState& robot_state,
-                       franka::Duration& duration) override;
+  const std::string name() override { return "JointTrajectory"; }
 
-  const std::string name() override;
+ protected:
+  void prepare(const franka::RobotState& robot_state) override;
+  bool finished(const franka::RobotState& robot_state) override;
 
  private:
   std::shared_ptr<motion::JointTrajectory> traj_;

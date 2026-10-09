@@ -156,8 +156,13 @@ void Panda::_warnIfRealtimeUnavailable() {
 }
 
 Panda::~Panda() {
-  _log("info", "Panda class destructor invoked (%s).", hostname_);
-  stopController();
+  // A destructor must not throw: an exception here terminates the process,
+  // e.g. when the robot went away before the Panda object did.
+  try {
+    _log("info", "Panda class destructor invoked (%s).", hostname_);
+    stopController();
+  } catch (...) {
+  }
 }
 
 const PandaContext Panda::createContext(double frequency, double max_runtime,
@@ -397,9 +402,15 @@ void Panda::stopController() {
   if (current_controller_ /*&& current_controller_->isRunning()*/) {
     _log("info", "Stopping active controller (%s).",
          current_controller_->name());
-    // getState() copies under the mutex; state_ is written by the control
-    // thread at 1 kHz and must not be read directly from here.
-    current_controller_->stop(getState(), model_);
+    // The latest state, copied under the mutex: state_ is written by the
+    // control thread at 1 kHz. Not a fresh read, which would need the robot
+    // to still be there.
+    franka::RobotState state;
+    {
+      std::lock_guard<std::mutex> lock(mux_);
+      state = state_;
+    }
+    current_controller_->stop(state, model_);
   }
   if (current_thread_.joinable()) {
     // The control thread takes the GIL to log, for instance when its loop ends
@@ -483,7 +494,7 @@ void Panda::teaching_mode(bool active, const Vector7d& damping) {
   if (!active) {
     return;
   }
-  auto ctrl = std::make_shared<AppliedTorque>(damping, 1.0);
+  auto ctrl = std::make_shared<JointTorque>(damping);
   startController(ctrl);
 }
 
@@ -510,7 +521,8 @@ bool Panda::moveToJointPosition(std::vector<Vector7d>& waypoints,
   auto cb = _createTorqueCallback();
   _runController(cb);
   const Vector7d q = Eigen::Map<const Vector7d>(robot_->readOnce().q.data());
-  const bool success = waypoints.back().isApprox(q, success_threshold);
+  const bool success =
+      (waypoints.back() - q).cwiseAbs().maxCoeff() <= success_threshold;
   if (!success) {
     _log("warning",
          "Motion finished %.4f rad from the goal, above the success threshold. "
@@ -559,7 +571,7 @@ bool Panda::moveToPose(std::vector<Eigen::Vector3d>& positions,
     _log("info", "Already at goal.");
     return true;
   }
-  auto ctrl = std::make_shared<controllers::CartesianTrajectory>(
+  auto ctrl = std::make_shared<controllers::TaskTrajectory>(
       traj, getJointPositions(), impedance, damping_ratio, nullspace_stiffness,
       dq_threshold);
   _startController(ctrl);
