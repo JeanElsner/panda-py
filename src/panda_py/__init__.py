@@ -137,6 +137,9 @@ def ik(
 
 _logger = logging.getLogger("desk")
 
+DESK_TIMEOUT = 10.0
+"""Seconds a Desk request may take to connect and answer."""
+
 TOKEN_PATH = "~/.panda_py/token.conf"
 """
 Path to the configuration file holding known control tokens.
@@ -526,12 +529,19 @@ class Desk:
         check: bool = True,
     ) -> requests.Response:
         fun = getattr(self._session, method)
-        response: requests.Response = fun(
-            parse.urljoin(f"https://{self._hostname}", url),
-            json=json,
-            headers=headers,
-            files=files,
-        )
+        try:
+            response: requests.Response = fun(
+                parse.urljoin(f"https://{self._hostname}", url),
+                json=json,
+                headers=headers,
+                files=files,
+                timeout=DESK_TIMEOUT,
+            )
+        except (requests.ConnectionError, requests.Timeout) as error:
+            raise ConnectionError(
+                f"Desk at {self._hostname} did not answer within {DESK_TIMEOUT} s: "
+                f"is the address right, and the robot on this network? ({error})"
+            ) from error
         # Any 2xx is a success. Some endpoints, in particular the DELETE used to
         # release a control token, answer 204 No Content. Callers that inspect
         # the failure themselves pass check=False.
