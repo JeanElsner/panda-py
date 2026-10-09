@@ -32,12 +32,13 @@ from ._core import (
     RobotType,
     conservative_limits,
     limits,
+    IKResult,
+    _ik,
     fk,
-    ik,
-    ik_full,
+    jacobian,
     realtime_priority_available,
 )
-from .exceptions import IncompatibleVersionError
+from .exceptions import IKError, IncompatibleVersionError
 
 __all__ = [
     "Panda",
@@ -52,7 +53,9 @@ __all__ = [
     "motion",
     "fk",
     "ik",
-    "ik_full",
+    "jacobian",
+    "IKResult",
+    "IKError",
     "realtime_priority_available",
     "IncompatibleVersionError",
     "Desk",
@@ -60,6 +63,77 @@ __all__ = [
 ]
 
 __version__ = "2.0.0.dev0"
+
+def ik(
+    pose,
+    q_init=None,
+    *,
+    limits: typing.Optional["RobotLimits"] = None,
+    F_T_EE=None,
+    position_tolerance: float = 1e-5,
+    orientation_tolerance: float = 1e-4,
+    max_iterations: int = 200,
+    restarts: int = 20,
+):
+    """
+    Inverse kinematics: joint positions that put the end effector at a pose.
+
+    Numerical (damped least squares), within the joint limits, starting from
+    ``q_init`` and drawing the arm's redundancy toward it, so the solution is
+    the one near ``q_init``: pass the current joint positions to stay in the
+    same configuration. If that start does not converge, ``restarts`` more
+    are tried from random joint positions within the limits (always the same
+    ones, so a call is deterministic).
+
+    Args:
+      pose: The end effector's pose in the base frame, a 4x4 transform, or a
+        ``(position, orientation)`` pair with a scalar-last quaternion.
+      q_init: Joint positions to start from and stay near; by default the
+        start pose (:py:data:`panda_py.constants.JOINT_POSITION_START`).
+      limits: The joint limits to respect, e.g. :py:attr:`Panda.limits`; by
+        default :py:func:`conservative_limits`, valid on the FER and the FR3.
+      F_T_EE: The end effector relative to the flange; by default the Franka
+        Hand's, as :py:func:`fk`.
+      position_tolerance: Accepted position error, m.
+      orientation_tolerance: Accepted orientation error, rad.
+      max_iterations: Iterations per start.
+      restarts: Further starts if the first does not converge.
+
+    Returns:
+      The joint positions, shape (7,).
+
+    Raises:
+      IKError: No solution within the limits and tolerances; its ``result``
+        holds the best found.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    if isinstance(pose, (tuple, list)) and len(pose) == 2:
+        position, orientation = (np.asarray(v, float) for v in pose)
+        x, y, z, w = orientation / np.linalg.norm(orientation)
+        transform = np.eye(4)
+        transform[:3, :3] = [
+            [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+        ]
+        transform[:3, 3] = position
+    else:
+        transform = np.asarray(pose, float)
+    result = _ik(
+        transform,
+        q_init,
+        limits,
+        F_T_EE,
+        position_tolerance,
+        orientation_tolerance,
+        max_iterations,
+        restarts,
+    )
+    if not result.success:
+        raise IKError(result)
+    return np.array(result.q)
+
 
 _logger = logging.getLogger("desk")
 

@@ -15,8 +15,7 @@
 #include "controllers/task_force.h"
 #include "controllers/task_impedance.h"
 #include "controllers/task_wrench.h"
-#include "kinematics/fk.h"
-#include "kinematics/ik.h"
+#include "kinematics/kinematics.h"
 #include "motion/generators.h"
 #include "panda.h"
 
@@ -245,47 +244,67 @@ PYBIND11_MODULE(_core, m) {
   m.attr("_TAU_J_MAX") = kTauJMax;
   m.attr("_DTAU_J_MAX") = kDTauJMax;
 
-  m.def("ik_full",
-        py::overload_cast<Eigen::Matrix<double, 4, 4>, Vector7d, double>(
-            &kinematics::ik_full),
-        py::arg("O_T_EE"), py::arg("q_init") = kinematics::kQDefault,
-        py::arg("q_7") = M_PI_4);
-  m.def("ik_full",
-        py::overload_cast<const Eigen::Vector3d &, const Eigen::Vector4d &,
-                          Vector7d, double>(&kinematics::ik_full),
-        py::arg("position"), py::arg("orientation"),
-        py::arg("q_init") = kinematics::kQDefault, py::arg("q_7") = M_PI_4);
-  m.def("ik",
-        py::overload_cast<Eigen::Matrix<double, 4, 4>, Vector7d, double>(
-            &kinematics::ik),
-        py::arg("O_T_EE"), py::arg("q_init") = kinematics::kQDefault,
-        py::arg("q_7") = M_PI_4,
-        R"delim(
-          Compute analytical inverse kinematics.
-          Solution is case consistent with configuration  given in `q_init`.
+  m.def("fk",
+        [](const Vector7d &q, std::optional<Eigen::Matrix4d> F_T_EE) {
+          return kinematics::pose(q, F_T_EE.value_or(kinematics::handTransform()));
+        },
+        py::arg("q"), py::arg("F_T_EE") = py::none(), R"delim(
+          Forward kinematics: the end effector's pose, a 4x4 transform in the
+          base frame, for joint positions ``q``. The FER and the FR3 share their
+          link geometry.
 
           Args:
-            O_T_EE: Homogeneous transform :math:`\mathbb{R}^{4\times 4}` describing
-              the end-effector pose.
-            q_init: Reference joint positions, the result will be consistent
-              with this configuration.
-            q_7: Joint 7 is considered the redundant joint, use `q_7` to set the
-              desired joint position (default: :math:`\frac{\pi}{4}`).
+            q: Joint positions, rad.
+            F_T_EE: The end effector relative to the flange; by default the
+              Franka Hand's (0.1034 m along z, turned by -45 deg about it).
+        )delim");
+  m.def("jacobian",
+        [](const Vector7d &q, std::optional<Eigen::Matrix4d> F_T_EE) {
+          return kinematics::jacobian(q, F_T_EE.value_or(kinematics::handTransform()));
+        },
+        py::arg("q"), py::arg("F_T_EE") = py::none(), R"delim(
+          The end effector's geometric Jacobian, 6x7: its linear then angular
+          velocity in the base frame per joint velocity. ``F_T_EE`` as for
+          :py:func:`fk`.
+        )delim");
 
-          Returns:
-            Vector of shape (7,) containing joint positions.
-          )delim");
-  m.def("ik",
-        py::overload_cast<const Eigen::Vector3d &, const Eigen::Vector4d &,
-                          Vector7d, double>(&kinematics::ik),
-        py::arg("position"), py::arg("orientation"),
-        py::arg("q_init") = kinematics::kQDefault, py::arg("q_7") = M_PI_4,
-        R"delim(
-          Same as :py:func:`ik` above, but takes position and orientation arguments.
-          )delim");
-  m.def("fk", &kinematics::fk, py::arg("q"), R"delim(
-     Computes end-effector pose in base frame from joint positions.
-  )delim");
+  py::class_<kinematics::IkResult>(m, "IKResult", R"delim(
+      The outcome of :py:func:`ik`: ``success``, the joint positions ``q`` (the
+      best found if not), the remaining ``position_error`` (m) and
+      ``orientation_error`` (rad), the ``iterations`` of the start that gave
+      ``q`` and the number of ``starts`` tried.
+  )delim")
+      .def_readonly("success", &kinematics::IkResult::success)
+      .def_readonly("q", &kinematics::IkResult::q)
+      .def_readonly("position_error", &kinematics::IkResult::position_error)
+      .def_readonly("orientation_error", &kinematics::IkResult::orientation_error)
+      .def_readonly("iterations", &kinematics::IkResult::iterations)
+      .def_readonly("starts", &kinematics::IkResult::starts)
+      .def("__repr__", [](const kinematics::IkResult &r) {
+        return std::string("IKResult(success=") + (r.success ? "True" : "False") +
+               ", position_error=" + std::to_string(r.position_error) +
+               ", orientation_error=" + std::to_string(r.orientation_error) + ")";
+      });
+
+  m.def("_ik",
+        [](const Eigen::Matrix4d &O_T_EE, std::optional<Vector7d> q_init,
+           std::optional<RobotLimits> limits, std::optional<Eigen::Matrix4d> F_T_EE,
+           double position_tolerance, double orientation_tolerance, int max_iterations,
+           int restarts) {
+          kinematics::IkOptions options;
+          options.position_tolerance = position_tolerance;
+          options.orientation_tolerance = orientation_tolerance;
+          options.max_iterations = max_iterations;
+          options.restarts = restarts;
+          py::gil_scoped_release release;
+          return kinematics::ik(O_T_EE, q_init.value_or(kJointPositionStart),
+                                limits.value_or(conservativeLimits()),
+                                F_T_EE.value_or(kinematics::handTransform()), options);
+        },
+        py::arg("O_T_EE"), py::arg("q_init") = py::none(), py::arg("limits") = py::none(),
+        py::arg("F_T_EE") = py::none(), py::arg("position_tolerance") = 1e-5,
+        py::arg("orientation_tolerance") = 1e-4, py::arg("max_iterations") = 200,
+        py::arg("restarts") = 20);
 
   m.def("_pose_error", &Panda::poseError, py::arg("goal_position"),
         py::arg("goal_orientation"), py::arg("position"),

@@ -1,5 +1,6 @@
 #pragma once
 #include <Eigen/Dense>
+#include <cstdint>
 
 using Vector7d = Eigen::Matrix<double, 7, 1>;
 

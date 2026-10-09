@@ -20,11 +20,18 @@ def test_top_level_symbols():
         "Desk",
         "fk",
         "ik",
-        "ik_full",
+        "jacobian",
+        "IKError",
+        "IKResult",
+        "RobotLimits",
+        "RobotType",
+        "limits",
+        "conservative_limits",
         "realtime_priority_available",
         "IncompatibleVersionError",
     ]:
         assert hasattr(panda_py, name), name
+    assert not hasattr(panda_py, "ik_full")
 
 
 def test_controllers_are_exposed():

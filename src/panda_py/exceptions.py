@@ -2,7 +2,7 @@
 Exceptions raised by panda-py.
 """
 
-__all__ = ["IncompatibleVersionError", "SUPPORTED_PROTOCOL_VERSIONS"]
+__all__ = ["IncompatibleVersionError", "IKError", "SUPPORTED_PROTOCOL_VERSIONS"]
 
 SUPPORTED_PROTOCOL_VERSIONS = range(3, 11)
 """
@@ -49,3 +49,20 @@ class IncompatibleVersionError(RuntimeError):
                 f"it at {_ISSUES_URL}"
             )
         return f"{supported} Robots this old are not supported."
+
+
+class IKError(ValueError):
+    """
+    :py:func:`panda_py.ik` found no joint positions within the limits that
+    reach the pose: it is out of reach, or only reachable outside the limits
+    or the tolerances. ``result`` is the :py:class:`panda_py.IKResult`, with
+    the best joint positions found and their remaining errors.
+    """
+
+    def __init__(self, result) -> None:
+        self.result = result
+        super().__init__(
+            f"No inverse kinematics solution: the best of {result.starts} starts "
+            f"is {result.position_error * 1e3:.3g} mm and "
+            f"{result.orientation_error:.3g} rad from the pose."
+        )

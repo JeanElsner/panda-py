@@ -63,6 +63,7 @@ find_package(pybind11 CONFIG REQUIRED)
 pybind11_add_module(_core
   src/_core.cpp
   src/panda.cpp
+  src/kinematics.cpp
   src/controllers/joint_limits/virtual_wall.cpp
   src/controllers/guard.cpp
   src/controllers/joint_impedance.cpp
