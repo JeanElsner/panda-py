@@ -213,3 +213,18 @@ def test_software_is_none_where_the_api_is_not_served(response):
 def test_software_raises_on_other_failures():
     with pytest.raises(ConnectionError):
         _desk(_Response(401, "Unauthorized")).software()
+
+
+def test_software_is_none_for_a_page_instead_of_the_api():
+    response = _Response(200, "<html>...</html>")
+    response.json = lambda: (_ for _ in ()).throw(ValueError("not JSON"))
+    assert _desk(response).software() is None
+    assert _desk(_Response(200, payload=["unexpected"])).software() is None
+
+
+def test_report_falls_back_to_the_protocol_version():
+    from panda_py.check import robot_system  # pylint: disable=import-outside-toplevel
+
+    assert robot_system({"robot_system": "5.9.2", "protocol_version": 10}) == "5.9.2"
+    assert robot_system({"protocol_version": 10}).startswith("unknown (FR3, >= 5.9.0")
+    assert robot_system({}).startswith("unknown;")

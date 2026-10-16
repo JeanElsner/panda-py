@@ -265,7 +265,13 @@ class Desk:
             return None
         if not 200 <= response.status_code < 300:
             raise ConnectionError(response.text)
-        return response.json().get("installed")
+        # Older systems may answer an unknown path with their web app's page
+        # rather than an error: anything but the documented JSON is "not served".
+        try:
+            installed = response.json().get("installed")
+        except (ValueError, AttributeError):
+            return None
+        return installed if isinstance(installed, dict) else None
 
     def lock(self, force: bool = True) -> None:
         """

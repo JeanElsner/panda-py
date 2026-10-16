@@ -402,6 +402,17 @@ class Checker:
 # -- the report -------------------------------------------------------------------
 
 
+def robot_system(info):
+    """The robot system version, or what the protocol version says about it."""
+    if info.get("robot_system"):
+        return info["robot_system"]
+    implied = {3: "FER, >= 3.0.0", 4: "FER, >= 4.0.0", 5: "FER, >= 4.2.1", 6: "FR3, >= 5.2.0",
+               7: "FR3, >= 5.5.0", 8: "FR3, >= 5.7.0", 9: "FR3, >= 5.7.2",
+               10: "FR3, >= 5.9.0"}.get(info.get("protocol_version"))
+    return ("unknown" + (f" ({implied} from the protocol version)" if implied else "") +
+            "; the Desk API reports it on an FR3 with 5.8.0 or newer, with --desk-user")
+
+
 def write_report(checker, out):
     info = checker.info
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -421,7 +432,7 @@ def write_report(checker, out):
         + ", "
         f"research interface protocol version {info.get('protocol_version', '?')}, at "
         f"{checker.args.hostname}",
-        f"- **Robot system:** {info.get('robot_system') or 'unknown (give --desk-user to read it)'}",
+        f"- **Robot system:** {robot_system(info)}",
         f"- **panda-py:** {info.get('panda_py')}, built with libfranka {info.get('libfranka')}",
         f"- **Host:** {info.get('host')}, {info.get('platform')}, Python {info.get('python')}, "
         f"realtime kernel: {'yes' if info.get('realtime_kernel') else 'no'}",
@@ -490,11 +501,12 @@ def main(argv=None):
             def take_over(check):
                 nonlocal desk
                 desk = panda_py.Desk(args.hostname, args.desk_user, password)
+                # Optional: whatever goes wrong here, the check carries on.
                 try:
                     software = desk.software()
-                except ConnectionError as error:
+                except Exception as error:  # pylint: disable=broad-except
                     software = None
-                    check.measurements["software_error"] = str(error)
+                    check.measurements["software_error"] = f"{type(error).__name__}: {error}"
                 if software is not None:
                     check.measurements["software"] = software
                     checker.info["robot_system"] = software.get("osVersion")
