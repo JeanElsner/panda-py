@@ -244,6 +244,29 @@ class Desk:
             else:
                 raise error
 
+    def software(self) -> typing.Optional[dict]:
+        """
+        The software installed on the robot: the system image's version
+        (``osVersion``), the App bundles and the features, from the documented
+        Desk API (``GET /api/system/software``). None on robots that do not
+        serve it: the API needs an FR3 with robot system 5.8.0 or newer.
+        """
+        try:
+            response = self._session.get(
+                parse.urljoin(f"https://{self._hostname}", "/api/system/software"),
+                auth=(self._username, self._password),
+                timeout=DESK_TIMEOUT,
+            )
+        except (requests.ConnectionError, requests.Timeout) as error:
+            raise ConnectionError(
+                f"Desk at {self._hostname} did not answer within {DESK_TIMEOUT} s ({error})"
+            ) from error
+        if self._is_missing_endpoint(response):
+            return None
+        if not 200 <= response.status_code < 300:
+            raise ConnectionError(response.text)
+        return response.json().get("installed")
+
     def lock(self, force: bool = True) -> None:
         """
         Locks the brakes. API call blocks until the brakes are locked.

@@ -73,6 +73,10 @@ with guards and telemetry, and its kinematics are numerical. See the
 
 ### Added
 
+- `Desk.software()`: the robot's installed software, the system version
+  among it, from the documented Desk API (FR3, robot system 5.8.0 and newer;
+  `None` elsewhere). `panda-check --desk-user` puts the system version in its
+  report.
 - `move_to_joint_position`, `move_to_start` and `move_to_pose` close the error
   that friction or an unmodelled load leave at the goal with a small integral
   term once the trajectory has ended: it integrates only outside the settle

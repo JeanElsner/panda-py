@@ -11,7 +11,7 @@ measured and whether it passed.
 
 The robot must be unlocked with FCI active, or give ``--desk-user`` and
 panda-check does that through Desk and restores the previous state at the
-end. It moves the robot: keep the workspace around the start pose clear and
+end; with Desk, the report also has the robot's system version. It moves the robot: keep the workspace around the start pose clear and
 the user stop at hand. ``--no-motion`` runs only the checks that do not move.
 
     panda-check <robot-ip> [--desk-user USER] [--gripper] [--out DIR]
@@ -421,6 +421,7 @@ def write_report(checker, out):
         + ", "
         f"research interface protocol version {info.get('protocol_version', '?')}, at "
         f"{checker.args.hostname}",
+        f"- **Robot system:** {info.get('robot_system') or 'unknown (give --desk-user to read it)'}",
         f"- **panda-py:** {info.get('panda_py')}, built with libfranka {info.get('libfranka')}",
         f"- **Host:** {info.get('host')}, {info.get('platform')}, Python {info.get('python')}, "
         f"realtime kernel: {'yes' if info.get('realtime_kernel') else 'no'}",
@@ -489,10 +490,22 @@ def main(argv=None):
             def take_over(check):
                 nonlocal desk
                 desk = panda_py.Desk(args.hostname, args.desk_user, password)
+                try:
+                    software = desk.software()
+                except ConnectionError as error:
+                    software = None
+                    check.measurements["software_error"] = str(error)
+                if software is not None:
+                    check.measurements["software"] = software
+                    checker.info["robot_system"] = software.get("osVersion")
+                else:
+                    check.measurements["software"] = (
+                        "not served: the Desk API needs an FR3 with robot system >= 5.8.0")
                 desk.unlock()
                 desk.activate_fci()
 
-            checker.run("desk", "Logs in to Desk, unlocks the joints, activates FCI.",
+            checker.run("desk", "Logs in to Desk, reads the installed software, unlocks the "
+                        "joints, activates FCI.",
                         take_over, needs_robot=False)
         checker.run("connect", "Connects, reads a state and checks it.", checker.connect)
         checker.run("model", "The dynamics model, and panda_py.fk against the robot's pose.",

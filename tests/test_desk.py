@@ -30,8 +30,9 @@ class _Session:
         self.calls = []
 
     def _record(self, method):
-        def call(url, json=None, headers=None, files=None, timeout=None):
+        def call(url, json=None, headers=None, files=None, timeout=None, auth=None):
             self.calls.append((method, url, json, headers, files))
+            self.auth = auth
             for suffix, response in self._by_url.items():
                 if url.endswith(suffix):
                     return response
@@ -50,6 +51,7 @@ def _desk(response, by_url=None, platform="panda", platform_given=True):
     desk = Desk.__new__(Desk)
     desk._session = _Session(response, by_url)
     desk._hostname = "robot.local"
+    desk._username, desk._password = "user", "secret"
     desk._legacy = False
     desk._platform = platform
     desk._platform_given = platform_given
@@ -190,3 +192,24 @@ def test_legacy_desk_skips_control_tokens():
     assert desk.has_control() is True
     # Nothing should have gone over the wire.
     assert desk._session.calls == []
+
+
+def test_software_reads_the_installed_versions():
+    installed = {"osVersion": "5.9.2", "appBundles": [], "features": []}
+    desk = _desk(_Response(200, payload={"installed": installed}))
+    assert desk.software() == installed
+    method, url = desk._session.calls[-1][:2]
+    assert (method, url) == ("get", "https://robot.local/api/system/software")
+    # The documented Desk API takes basic authentication.
+    assert desk._session.auth == ("user", "secret")
+
+
+@pytest.mark.parametrize("response", [_Response(404, "File not found"),
+                                      _Response(400, 'No handler accepted "/api/system/software"')])
+def test_software_is_none_where_the_api_is_not_served(response):
+    assert _desk(response).software() is None
+
+
+def test_software_raises_on_other_failures():
+    with pytest.raises(ConnectionError):
+        _desk(_Response(401, "Unauthorized")).software()
